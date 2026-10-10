@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="16dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Active Session &amp; Check-In"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:textColor="#212529"
+            android:layout_marginBottom="12dp" />
+
+        <!-- Booking QR Code Card -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:padding="16dp">
+
+                <ImageView
+                    android:id="@+id/qrCodeImageView"
+                    android:layout_width="160dp"
+                    android:layout_height="160dp"
+                    android:contentDescription="Booking QR Code"
+                    android:src="@android:drawable/ic_menu_gallery" />
+
+                <TextView
+                    android:id="@+id/bookingCodeText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Booking ID: AMP-8921"
+                    android:textStyle="bold"
+                    android:textSize="16sp"
+                    android:layout_marginTop="8dp" />
+
+                <Button
+                    android:id="@+id/checkInBtn"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Check In at Charger"
+                    android:layout_marginTop="8dp" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- Meter Evidence Input Card -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Meter Evidence Verification (Level 1)"
+                    android:textStyle="bold"
+                    android:textSize="15sp"
+                    android:layout_marginBottom="8dp" />
+
+                <EditText
+                    android:id="@+id/startMeterEdit"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:hint="Starting Meter Reading (kWh) e.g. 120.5"
+                    android:inputType="numberDecimal"
+                    android:background="@android:drawable/editbox_background"
+                    android:paddingHorizontal="12dp"
+                    android:layout_marginBottom="8dp" />
+
+                <EditText
+                    android:id="@+id/endMeterEdit"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:hint="Ending Meter Reading (kWh) e.g. 132.8"
+                    android:inputType="numberDecimal"
+                    android:background="@android:drawable/editbox_background"
+                    android:paddingHorizontal="12dp"
+                    android:layout_marginBottom="8dp" />
+
+                <Button
+                    android:id="@+id/completeSessionBtn"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Complete &amp; Calculate Invoice" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- Itemized Receipt Card -->
+        <TextView
+            android:id="@+id/receiptText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="14sp"
+            android:textColor="#212529"
+            android:background="#E9ECEF"
+            android:padding="12dp" />
+
+    </LinearLayout>
+</ScrollView>

@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Active Session Safety &amp; SOS"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        android:textColor="#212529"
+        android:layout_marginBottom="12dp" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Disclaimer: Amperly is an EV management platform, not an official emergency service. In severe danger, call local emergency services immediately."
+        android:textSize="12sp"
+        android:textColor="#721C24"
+        android:background="#F8D7DA"
+        android:padding="8dp"
+        android:layout_marginBottom="16dp" />
+
+    <Button
+        android:id="@+id/triggerSosBtn"
+        android:layout_width="match_parent"
+        android:layout_height="60dp"
+        android:text="TRIGGER EMERGENCY SOS ALERT"
+        android:backgroundTint="#DC3545"
+        android:textColor="@android:color/white"
+        android:textStyle="bold"
+        android:layout_marginBottom="16dp" />
+
+    <com.google.android.material.card.MaterialCardView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Time-Limited Live Location Sharing"
+                android:textStyle="bold"
+                android:textSize="16sp"
+                android:layout_marginBottom="8dp" />
+
+            <EditText
+                android:id="@+id/trustedPhoneEdit"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:hint="Trusted Contact Mobile Number"
+                android:inputType="phone"
+                android:background="@android:drawable/editbox_background"
+                android:paddingHorizontal="12dp"
+                android:layout_marginBottom="8dp" />
+
+            <Button
+                android:id="@+id/startLiveShareBtn"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Share Live Location for 60 Mins" />
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+
+</LinearLayout>

@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="16dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Register Existing Charger"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:textColor="#212529"
+            android:layout_marginBottom="12dp" />
+
+        <EditText
+            android:id="@+id/stationNameEdit"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:hint="Station Name (e.g. GreenPark Apt Charger)"
+            android:background="@android:drawable/editbox_background"
+            android:paddingHorizontal="12dp"
+            android:layout_marginBottom="8dp" />
+
+        <EditText
+            android:id="@+id/stationAddressEdit"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:hint="Address / Location Details"
+            android:background="@android:drawable/editbox_background"
+            android:paddingHorizontal="12dp"
+            android:layout_marginBottom="8dp" />
+
+        <EditText
+            android:id="@+id/locationTypeEdit"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:hint="Location Type (CAMPUS, APARTMENT, OFFICE)"
+            android:text="APARTMENT"
+            android:background="@android:drawable/editbox_background"
+            android:paddingHorizontal="12dp"
+            android:layout_marginBottom="8dp" />
+
+        <EditText
+            android:id="@+id/operatingHoursEdit"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:hint="Operating Hours (e.g. 24/7)"
+            android:text="24/7"
+            android:background="@android:drawable/editbox_background"
+            android:paddingHorizontal="12dp"
+            android:layout_marginBottom="8dp" />
+
+        <EditText
+            android:id="@+id/pricePerKwhEdit"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:hint="Tariff Price per kWh (₹) e.g. 18.0"
+            android:inputType="numberDecimal"
+            android:text="18.0"
+            android:background="@android:drawable/editbox_background"
+            android:paddingHorizontal="12dp"
+            android:layout_marginBottom="16dp" />
+
+        <Button
+            android:id="@+id/saveStationBtn"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Submit Charger Listing" />
+
+    </LinearLayout>
+</ScrollView>

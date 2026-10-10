@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="16dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/resStationName"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Reserve Charger Slot"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:textColor="#212529"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:id="@+id/resStationAddress"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="ABC College Campus, Port 1 (Type 2 AC 7.2 kW)"
+            android:textSize="14sp"
+            android:textColor="#6C757D"
+            android:layout_marginBottom="16dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Select Date &amp; Time Slot:"
+            android:textStyle="bold"
+            android:layout_marginBottom="8dp" />
+
+        <Spinner
+            android:id="@+id/timeSlotSpinner"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:background="@android:drawable/editbox_background"
+            android:layout_marginBottom="16dp" />
+
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Estimated Fee Breakdown"
+                    android:textStyle="bold"
+                    android:textSize="16sp"
+                    android:layout_marginBottom="8dp" />
+
+                <TextView
+                    android:id="@+id/tariffText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Energy Rate: ₹18.00 / kWh" />
+
+                <TextView
+                    android:id="@+id/serviceFeeText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Amperly Service Fee: ₹5.00" />
+
+                <TextView
+                    android:id="@+id/gatewayFeeText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Payment Gateway Charge: ₹4.00" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Note: Energy charge is based on verified meter readings after charging completes."
+                    android:textSize="12sp"
+                    android:textColor="#6C757D"
+                    android:layout_marginTop="8dp" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <Button
+            android:id="@+id/authorizePaymentBtn"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Authorize &amp; Confirm Reservation" />
+
+    </LinearLayout>
+</ScrollView>

@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="16dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="EV Vehicle Profile"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:textColor="#212529"
+            android:layout_marginBottom="12dp" />
+
+        <EditText
+            android:id="@+id/makeEdit"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:hint="Make (e.g. Tata)"
+            android:text="Tata"
+            android:background="@android:drawable/editbox_background"
+            android:paddingHorizontal="12dp"
+            android:layout_marginBottom="8dp" />
+
+        <EditText
+            android:id="@+id/modelEdit"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:hint="Model (e.g. Nexon EV)"
+            android:text="Nexon EV"
+            android:background="@android:drawable/editbox_background"
+            android:paddingHorizontal="12dp"
+            android:layout_marginBottom="8dp" />
+
+        <EditText
+            android:id="@+id/variantEdit"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:hint="Variant (e.g. Max)"
+            android:text="Max"
+            android:background="@android:drawable/editbox_background"
+            android:paddingHorizontal="12dp"
+            android:layout_marginBottom="8dp" />
+
+        <EditText
+            android:id="@+id/purchaseYearEdit"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:hint="Purchase Year (e.g. 2023)"
+            android:inputType="number"
+            android:text="2023"
+            android:background="@android:drawable/editbox_background"
+            android:paddingHorizontal="12dp"
+            android:layout_marginBottom="8dp" />
+
+        <EditText
+            android:id="@+id/batteryCapacityEdit"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:hint="Battery Capacity (kWh) e.g. 40.5"
+            android:inputType="numberDecimal"
+            android:text="40.5"
+            android:background="@android:drawable/editbox_background"
+            android:paddingHorizontal="12dp"
+            android:layout_marginBottom="8dp" />
+
+        <EditText
+            android:id="@+id/connectorTypeEdit"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:hint="Connector Standard (e.g. CCS_2_DC)"
+            android:text="CCS_2_DC"
+            android:background="@android:drawable/editbox_background"
+            android:paddingHorizontal="12dp"
+            android:layout_marginBottom="16dp" />
+
+        <Button
+            android:id="@+id/saveVehicleBtn"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Save Vehicle Profile" />
+
+    </LinearLayout>
+</ScrollView>
