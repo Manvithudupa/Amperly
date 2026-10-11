@@ -32,20 +32,18 @@
 
             <TextView
                 android:id="@+id/stopBadgeText"
+                style="@style/Widget.Amperly.Badge.Info"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:background="@color/amp_secondary_container"
-                android:paddingHorizontal="@dimen/amp_space_s"
-                android:paddingVertical="2dp"
-                android:textAppearance="@style/TextAppearance.Amperly.Label" />
+                android:layout_marginStart="@dimen/amp_space_s" />
         </LinearLayout>
 
         <TextView
             android:id="@+id/stopDetailText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/amp_space_xs"
-            android:textAppearance="@style/TextAppearance.Amperly.Body" />
+            android:layout_marginTop="@dimen/amp_space_s"
+            android:textAppearance="@style/TextAppearance.Amperly.BodyStrong" />
 
         <TextView
             android:id="@+id/stopReasonText"

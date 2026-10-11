@@ -1,4 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  Itemized receipt.
+
+  The line items are built at runtime into receiptContainer, so the layout's job is
+  to frame them: a card for the breakdown, a rule and an emphasised total, then the
+  "verified meter readings decide the bill" disclaimer as a panel the user actually
+  reads rather than grey small print.
+-->
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
@@ -9,7 +17,8 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="@dimen/amp_screen_padding">
+        android:padding="@dimen/amp_screen_padding"
+        android:paddingBottom="@dimen/amp_space_xl">
 
         <TextView
             android:id="@+id/receiptTitleText"
@@ -39,6 +48,12 @@
                 android:padding="@dimen/amp_space_m" />
         </com.google.android.material.card.MaterialCardView>
 
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginTop="@dimen/amp_space_m"
+            android:background="?attr/colorOutlineVariant" />
+
         <TextView
             android:id="@+id/receiptTotalText"
             android:layout_width="match_parent"
@@ -48,11 +63,11 @@
 
         <TextView
             android:id="@+id/receiptDisclaimerText"
+            style="@style/Widget.Amperly.Notice"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/amp_space_s"
-            android:text="@string/receipt_disclaimer"
-            android:textAppearance="@style/TextAppearance.Amperly.Label" />
+            android:layout_marginTop="@dimen/amp_space_m"
+            android:text="@string/receipt_disclaimer" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/reportIssueButton"

@@ -225,7 +225,7 @@ public final class CarBridge {
             String reservationId = UUID.randomUUID().toString();
             String code = ReservationEngine.buildBookingCode();
             payment.setReservationId(reservationId);
-            repo.savePayment(payment);
+            repo.authorizePayment(payment, stationId);
 
             Reservation reservation = new Reservation(reservationId, userId, stationId, station.getName(),
                     slot.getPortId(), slot.getPortLabel(), code, slot.getStartMs(), slot.getEndMs(),

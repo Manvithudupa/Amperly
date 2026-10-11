@@ -28,17 +28,14 @@
                 android:id="@+id/messageText"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:textAppearance="@style/TextAppearance.Amperly.Body"
-                android:textColor="@color/amp_on_surface" />
+                android:textAppearance="@style/TextAppearance.Amperly.BodyStrong" />
 
             <TextView
                 android:id="@+id/messageWarningText"
+                style="@style/Widget.Amperly.Notice.Warning"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/amp_space_xs"
-                android:background="@color/amp_tertiary_container"
-                android:padding="@dimen/amp_space_s"
-                android:textAppearance="@style/TextAppearance.Amperly.Label"
+                android:layout_marginTop="@dimen/amp_space_s"
                 android:visibility="gone" />
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>

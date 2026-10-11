@@ -25,18 +25,17 @@
 
             <TextView
                 android:id="@+id/reservationStatusText"
+                style="@style/Widget.Amperly.Badge.Info"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:background="@color/amp_primary_container"
-                android:paddingHorizontal="@dimen/amp_space_s"
-                android:paddingVertical="2dp"
-                android:textAppearance="@style/TextAppearance.Amperly.Label" />
+                android:layout_marginStart="@dimen/amp_space_s" />
         </LinearLayout>
 
         <TextView
             android:id="@+id/reservationSlotText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/amp_space_xs"
             android:textAppearance="@style/TextAppearance.Amperly.Body" />
 
         <TextView
@@ -49,7 +48,8 @@
             android:id="@+id/reservationAmountText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textAppearance="@style/TextAppearance.Amperly.Body" />
+            android:layout_marginTop="@dimen/amp_space_xs"
+            android:textAppearance="@style/TextAppearance.Amperly.BodyStrong" />
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -90,7 +90,7 @@
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/cancelReservationButton"
-                style="@style/Widget.Amperly.Button.Outlined"
+                style="@style/Widget.Amperly.Button.Text"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="@dimen/amp_space_s"

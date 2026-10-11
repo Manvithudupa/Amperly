@@ -41,7 +41,7 @@
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/deleteContactButton"
-            style="@style/Widget.Amperly.Button.Outlined"
+            style="@style/Widget.Amperly.Button.Text"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="@dimen/amp_space_xs"

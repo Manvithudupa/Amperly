@@ -261,7 +261,7 @@ public class HostDashboardFragment extends Fragment {
                     MeterSimulator.setReading(station.getId(), end);
                     repo.background(() -> {
                         MeterReading reading = new MeterReading(UUID.randomUUID().toString(),
-                                "host-manual-" + station.getId(), station.getId(), start, end, null,
+                                null, station.getId(), start, end, null,
                                 station.getVerificationLevel(), System.currentTimeMillis(), true);
                         repo.saveMeterReading(reading);
                         return Boolean.TRUE;

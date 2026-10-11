@@ -1,10 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  Host messages.
+
+  A chat screen wants all remaining vertical space for the transcript, so the
+  chrome is deliberately thin: thread picker, transcript, quick questions, composer.
+  The masking disclaimer is promoted to a panel because it is a privacy guarantee,
+  and the moderation actions are pushed below a rule so Block is not sitting one
+  thumb-slip away from Send.
+-->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="@dimen/amp_screen_padding">
+    android:paddingStart="@dimen/amp_screen_padding"
+    android:paddingTop="@dimen/amp_space_m"
+    android:paddingEnd="@dimen/amp_screen_padding">
 
     <TextView
         android:layout_width="match_parent"
@@ -14,10 +25,11 @@
 
     <TextView
         android:id="@+id/maskedDisclaimerText"
+        style="@style/Widget.Amperly.Notice.Info"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="@string/chat_masked_disclaimer"
-        android:textAppearance="@style/TextAppearance.Amperly.Label" />
+        android:layout_marginTop="@dimen/amp_space_s"
+        android:text="@string/chat_masked_disclaimer" />
 
     <HorizontalScrollView
         android:layout_width="match_parent"
@@ -37,7 +49,7 @@
         android:id="@+id/threadTitleText"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="@dimen/amp_space_s"
+        android:layout_marginTop="@dimen/amp_space_m"
         android:textAppearance="@style/TextAppearance.Amperly.SectionTitle" />
 
     <TextView
@@ -85,6 +97,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="@dimen/amp_space_s"
+        android:baselineAligned="false"
         android:orientation="horizontal">
 
         <com.google.android.material.textfield.TextInputLayout
@@ -110,9 +123,24 @@
             android:text="@string/chat_send" />
     </LinearLayout>
 
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginTop="@dimen/amp_space_m"
+        android:background="?attr/colorOutlineVariant" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/amp_space_s"
+        android:text="@string/chat_section_moderation"
+        android:textAppearance="@style/TextAppearance.Amperly.Label" />
+
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_marginBottom="@dimen/amp_space_m"
+        android:baselineAligned="false"
         android:orientation="horizontal">
 
         <com.google.android.material.button.MaterialButton

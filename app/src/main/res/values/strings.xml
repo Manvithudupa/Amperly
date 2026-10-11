@@ -172,6 +172,9 @@
     <string name="vehicle_max_charge">Preferred maximum charging (%)</string>
     <string name="vehicle_plate">Registration identifier</string>
     <string name="vehicle_saved">Vehicle profile saved. Planning estimates will use these values.</string>
+    <string name="vehicle_section_identity">Vehicle</string>
+    <string name="vehicle_section_battery">Battery and charging</string>
+    <string name="vehicle_section_preferences">Charging preferences</string>
     <string name="vehicle_health_disclaimer">Year of purchase and battery health are used only to improve planning estimates. They are not a certified measurement of battery degradation.</string>
 
     <!-- Host -->
@@ -203,6 +206,10 @@
     <string name="host_approve_reservation">Approve</string>
     <string name="host_reject_reservation">Reject</string>
     <string name="host_no_stations">You have not registered a charger yet. Use Add Station to register an existing charger.</string>
+    <string name="host_section_location">Where is it</string>
+    <string name="host_section_pricing">What it costs</string>
+    <string name="host_section_first_port">First port</string>
+    <string name="host_section_performance">This month</string>
 
     <!-- Host analytics -->
     <string name="analytics_sessions_completed">Sessions completed</string>
@@ -257,6 +264,10 @@
     <string name="safety_sharing_active">Sharing with %1$s until %2$s</string>
     <string name="safety_sharing_expired">Live location sharing ended automatically.</string>
     <string name="safety_emergency_numbers">Local emergency guidance</string>
+    <string name="safety_section_contacts">Trusted contacts</string>
+    <string name="safety_section_sharing">Live location</string>
+    <string name="chat_section_moderation">Conversation options</string>
+    <string name="admin_section_enforcement">Enforcement</string>
 
     <!-- Chat -->
     <string name="chat_title">Host messages</string>
@@ -290,6 +301,46 @@
     <string name="report_type_conflict">Reservation conflict</string>
     <string name="report_type_route_estimate">Route estimate did not match actual battery usage</string>
     <string name="report_type_stop_unavailable">Planned charging stop was unavailable</string>
+
+    <!-- Sign in and account -->
+    <string name="auth_title">Sign in</string>
+    <string name="auth_intro">Amperly keeps your reservations, sessions and receipts on the server once you sign in. Your charger listings and live availability are shared with the other pilot accounts.</string>
+    <string name="auth_email">Email address</string>
+    <string name="auth_password">Password</string>
+    <string name="auth_sign_in">Sign in</string>
+    <string name="auth_create_account">Create account</string>
+    <string name="auth_continue_offline">Continue in offline demo mode</string>
+    <string name="auth_signing_in">Signing in…</string>
+    <string name="auth_creating">Creating your account…</string>
+    <string name="auth_email_required">Enter the email address for your Amperly account.</string>
+    <string name="auth_password_too_short">A password needs at least 6 characters.</string>
+    <string name="auth_confirm_email">Account created. Check %1$s for the confirmation link, then sign in.</string>
+    <string name="auth_unexpected">Something went wrong before the request reached Supabase. Please try again.</string>
+    <string name="auth_no_profile">Signed in, but this account has no Amperly profile and one could not be created.</string>
+    <string name="auth_offline_note">This build has no Supabase project configured, so there is nothing to sign in to. Continue in demo mode to use the app on seeded data.</string>
+    <string name="auth_demo_note">No account yet? Offline demo mode runs the whole app on the seeded pilot data, stored only on this device. Nothing you do in demo mode is sent anywhere. Signing in later replaces it with your own account.</string>
+    <string name="auth_pilot_accounts">Pilot accounts are created in the Supabase dashboard and linked with supabase/link_pilot_users.sql. See supabase/README.md.</string>
+    <string name="auth_signed_in_as">Signed in as</string>
+    <string name="auth_secret_key">This build is configured with a Supabase secret key, so sync is switched off. Replace it with the publishable key in local.properties.</string>
+    <string name="auth_profile_offline">Signed in, but your Amperly profile could not be read. Check your connection and try again.</string>
+
+    <!-- Account -->
+    <string name="account_title">Account</string>
+    <string name="account_profile">Profile</string>
+    <string name="account_name">Name</string>
+    <string name="account_email">Email</string>
+    <string name="account_role">Role</string>
+    <string name="account_organization">Organization</string>
+    <string name="account_verification">Verification</string>
+    <string name="account_id">Account identifier</string>
+    <string name="account_sync">Sync</string>
+    <string name="account_sync_now">Sync now</string>
+    <string name="account_sign_out">Sign out</string>
+    <string name="account_sign_out_confirm">Sign out of Amperly? Anything still queued is discarded.</string>
+    <string name="account_demo_mode">Offline demo mode</string>
+    <string name="account_demo_note">This device is running on seeded demo data and is not connected to a Supabase project. Changes stay on this device.</string>
+    <string name="account_role_note">Your role comes from your account on the server, so it cannot be changed from this device.</string>
+    <string name="account_synced">Sync finished: %1$s</string>
 
     <!-- Map -->
     <string name="map_title">Map</string>

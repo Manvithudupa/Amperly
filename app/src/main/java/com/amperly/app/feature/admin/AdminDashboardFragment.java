@@ -90,7 +90,7 @@ public class AdminDashboardFragment extends Fragment {
             @Override
             public void onFreezePayout(Dispute dispute) {
                 dispute.setPayoutFrozen(true);
-                repo.updateDispute(dispute);
+                repo.freezeDisputePayoutOnServer(dispute);
                 Ux.toast(AdminDashboardFragment.this,
                         "Payout held while the host responds. Nothing is deducted yet.");
                 load();
@@ -170,11 +170,9 @@ public class AdminDashboardFragment extends Fragment {
                     ? "Approved: meter level " + station.getVerificationLevel() + " confirmed by an administrator."
                     : "Rejected: documentation did not match the submitted details.");
             station.setLastUpdatedMs(System.currentTimeMillis());
-            repo.updateStation(station);
-
-            repo.saveNotification(new Notification(UUID.randomUUID().toString(), station.getHostId(),
-                    approve ? "Station approved" : "Station listing rejected",
-                    station.getName() + " · " + station.getReviewNote(), false, System.currentTimeMillis()));
+            // The server makes the approval decision and notifies the host; the local
+            // row above is the immediate view.
+            repo.decideStationApprovalOnServer(station, approve);
             return station.getName();
         }, name -> {
             if (name != null) {
@@ -192,7 +190,6 @@ public class AdminDashboardFragment extends Fragment {
             if (invoice != null && refundAmount > 0) {
                 BillingEngine.applyRefund(invoice, refundAmount,
                         "Refunded after reviewing the meter evidence for dispute " + dispute.getId());
-                repo.updateInvoice(invoice);
             }
             dispute.setStatus("RESOLVED_CONSUMER");
             dispute.setRefundAmount(refundAmount);
@@ -200,12 +197,9 @@ public class AdminDashboardFragment extends Fragment {
             dispute.setResolvedAtMs(System.currentTimeMillis());
             dispute.setResolutionNote("Consumer refunded " + Formatters.money(refundAmount)
                     + " based on the uploaded meter evidence.");
-            repo.updateDispute(dispute);
-
-            repo.saveNotification(new Notification(UUID.randomUUID().toString(), dispute.getConsumerId(),
-                    "Dispute resolved in your favour",
-                    Formatters.money(refundAmount) + " was refunded for " + dispute.getReason() + ".",
-                    false, System.currentTimeMillis()));
+            // The server recomputes the refund from the invoice, applies it to the payment
+            // and notifies the consumer; the rows above are the immediate view.
+            repo.resolveDisputeRefundOnServer(dispute, invoice);
             return refundAmount;
         }, amount -> {
             if (amount != null) {
@@ -230,11 +224,10 @@ public class AdminDashboardFragment extends Fragment {
             dispute.setResolutionNote("Enforcement: " + action
                     + (fineAmount > 0 ? " · fine " + Formatters.money(fineAmount) : "")
                     + "\nPolicy step: " + decision.getReason() + " → " + decision.getAction());
-            repo.updateDispute(dispute);
-
-            repo.saveEnforcementAction(new HostEnforcementAction(UUID.randomUUID().toString(),
-                    dispute.getHostId(), dispute.getStationId(), action, dispute.getReason(),
-                    fineAmount, System.currentTimeMillis()));
+            // The server records the dispute outcome, files the enforcement row, pauses the
+            // station when the policy calls for it, and notifies the host.
+            repo.applyHostEnforcementOnServer(dispute, action, fineAmount,
+                    dispute.getResolutionNote());
 
             if (decision.isSuspendStation() || AppConstants.ENFORCEMENT_SUSPENSION.equals(action)
                     || AppConstants.ENFORCEMENT_BAN.equals(action)) {
@@ -243,14 +236,12 @@ public class AdminDashboardFragment extends Fragment {
                     station.setPaused(true);
                     station.setIncidentCount(station.getIncidentCount() + 1);
                     station.setReliabilityScore(Math.max(0, station.getReliabilityScore() - 10));
-                    repo.updateStation(station);
+                    // Local only: the function already applied this server-side, and pushing
+                    // it as well would count the incident twice.
+                    repo.updateStationLocally(station);
                 }
             }
 
-            repo.saveNotification(new Notification(UUID.randomUUID().toString(), dispute.getHostId(),
-                    "Enforcement action: " + action,
-                    dispute.getReason() + " · " + decision.getHostMessage(), false,
-                    System.currentTimeMillis()));
             return action;
         }, applied -> {
             if (applied != null) {

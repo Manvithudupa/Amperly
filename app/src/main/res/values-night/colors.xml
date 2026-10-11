@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      This file was previously missing, which is why dark mode rendered near-white cards:
+      the night theme referenced @color/amp_surface_variant, and that only existed as the
+      LIGHT value #E3EAE6. Every surface role used by the theme is defined here so the
+      night theme never falls back to a light colour.
+    -->
+
+    <color name="amp_primary">#5ED8A8</color>
+    <color name="amp_primary_dark">#003824</color>
+    <color name="amp_primary_light">#5ED8A8</color>
+    <color name="amp_primary_container">#0B4F38</color>
+    <color name="amp_on_primary_container">#A8F0CE</color>
+
+    <color name="amp_secondary">#A6C8FF</color>
+    <color name="amp_secondary_container">#00497F</color>
+    <color name="amp_on_secondary_container">#D6E3FF</color>
+
+    <color name="amp_tertiary">#FFB77B</color>
+    <color name="amp_tertiary_container">#6B3A00</color>
+    <color name="amp_on_tertiary_container">#FFDDB8</color>
+
+    <color name="amp_error">#FFB4AB</color>
+    <color name="amp_error_container">#93000A</color>
+    <color name="amp_on_error_container">#FFDAD6</color>
+
+    <color name="amp_surface">#0E1613</color>
+    <color name="amp_surface_container_lowest">#0A100E</color>
+    <color name="amp_surface_container_low">#151D1A</color>
+    <color name="amp_surface_container">#19231F</color>
+    <color name="amp_surface_container_high">#1F2A26</color>
+    <color name="amp_surface_container_highest">#26332E</color>
+
+    <color name="amp_surface_variant">#3A4742</color>
+    <color name="amp_on_surface">#E1EAE5</color>
+    <color name="amp_on_surface_variant">#B2C0B9</color>
+    <color name="amp_outline">#85948D</color>
+    <color name="amp_outline_variant">#3A4742</color>
+
+    <color name="amp_card">#151D1A</color>
+
+    <color name="amp_success">#7BDBA8</color>
+    <color name="amp_success_container">#0B4F38</color>
+    <color name="amp_warning">#FFB77B</color>
+    <color name="amp_warning_container">#6B3A00</color>
+    <color name="amp_info">#A6C8FF</color>
+    <color name="amp_info_container">#00497F</color>
+
+    <color name="amp_badge_bg">#0B4F38</color>
+    <color name="amp_badge_text">#A8F0CE</color>
+</resources>

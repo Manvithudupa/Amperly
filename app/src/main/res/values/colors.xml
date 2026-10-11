@@ -3,7 +3,15 @@
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
 
-    <!-- Amperly brand: trustworthy green for energy, electric blue for the route layer -->
+    <!--
+      Amperly brand: trustworthy green for energy, electric blue for the route layer.
+
+      These names are Material 3 ROLES, not decorative swatches. Getting them right is what
+      gives the app a surface hierarchy; mapping colorSurface to white (as an earlier
+      version did) collapses every surface into one flat tone.
+    -->
+
+    <!-- Brand -->
     <color name="amp_primary">#0E7C56</color>
     <color name="amp_primary_dark">#0A5C40</color>
     <color name="amp_primary_light">#3FA37C</color>
@@ -14,21 +22,40 @@
     <color name="amp_secondary_container">#D8E6FF</color>
     <color name="amp_on_secondary_container">#04213F</color>
 
-    <color name="amp_tertiary">#B26A00</color>
+    <color name="amp_tertiary">#8A4E00</color>
     <color name="amp_tertiary_container">#FFE1BA</color>
+    <color name="amp_on_tertiary_container">#2E1500</color>
 
-    <color name="amp_error">#C62828</color>
+    <color name="amp_error">#BA1A1A</color>
     <color name="amp_error_container">#FFDAD6</color>
     <color name="amp_on_error_container">#410E0B</color>
 
-    <color name="amp_surface">#F5F8F6</color>
-    <color name="amp_surface_variant">#E3EAE6</color>
-    <color name="amp_on_surface">#161D1A</color>
-    <color name="amp_on_surface_variant">#4A5550</color>
-    <color name="amp_outline">#BFCBC5</color>
-    <color name="amp_card">#FFFFFF</color>
+    <!-- Surfaces: background is the lowest, containers step up towards the user -->
+    <color name="amp_surface">#F6FAF8</color>
+    <color name="amp_surface_container_lowest">#FFFFFF</color>
+    <color name="amp_surface_container_low">#F1F7F4</color>
+    <color name="amp_surface_container">#EBF3EF</color>
+    <color name="amp_surface_container_high">#E5EFEA</color>
+    <color name="amp_surface_container_highest">#DFEAE4</color>
 
+    <color name="amp_surface_variant">#DCE5E0</color>
+    <color name="amp_on_surface">#131C18</color>
+    <color name="amp_on_surface_variant">#46534D</color>
+    <color name="amp_outline">#A6B4AD</color>
+    <color name="amp_outline_variant">#D2DED8</color>
+
+    <!-- Kept for compatibility with existing layouts and styles -->
+    <color name="amp_card">#FFFFFFFF</color>
+
+    <!-- Semantic status colours -->
     <color name="amp_success">#1B7F4B</color>
-    <color name="amp_warning">#B26A00</color>
+    <color name="amp_success_container">#BFF0D3</color>
+    <color name="amp_warning">#8A4E00</color>
+    <color name="amp_warning_container">#FFE1BA</color>
     <color name="amp_info">#1B6FE3</color>
+    <color name="amp_info_container">#D8E6FF</color>
+
+    <!-- Status badge (verification state on a station row) -->
+    <color name="amp_badge_bg">#C6F0DC</color>
+    <color name="amp_badge_text">#04301F</color>
 </resources>

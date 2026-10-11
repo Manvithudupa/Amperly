@@ -1,4 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  Station row.
+
+  Before: six grey, full-width TextViews stacked with 2-4dp gaps, a square badge with no
+  corner radius, and TWO equal-width filled buttons filling a whole row — which made every
+  list item roughly 200dp tall and gave no clue what to read first.
+
+  Now: one clear reading order (name -> price -> where/what -> availability -> caveat),
+  a rounded status pill, and a single light action row. The whole card is clickable, so the
+  buttons are shortcuts rather than the only tap targets.
+-->
 <com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/stationCard"
@@ -16,9 +27,11 @@
         android:orientation="vertical"
         android:padding="@dimen/amp_space_m">
 
+        <!-- Name + meter status pill -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:gravity="top"
             android:orientation="horizontal">
 
             <TextView
@@ -26,47 +39,19 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
+                android:ellipsize="end"
+                android:maxLines="2"
                 android:textAppearance="@style/TextAppearance.Amperly.SectionTitle" />
 
             <TextView
                 android:id="@+id/verificationBadgeText"
+                style="@style/Widget.Amperly.Badge"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:background="@color/amp_primary_container"
-                android:paddingHorizontal="@dimen/amp_space_s"
-                android:paddingVertical="2dp"
-                android:textAppearance="@style/TextAppearance.Amperly.Label"
-                android:textColor="@color/amp_on_primary_container" />
+                android:layout_marginStart="@dimen/amp_space_s" />
         </LinearLayout>
 
-        <TextView
-            android:id="@+id/stationAddressText"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="2dp"
-            android:textAppearance="@style/TextAppearance.Amperly.Body" />
-
-        <TextView
-            android:id="@+id/stationTypeText"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/amp_space_s"
-            android:textAppearance="@style/TextAppearance.Amperly.Body" />
-
-        <TextView
-            android:id="@+id/availabilityText"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/amp_space_xs"
-            android:textAppearance="@style/TextAppearance.Amperly.Body"
-            android:textColor="@color/amp_primary" />
-
-        <TextView
-            android:id="@+id/freshnessText"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:textAppearance="@style/TextAppearance.Amperly.Label" />
-
+        <!-- The number people are actually deciding on -->
         <TextView
             android:id="@+id/priceText"
             android:layout_width="match_parent"
@@ -75,33 +60,69 @@
             android:textAppearance="@style/TextAppearance.Amperly.Metric" />
 
         <TextView
+            android:id="@+id/stationTypeText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/amp_space_xs"
+            android:textAppearance="@style/TextAppearance.Amperly.BodySmall" />
+
+        <TextView
+            android:id="@+id/stationAddressText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:ellipsize="end"
+            android:maxLines="2"
+            android:textAppearance="@style/TextAppearance.Amperly.BodySmall" />
+
+        <!-- Divider separates "where/what" from "can I use it right now" -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginTop="@dimen/amp_space_s"
+            android:background="?attr/colorOutlineVariant" />
+
+        <TextView
+            android:id="@+id/availabilityText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/amp_space_s"
+            android:textAppearance="@style/TextAppearance.Amperly.BodyStrong" />
+
+        <TextView
+            android:id="@+id/freshnessText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textAppearance="@style/TextAppearance.Amperly.Label" />
+
+        <TextView
             android:id="@+id/compatibilityText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textAppearance="@style/TextAppearance.Amperly.Body" />
+            android:layout_marginTop="@dimen/amp_space_s"
+            android:textAppearance="@style/TextAppearance.Amperly.BodySmall" />
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/amp_space_s"
+            android:gravity="end"
             android:orientation="horizontal">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/navigateButton"
+                style="@style/Widget.Amperly.Button.Text"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/action_navigate" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/viewDetailsButton"
                 style="@style/Widget.Amperly.Button.Tonal"
-                android:layout_width="0dp"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
+                android:layout_marginStart="@dimen/amp_space_xs"
                 android:text="@string/action_view_details" />
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/navigateButton"
-                style="@style/Widget.Amperly.Button.Outlined"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="@dimen/amp_space_s"
-                android:layout_weight="1"
-                android:text="@string/action_navigate" />
         </LinearLayout>
     </LinearLayout>
 </com.google.android.material.card.MaterialCardView>

@@ -39,12 +39,10 @@
 
         <TextView
             android:id="@+id/evidenceText"
+            style="@style/Widget.Amperly.Notice.Mono"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/amp_space_s"
-            android:background="@color/amp_surface_variant"
-            android:padding="@dimen/amp_space_s"
-            android:textAppearance="@style/TextAppearance.Amperly.Mono" />
+            android:layout_marginTop="@dimen/amp_space_s" />
 
         <TextView
             android:id="@+id/enforcementText"
@@ -53,10 +51,26 @@
             android:layout_marginTop="@dimen/amp_space_s"
             android:textAppearance="@style/TextAppearance.Amperly.Body" />
 
+        <!-- A rule and a label keep seven enforcement buttons from reading as one
+             undifferentiated block, and mark that these are irreversible decisions. -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginTop="@dimen/amp_space_m"
+            android:background="?attr/colorOutlineVariant" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/amp_space_m"
+            android:text="@string/admin_section_enforcement"
+            android:textAppearance="@style/TextAppearance.Amperly.Label" />
+
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/amp_space_s"
+            android:baselineAligned="false"
             android:orientation="horizontal">
 
             <com.google.android.material.button.MaterialButton
@@ -80,6 +94,7 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:baselineAligned="false"
             android:orientation="horizontal">
 
             <com.google.android.material.button.MaterialButton
@@ -103,6 +118,7 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:baselineAligned="false"
             android:orientation="horizontal">
 
             <com.google.android.material.button.MaterialButton

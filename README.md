@@ -22,7 +22,8 @@ The MVP is a **single-process Android application**. There is no live backend an
 | Payments | `PaymentManager` sandbox: authorize → capture/refund/release, idempotency keys, offline failure path |
 | Charger telemetry | None. Availability is schedule-, reservation- and host-update-based, and is labelled with a freshness timestamp |
 | Meter data | `MeterSimulator` / manual entry, always labelled **Demo meter** or **manually entered** |
-| Cloud | None. The MVP is fully on-device; a server and API layer are future work, so no networking client is declared
+| Cloud | Optional Supabase/Postgres backend (`supabase/`). When `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` are set it becomes the source of truth; when they are absent the app runs fully on-device |
+| Sync | Room stays the read cache and the offline write queue: a `sync_outbox` table plus `SyncEngine` push local changes and pull everything changed on the server |
 
 `AmperlyDatabase` uses `fallbackToDestructiveMigration()`, so a schema change resets local demo data instead of migrating it.
 
@@ -113,7 +114,7 @@ com.amperly.app/
 ├── data/
 │   ├── local/      AmperlyDatabase (v2), PilotDataSeeder
 │   │   ├── dao/    23 DAOs
-│   │   └── entity/ 23 entities (User, Vehicle, ChargerStation, ChargerPort,
+│   │   ├── entity/ 23 entities (User, Vehicle, ChargerStation, ChargerPort,
 │   │               AvailabilitySchedule, Reservation, ChargingSession,
 │   │               MeterReading, Invoice, Payment, RoutePlan, RouteStop,
 │   │               TripEstimate, BatteryUpdate, CommunicationThread,
@@ -261,7 +262,8 @@ Run the whole value chain, not just a map:
 | Compile/target SDK | 35 (minSdk 24) |
 | UI | Material 3 components, `viewBinding`, RecyclerView, custom `Widget.Amperly.*` styles + `values-night` theme |
 | Car UI | Android for Cars App Library (`androidx.car.app:app:1.4.0`), Charging + Navigation categories |
-| Persistence | Room (`room-runtime 2.6.1`) — 23 entities, 23 DAOs |
+| Persistence | Room (`room-runtime 2.6.1`) — 23 entities, 24 DAOs (incl. the sync outbox) |
+| Backend (optional) | Supabase — Postgres with Row Level Security, PostgREST data API and GoTrue auth, over Retrofit/OkHttp. See [`supabase/README.md`](supabase/README.md) |
 | Maps & location | `play-services-maps`, `play-services-location` |
 | QR codes | ZXing `core` (bitmap generated in-app) |
 | Payments | In-repo sandbox `PaymentManager` (no card data is ever stored) |

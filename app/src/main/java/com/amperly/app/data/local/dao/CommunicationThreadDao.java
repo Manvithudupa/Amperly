@@ -34,6 +34,10 @@ public interface CommunicationThreadDao {
     @Query("SELECT * FROM communication_threads ORDER BY createdAtMs DESC")
     List<CommunicationThread> getAllThreadsSync();
 
+    /** Used by sync to re-read a thread after a bulk moderation flag changes. */
+    @Query("SELECT * FROM communication_threads WHERE id = :id")
+    CommunicationThread getThreadByIdSync(String id);
+
     @Query("UPDATE communication_threads SET isReported = 1 WHERE id = :threadId")
     void markReported(String threadId);
 

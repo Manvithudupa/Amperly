@@ -296,7 +296,7 @@ public class ReservationFragment extends Fragment implements ReservationAdapter.
             String bookingCode = ReservationEngine.buildBookingCode();
             Payment payment = paymentResult.getPayment();
             payment.setReservationId(reservationId);
-            repo.savePayment(payment);
+            repo.authorizePayment(payment, station.getId());
 
             Reservation reservation = new Reservation(reservationId, userId, station.getId(),
                     station.getName(), port.getId(), AvailabilityEngine.portLabel(port), bookingCode,
@@ -382,6 +382,9 @@ public class ReservationFragment extends Fragment implements ReservationAdapter.
                 PaymentManager.PaymentResult release = PaymentManager.release(payment, result.getFee());
                 repo.savePayment(release.getPayment());
             }
+            // The server applies the same published policy and releases the authorization;
+            // the local rows above are the immediate view.
+            repo.cancelReservationOnServer(reservation.getId());
             return result.getMessage();
         }, message -> {
             if (message != null) {

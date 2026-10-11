@@ -113,12 +113,18 @@ public class StationAdapter extends RecyclerView.Adapter<StationAdapter.StationV
                     + station.getConnectorTypes() + " · " + (int) station.getMaxPowerKw() + " kW"
                     + (station.isDcCapable() ? " DC" : " AC"));
 
+            // Rounded pills, and colour that matches meaning: a station with no verified
+            // meter must not carry the same green badge as a verified one.
             if (station.supportsPaidEnergyBilling()) {
                 badge.setText("LEVEL 1" + (AppConstants.LEVEL_2_SIMULATED_SMART_METER.equals(station.getVerificationLevel()) ? "/2 METER" : " METER"));
-                badge.setBackgroundResource(R.color.amp_primary_container);
+                badge.setBackgroundResource(R.drawable.bg_badge);
+                badge.setTextColor(androidx.core.content.ContextCompat.getColor(
+                        badge.getContext(), R.color.amp_badge_text));
             } else {
                 badge.setText("NO METER");
-                badge.setBackgroundResource(R.color.amp_tertiary_container);
+                badge.setBackgroundResource(R.drawable.bg_badge_warning);
+                badge.setTextColor(androidx.core.content.ContextCompat.getColor(
+                        badge.getContext(), R.color.amp_on_tertiary_container));
             }
 
             if (row.getAvailability() != null) {

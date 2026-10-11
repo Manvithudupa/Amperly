@@ -1,4 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  Charger details.
+
+  Reading order: where am I going, can I use it right now, which ports, what will
+  it cost, how do I get in, and only then the actions. Previously the page ended
+  in three stacked full-width buttons, which gave Reserve, Navigate and Report the
+  same visual weight; now Reserve is the single primary action and the two
+  secondary ones share a row beneath it.
+-->
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
@@ -23,11 +32,12 @@
             android:id="@+id/detailsAddressText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/amp_space_xs"
             android:paddingHorizontal="@dimen/amp_screen_padding"
             android:textAppearance="@style/TextAppearance.Amperly.Body" />
 
         <com.google.android.material.card.MaterialCardView
-            style="@style/Widget.Amperly.Card"
+            style="@style/Widget.Amperly.Card.Map"
             android:layout_width="match_parent"
             android:layout_height="@dimen/amp_map_panel_height"
             android:layout_marginHorizontal="@dimen/amp_screen_padding"
@@ -39,6 +49,7 @@
                 android:layout_height="match_parent" />
         </com.google.android.material.card.MaterialCardView>
 
+        <!-- ============================ Live state: available now, how fresh === -->
         <com.google.android.material.card.MaterialCardView
             style="@style/Widget.Amperly.Card"
             android:layout_width="match_parent"
@@ -62,33 +73,37 @@
                     android:id="@+id/freshnessText"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:textAppearance="@style/TextAppearance.Amperly.Body" />
+                    android:textAppearance="@style/TextAppearance.Amperly.Label" />
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginVertical="@dimen/amp_space_s"
+                    android:background="?attr/colorOutlineVariant" />
 
                 <TextView
                     android:id="@+id/verificationText"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="@dimen/amp_space_s"
-                    android:textAppearance="@style/TextAppearance.Amperly.Body" />
+                    android:textAppearance="@style/TextAppearance.Amperly.BodyStrong" />
 
                 <TextView
                     android:id="@+id/meterGatingWarningText"
+                    style="@style/Widget.Amperly.Notice.Warning"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="@dimen/amp_space_s"
-                    android:background="@color/amp_tertiary_container"
-                    android:padding="@dimen/amp_space_s"
                     android:text="@string/meter_gating_warning"
-                    android:textAppearance="@style/TextAppearance.Amperly.Body"
                     android:visibility="gone" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
+        <!-- ============================================================== Ports -->
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginHorizontal="@dimen/amp_screen_padding"
-            android:layout_marginTop="@dimen/amp_space_m"
+            android:layout_marginTop="@dimen/amp_space_l"
             android:text="@string/details_ports"
             android:textAppearance="@style/TextAppearance.Amperly.SectionTitle" />
 
@@ -96,14 +111,16 @@
             android:id="@+id/portsContainer"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/amp_space_xs"
             android:orientation="vertical"
             android:paddingHorizontal="@dimen/amp_screen_padding" />
 
+        <!-- ============================================================ Pricing -->
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginHorizontal="@dimen/amp_screen_padding"
-            android:layout_marginTop="@dimen/amp_space_m"
+            android:layout_marginTop="@dimen/amp_space_l"
             android:text="@string/details_pricing"
             android:textAppearance="@style/TextAppearance.Amperly.SectionTitle" />
 
@@ -123,6 +140,7 @@
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:baselineAligned="false"
                     android:orientation="horizontal">
 
                     <TextView
@@ -132,16 +150,18 @@
                         android:text="@string/line_energy_price"
                         android:textAppearance="@style/TextAppearance.Amperly.Body" />
 
+                    <!-- A price is the value people came here to read: strong, not muted. -->
                     <TextView
                         android:id="@+id/energyPriceText"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:textAppearance="@style/TextAppearance.Amperly.Body" />
+                        android:textAppearance="@style/TextAppearance.Amperly.BodyStrong" />
                 </LinearLayout>
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:baselineAligned="false"
                     android:orientation="horizontal">
 
                     <TextView
@@ -155,12 +175,13 @@
                         android:id="@+id/serviceFeeText"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:textAppearance="@style/TextAppearance.Amperly.Body" />
+                        android:textAppearance="@style/TextAppearance.Amperly.BodyStrong" />
                 </LinearLayout>
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:baselineAligned="false"
                     android:orientation="horizontal">
 
                     <TextView
@@ -174,18 +195,19 @@
                         android:id="@+id/gatewayFeeText"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:textAppearance="@style/TextAppearance.Amperly.Body" />
+                        android:textAppearance="@style/TextAppearance.Amperly.BodyStrong" />
                 </LinearLayout>
 
                 <View
                     android:layout_width="match_parent"
                     android:layout_height="1dp"
                     android:layout_marginVertical="@dimen/amp_space_s"
-                    android:background="@color/amp_outline" />
+                    android:background="?attr/colorOutlineVariant" />
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:baselineAligned="false"
                     android:orientation="horizontal">
 
                     <TextView
@@ -204,11 +226,12 @@
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
+        <!-- ============================================================= Access -->
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginHorizontal="@dimen/amp_screen_padding"
-            android:layout_marginTop="@dimen/amp_space_m"
+            android:layout_marginTop="@dimen/amp_space_l"
             android:text="@string/details_access"
             android:textAppearance="@style/TextAppearance.Amperly.SectionTitle" />
 
@@ -216,6 +239,7 @@
             android:id="@+id/accessText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/amp_space_xs"
             android:paddingHorizontal="@dimen/amp_screen_padding"
             android:textAppearance="@style/TextAppearance.Amperly.Body" />
 
@@ -227,6 +251,7 @@
             android:paddingHorizontal="@dimen/amp_screen_padding"
             android:textAppearance="@style/TextAppearance.Amperly.Body" />
 
+        <!-- ============================================================ Actions -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/reserveButton"
             style="@style/Widget.Amperly.Button"
@@ -236,22 +261,30 @@
             android:layout_marginTop="@dimen/amp_space_l"
             android:text="@string/action_reserve" />
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/navigateDetailsButton"
-            style="@style/Widget.Amperly.Button.Tonal"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginHorizontal="@dimen/amp_screen_padding"
             android:layout_marginTop="@dimen/amp_space_s"
-            android:text="@string/action_navigate" />
+            android:baselineAligned="false"
+            android:orientation="horizontal">
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/reportButton"
-            style="@style/Widget.Amperly.Button.Outlined"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginHorizontal="@dimen/amp_screen_padding"
-            android:layout_marginTop="@dimen/amp_space_s"
-            android:text="@string/action_report" />
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/navigateDetailsButton"
+                style="@style/Widget.Amperly.Button.Tonal"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/action_navigate" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/reportButton"
+                style="@style/Widget.Amperly.Button.Text"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="@dimen/amp_space_s"
+                android:layout_weight="1"
+                android:text="@string/action_report" />
+        </LinearLayout>
     </LinearLayout>
 </ScrollView>

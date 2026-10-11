@@ -6,6 +6,7 @@ import android.os.Looper;
 
 import androidx.lifecycle.LiveData;
 
+import com.amperly.app.core.common.AppConstants;
 import com.amperly.app.data.local.AmperlyDatabase;
 import com.amperly.app.data.local.entity.AndroidAutoSession;
 import com.amperly.app.data.local.entity.AvailabilitySchedule;
@@ -25,17 +26,23 @@ import com.amperly.app.data.local.entity.Report;
 import com.amperly.app.data.local.entity.Reservation;
 import com.amperly.app.data.local.entity.RoutePlan;
 import com.amperly.app.data.local.entity.RouteStop;
+import com.amperly.app.data.local.entity.SyncOutboxEntry;
 import com.amperly.app.data.local.entity.SafetyEvent;
 import com.amperly.app.data.local.entity.TripEstimate;
 import com.amperly.app.data.local.entity.TrustedContact;
 import com.amperly.app.data.local.entity.User;
 import com.amperly.app.data.local.entity.Vehicle;
+import com.amperly.app.data.remote.SupabaseRest;
+import com.amperly.app.data.remote.SyncEngine;
 import com.amperly.app.engine.analytics.HostAnalyticsEngine;
 import com.amperly.app.engine.availability.AvailabilityEngine;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -53,11 +60,13 @@ public class AmperlyRepository {
     private static volatile AmperlyRepository INSTANCE;
 
     private final AmperlyDatabase db;
+    private final Context appContext;
     private final ExecutorService executor = Executors.newFixedThreadPool(4);
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
     private AmperlyRepository(Context context) {
         db = AmperlyDatabase.getInstance(context);
+        appContext = context.getApplicationContext();
     }
 
     public static AmperlyRepository getInstance(Context context) {
@@ -94,6 +103,60 @@ public class AmperlyRepository {
         executor.execute(work);
     }
 
+    // ------------------------------------------------------------------- sync
+    // Room is always written first and the change is queued for Supabase in the same
+    // pass, so the UI never waits on the network and a change cannot be lost while the
+    // device is offline. SyncEngine drains the queue later.
+
+    private void syncUpsert(String table, Object entity) {
+        SyncEngine.enqueue(db, table, entity, SyncOutboxEntry.OP_UPSERT);
+    }
+
+    private void syncUpsertAll(String table, List<?> entities) {
+        if (entities == null) {
+            return;
+        }
+        for (Object entity : entities) {
+            SyncEngine.enqueue(db, table, entity, SyncOutboxEntry.OP_UPSERT);
+        }
+    }
+
+    private void syncDelete(String table, Object entity) {
+        SyncEngine.enqueue(db, table, entity, SyncOutboxEntry.OP_DELETE);
+    }
+
+    /**
+     * Queues a Postgres function call. Used where the change must be produced by the
+     * server's own logic rather than by copying a locally edited row onto a table.
+     */
+    private void syncRpc(String function, String dedupeKey, Map<String, Object> args) {
+        SyncEngine.enqueueRpc(db, function, dedupeKey, args);
+    }
+
+    private static Map<String, Object> singleArg(String key, Object value) {
+        Map<String, Object> args = new LinkedHashMap<>();
+        args.put(key, value);
+        return args;
+    }
+
+    /** Pushes queued local changes, then pulls everything that changed on the server. */
+    public void syncNow(Callback<SyncEngine.Result> callback) {
+        background(() -> SyncEngine.syncNow(appContext, db), callback);
+    }
+
+    /** Honest one-line sync state for the UI: queued, failing, last success. */
+    public String syncStatus() {
+        return SyncEngine.statusSummary(appContext, db);
+    }
+
+    public int pendingSyncCount() {
+        return SyncEngine.pendingCount(db);
+    }
+
+    public boolean isBackendEnabled() {
+        return SyncEngine.isEnabled();
+    }
+
     // ---------------------------------------------------------------- users
 
     public LiveData<User> getUser(String id) {
@@ -108,12 +171,94 @@ public class AmperlyRepository {
         return db.userDao().getAllUsersSync();
     }
 
+    // ------------------------------------------------------ sign in / sign out
+
+    /**
+     * The application profile behind a signed-in Supabase account.
+     *
+     * <p>Read from the server rather than the local copy on purpose: the local
+     * {@code users} table has no authUserId column — Gson ignores that key because it is
+     * a server-only column — so there is nothing local to match on. Row Level Security
+     * returns only the caller's own row here (an administrator sees everyone's).
+     */
+    public User findAppUserByAuthId(String authUserId) {
+        if (authUserId == null || authUserId.isEmpty()) {
+            return null;
+        }
+        Map<String, String> query = new LinkedHashMap<>();
+        query.put("select", "*");
+        query.put("authUserId", "eq." + authUserId);
+        query.put("limit", "1");
+        List<User> rows = SupabaseRest.select("users", User.class, query);
+        return rows.isEmpty() ? null : rows.get(0);
+    }
+
+    /**
+     * The profile for a signed-in account, creating a consumer profile the first time that
+     * account signs in.
+     *
+     * <p>Self-registration is what the {@code users_insert_self} policy permits: a
+     * signed-in user may insert their own row as CONSUMER or HOST, never as ADMIN. An
+     * account that already has a profile — the seeded host and administrator, once
+     * {@code link_pilot_users.sql} has run — keeps the role it was given, so signing in as
+     * the platform admin really does open the administrator desk.
+     */
+    public User resolveOrCreateAppUser(String authUserId, String email, String fallbackName) {
+        User existing = findAppUserByAuthId(authUserId);
+        if (existing != null) {
+            db.userDao().insert(existing);
+            return existing;
+        }
+
+        Map<String, Object> row = new LinkedHashMap<>();
+        row.put("id", UUID.randomUUID().toString());
+        row.put("authUserId", authUserId);
+        row.put("email", email);
+        row.put("name", fallbackName == null || fallbackName.trim().isEmpty()
+                ? displayNameFrom(email) : fallbackName.trim());
+        row.put("role", AppConstants.ROLE_CONSUMER);
+        row.put("verificationStatus", "UNVERIFIED");
+        row.put("isBlocked", false);
+
+        User created = SupabaseRest.upsert("users", row, User.class);
+        if (created != null) {
+            db.userDao().insert(created);
+        }
+        return created;
+    }
+
+    private static String displayNameFrom(String email) {
+        if (email == null || email.trim().isEmpty()) {
+            return "Amperly user";
+        }
+        int at = email.indexOf('@');
+        return at > 0 ? email.substring(0, at) : email.trim();
+    }
+
+    /**
+     * Wipes every local table and the sync cursors.
+     *
+     * <p>Two uses. Leaving offline demo mode, so the seeded demo rows can never be pushed
+     * into a real project; and signing out, so one account's reservations and receipts are
+     * not left on screen for whoever signs in next.
+     */
+    public void clearLocalData() {
+        db.clearAllTables();
+        SyncEngine.reset(appContext, db);
+    }
+
     public void insertUser(User user) {
-        run(() -> db.userDao().insert(user));
+        run(() -> {
+            db.userDao().insert(user);
+            syncUpsert("users", user);
+        });
     }
 
     public void updateUser(User user) {
-        run(() -> db.userDao().update(user));
+        run(() -> {
+            db.userDao().update(user);
+            syncUpsert("users", user);
+        });
     }
 
     // ------------------------------------------------------------- vehicles
@@ -127,7 +272,10 @@ public class AmperlyRepository {
     }
 
     public void saveVehicle(Vehicle vehicle) {
-        run(() -> db.vehicleDao().insert(vehicle));
+        run(() -> {
+            db.vehicleDao().insert(vehicle);
+            syncUpsert("vehicles", vehicle);
+        });
     }
 
     // ------------------------------------------------------------- stations
@@ -169,10 +317,24 @@ public class AmperlyRepository {
     }
 
     public void saveStation(ChargerStation station) {
-        run(() -> db.chargerStationDao().insert(station));
+        run(() -> {
+            db.chargerStationDao().insert(station);
+            syncUpsert("charger_stations", station);
+        });
     }
 
     public void updateStation(ChargerStation station) {
+        run(() -> {
+            db.chargerStationDao().update(station);
+            syncUpsert("charger_stations", station);
+        });
+    }
+
+    /**
+     * Local-only station write. Used where the server already made the change through
+     * one of the settlement functions and pushing the row as well would apply it twice.
+     */
+    public void updateStationLocally(ChargerStation station) {
         run(() -> db.chargerStationDao().update(station));
     }
 
@@ -181,6 +343,7 @@ public class AmperlyRepository {
             station.setPaused(paused);
             station.setLastUpdatedMs(System.currentTimeMillis());
             db.chargerStationDao().update(station);
+            syncUpsert("charger_stations", station);
         });
     }
 
@@ -199,17 +362,24 @@ public class AmperlyRepository {
     }
 
     public void savePort(ChargerPort port) {
-        run(() -> db.chargerPortDao().insert(port));
+        run(() -> {
+            db.chargerPortDao().insert(port);
+            syncUpsert("charger_ports", port);
+        });
     }
 
     public void savePorts(List<ChargerPort> ports) {
-        run(() -> db.chargerPortDao().insertAll(ports));
+        run(() -> {
+            db.chargerPortDao().insertAll(ports);
+            syncUpsertAll("charger_ports", ports);
+        });
     }
 
     public void setPortStatus(ChargerPort port, String status) {
         run(() -> {
             port.setStatus(status);
             db.chargerPortDao().update(port);
+            syncUpsert("charger_ports", port);
         });
     }
 
@@ -224,16 +394,33 @@ public class AmperlyRepository {
     }
 
     public void saveSchedules(List<AvailabilitySchedule> schedules) {
-        run(() -> db.availabilityScheduleDao().insertAll(schedules));
+        run(() -> {
+            db.availabilityScheduleDao().insertAll(schedules);
+            syncUpsertAll("availability_schedules", schedules);
+        });
     }
 
     public void blockStation(String stationId, boolean blocked, String reason) {
-        run(() -> db.availabilityScheduleDao().setStationBlocked(stationId, blocked, reason,
-                System.currentTimeMillis()));
+        run(() -> {
+            db.availabilityScheduleDao().setStationBlocked(stationId, blocked, reason,
+                    System.currentTimeMillis());
+            // The block is a bulk update, so re-read what changed and queue those rows.
+            syncUpsertAll("availability_schedules",
+                    db.availabilityScheduleDao().getSchedulesForStationSync(stationId));
+        });
     }
 
     public void blockPort(String portId, String reason) {
-        run(() -> db.availabilityScheduleDao().blockPort(portId, reason, System.currentTimeMillis()));
+        run(() -> {
+            db.availabilityScheduleDao().blockPort(portId, reason, System.currentTimeMillis());
+            for (int day = 1; day <= 7; day++) {
+                AvailabilitySchedule schedule =
+                        db.availabilityScheduleDao().getScheduleForPortDaySync(portId, day);
+                if (schedule != null) {
+                    syncUpsert("availability_schedules", schedule);
+                }
+            }
+        });
     }
 
     // --------------------------------------------------------- availability
@@ -299,11 +486,17 @@ public class AmperlyRepository {
     }
 
     public void saveReservation(Reservation reservation) {
-        run(() -> db.reservationDao().insert(reservation));
+        run(() -> {
+            db.reservationDao().insert(reservation);
+            syncUpsert("reservations", reservation);
+        });
     }
 
     public void updateReservation(Reservation reservation) {
-        run(() -> db.reservationDao().update(reservation));
+        run(() -> {
+            db.reservationDao().update(reservation);
+            syncUpsert("reservations", reservation);
+        });
     }
 
     // ------------------------------------------------------------- sessions
@@ -337,17 +530,114 @@ public class AmperlyRepository {
     }
 
     public void saveSession(ChargingSession session) {
-        run(() -> db.chargingSessionDao().insert(session));
+        run(() -> {
+            db.chargingSessionDao().insert(session);
+            syncUpsert("charging_sessions", session);
+        });
     }
 
     public void updateSession(ChargingSession session) {
-        run(() -> db.chargingSessionDao().update(session));
+        run(() -> {
+            db.chargingSessionDao().update(session);
+            syncUpsert("charging_sessions", session);
+        });
+    }
+
+    /**
+     * Completes a session on the server (finalize_charging_session).
+     *
+     * <p>The server recomputes the bill from the meter readings and the station's
+     * tariff, writes the session, the reading, the receipt and the capture in one
+     * transaction, closes the reservation and frees the port. The local rows written
+     * here are the offline copy — the same figures, computed by the app's BillingEngine
+     * — and are replaced by the server's rows on the next pull.
+     */
+    public void finalizeSession(ChargingSession session, MeterReading reading, Invoice invoice,
+                                Payment payment, Reservation reservation) {
+        run(() -> {
+            db.chargingSessionDao().insert(session);
+            if (reading != null) {
+                db.meterReadingDao().insert(reading);
+            }
+            if (invoice != null) {
+                db.invoiceDao().insert(invoice);
+            }
+            if (payment != null) {
+                db.paymentDao().insert(payment);
+            }
+            if (reservation != null) {
+                db.reservationDao().update(reservation);
+            }
+
+            Map<String, Object> args = new LinkedHashMap<>();
+            args.put("p_session_id", session.getId());
+            args.put("p_reservation_id", session.getReservationId());
+            args.put("p_start_meter_kwh", session.getStartingMeterKwh());
+            args.put("p_end_meter_kwh", session.getEndingMeterKwh());
+            args.put("p_is_simulated", session.isMeterSimulated());
+            args.put("p_meter_reading_id", reading == null ? null : reading.getId());
+            args.put("p_invoice_id", invoice == null ? null : invoice.getId());
+            syncRpc("finalize_charging_session", session.getId(), args);
+        });
+    }
+
+    // ------------------------------------------------------- admin transitions
+    // Each of these asks the server to make the change (the function re-checks that
+    // the caller is an administrator) and writes the local rows for immediate display.
+
+    /** Approves or rejects a station listing (decide_station_approval). */
+    public void decideStationApprovalOnServer(ChargerStation station, boolean approve) {
+        run(() -> {
+            db.chargerStationDao().update(station);
+            Map<String, Object> args = new LinkedHashMap<>();
+            args.put("p_station_id", station.getId());
+            args.put("p_approve", approve);
+            syncRpc("decide_station_approval", station.getId(), args);
+        });
+    }
+
+    /** Refunds a dispute from the invoice's energy charge (resolve_dispute_refund). */
+    public void resolveDisputeRefundOnServer(Dispute dispute, Invoice invoice) {
+        run(() -> {
+            db.disputeDao().update(dispute);
+            if (invoice != null) {
+                db.invoiceDao().update(invoice);
+            }
+            syncRpc("resolve_dispute_refund", dispute.getId(),
+                    singleArg("p_dispute_id", dispute.getId()));
+        });
+    }
+
+    /** Holds a host's payout while a dispute is reviewed (freeze_dispute_payout). */
+    public void freezeDisputePayoutOnServer(Dispute dispute) {
+        run(() -> {
+            db.disputeDao().update(dispute);
+            syncRpc("freeze_dispute_payout", dispute.getId(),
+                    singleArg("p_dispute_id", dispute.getId()));
+        });
+    }
+
+    /** Records an enforcement action against a host (apply_host_enforcement). */
+    public void applyHostEnforcementOnServer(Dispute dispute, String action, double fineAmount,
+                                             String note) {
+        run(() -> {
+            db.disputeDao().update(dispute);
+            Map<String, Object> args = new LinkedHashMap<>();
+            args.put("p_dispute_id", dispute.getId());
+            args.put("p_action", action);
+            args.put("p_fine_amount", fineAmount);
+            args.put("p_note", note);
+            syncRpc("apply_host_enforcement", dispute.getId(), args);
+        });
     }
 
     // -------------------------------------------------------- meter readings
 
     public void saveMeterReading(MeterReading reading) {
-        run(() -> db.meterReadingDao().insert(reading));
+        run(() -> {
+            db.meterReadingDao().insert(reading);
+            syncUpsert("meter_readings", reading);
+        });
     }
 
     public MeterReading getLatestMeterReadingSync(String sessionId) {
@@ -368,6 +658,11 @@ public class AmperlyRepository {
         return db.invoiceDao().getInvoicesForConsumer(consumerId);
     }
 
+    /**
+     * Stores an invoice locally. The server issues the real receipt from
+     * finalize_charging_session() and adjusts it from resolve_dispute_refund(), so
+     * these are offline views of the server's row and are not pushed.
+     */
     public void saveInvoice(Invoice invoice) {
         run(() -> db.invoiceDao().insert(invoice));
     }
@@ -398,8 +693,39 @@ public class AmperlyRepository {
 
     // --------------------------------------------------------------- payments
 
+    /**
+     * Stores a payment locally, for the UI and for offline reads.
+     *
+     * <p>The payments table is no longer written by a client: the row is created by
+     * {@link #authorizePayment} and its money fields are set by the settlement
+     * functions, so pushing this row would be refused by Row Level Security anyway.
+     */
     public void savePayment(Payment payment) {
         run(() -> db.paymentDao().insert(payment));
+    }
+
+    /** Creates the authorization on the server (authorize_payment). */
+    public void authorizePayment(Payment payment, String stationId) {
+        run(() -> {
+            db.paymentDao().insert(payment);
+            Map<String, Object> args = new LinkedHashMap<>();
+            args.put("p_id", payment.getId());
+            args.put("p_reservation_id", payment.getReservationId());
+            args.put("p_station_id", stationId);
+            args.put("p_amount", payment.getAuthorizedAmount());
+            args.put("p_idempotency_key", payment.getIdempotencyKey());
+            syncRpc("authorize_payment", payment.getId(), args);
+        });
+    }
+
+    /**
+     * Cancels on the server (cancel_reservation), which is where the published
+     * late-cancellation policy and the release of the authorization are applied. The
+     * local reservation and payment rows are still updated by the caller for the UI.
+     */
+    public void cancelReservationOnServer(String reservationId) {
+        run(() -> syncRpc("cancel_reservation", reservationId,
+                singleArg("p_reservation_id", reservationId)));
     }
 
     public Payment findPaymentByKey(String idempotencyKey) {
@@ -441,11 +767,17 @@ public class AmperlyRepository {
     }
 
     public void saveDispute(Dispute dispute) {
-        run(() -> db.disputeDao().insert(dispute));
+        run(() -> {
+            db.disputeDao().insert(dispute);
+            syncUpsert("disputes", dispute);
+        });
     }
 
     public void updateDispute(Dispute dispute) {
-        run(() -> db.disputeDao().update(dispute));
+        run(() -> {
+            db.disputeDao().update(dispute);
+            syncUpsert("disputes", dispute);
+        });
     }
 
     public int countProvenIncidents(String hostId) {
@@ -471,13 +803,19 @@ public class AmperlyRepository {
     }
 
     public void saveReport(Report report) {
-        run(() -> db.reportDao().insert(report));
+        run(() -> {
+            db.reportDao().insert(report);
+            syncUpsert("reports", report);
+        });
     }
 
     // ----------------------------------------------------------- enforcement
 
     public void saveEnforcementAction(HostEnforcementAction action) {
-        run(() -> db.hostEnforcementActionDao().insert(action));
+        run(() -> {
+            db.hostEnforcementActionDao().insert(action);
+            syncUpsert("host_enforcements", action);
+        });
     }
 
     public List<HostEnforcementAction> getEnforcementForHostSync(String hostId) {
@@ -503,11 +841,17 @@ public class AmperlyRepository {
     }
 
     public void saveNotification(Notification notification) {
-        run(() -> db.notificationDao().insert(notification));
+        run(() -> {
+            db.notificationDao().insert(notification);
+            syncUpsert("notifications", notification);
+        });
     }
 
     public void markNotificationsRead(String userId) {
-        run(() -> db.notificationDao().markAllRead(userId));
+        run(() -> {
+            db.notificationDao().markAllRead(userId);
+            syncUpsertAll("notifications", db.notificationDao().getNotificationsForUserSync(userId));
+        });
     }
 
     // ------------------------------------------------------------------ chat
@@ -529,19 +873,37 @@ public class AmperlyRepository {
     }
 
     public void saveThread(CommunicationThread thread) {
-        run(() -> db.communicationThreadDao().insert(thread));
+        run(() -> {
+            db.communicationThreadDao().insert(thread);
+            syncUpsert("communication_threads", thread);
+        });
     }
 
     public void updateThread(CommunicationThread thread) {
-        run(() -> db.communicationThreadDao().update(thread));
+        run(() -> {
+            db.communicationThreadDao().update(thread);
+            syncUpsert("communication_threads", thread);
+        });
     }
 
     public void reportThread(String threadId) {
-        run(() -> db.communicationThreadDao().markReported(threadId));
+        run(() -> {
+            db.communicationThreadDao().markReported(threadId);
+            CommunicationThread thread = db.communicationThreadDao().getThreadByIdSync(threadId);
+            if (thread != null) {
+                syncUpsert("communication_threads", thread);
+            }
+        });
     }
 
     public void blockThread(String threadId) {
-        run(() -> db.communicationThreadDao().block(threadId));
+        run(() -> {
+            db.communicationThreadDao().block(threadId);
+            CommunicationThread thread = db.communicationThreadDao().getThreadByIdSync(threadId);
+            if (thread != null) {
+                syncUpsert("communication_threads", thread);
+            }
+        });
     }
 
     public LiveData<List<ChatMessage>> observeMessages(String threadId) {
@@ -557,11 +919,20 @@ public class AmperlyRepository {
     }
 
     public void saveMessage(ChatMessage message) {
-        run(() -> db.chatMessageDao().insert(message));
+        run(() -> {
+            db.chatMessageDao().insert(message);
+            syncUpsert("chat_messages", message);
+        });
     }
 
     public void reportMessage(String messageId) {
-        run(() -> db.chatMessageDao().markReported(messageId));
+        run(() -> {
+            db.chatMessageDao().markReported(messageId);
+            ChatMessage message = db.chatMessageDao().getMessageByIdSync(messageId);
+            if (message != null) {
+                syncUpsert("chat_messages", message);
+            }
+        });
     }
 
     public void purgeExpiredMessages() {
@@ -583,11 +954,17 @@ public class AmperlyRepository {
     }
 
     public void saveSafetyEvent(SafetyEvent event) {
-        run(() -> db.safetyEventDao().insert(event));
+        run(() -> {
+            db.safetyEventDao().insert(event);
+            syncUpsert("safety_events", event);
+        });
     }
 
     public void updateSafetyEvent(SafetyEvent event) {
-        run(() -> db.safetyEventDao().update(event));
+        run(() -> {
+            db.safetyEventDao().update(event);
+            syncUpsert("safety_events", event);
+        });
     }
 
     public void expireStaleLocationSharing() {
@@ -603,11 +980,17 @@ public class AmperlyRepository {
     }
 
     public void saveTrustedContact(TrustedContact contact) {
-        run(() -> db.trustedContactDao().insert(contact));
+        run(() -> {
+            db.trustedContactDao().insert(contact);
+            syncUpsert("trusted_contacts", contact);
+        });
     }
 
     public void deleteTrustedContact(TrustedContact contact) {
-        run(() -> db.trustedContactDao().delete(contact));
+        run(() -> {
+            db.trustedContactDao().delete(contact);
+            syncDelete("trusted_contacts", contact);
+        });
     }
 
     // ---------------------------------------------------------- route plans
@@ -629,11 +1012,17 @@ public class AmperlyRepository {
     }
 
     public void saveRoutePlan(RoutePlan plan) {
-        run(() -> db.routePlanDao().insert(plan));
+        run(() -> {
+            db.routePlanDao().insert(plan);
+            syncUpsert("route_plans", plan);
+        });
     }
 
     public void updateRoutePlan(RoutePlan plan) {
-        run(() -> db.routePlanDao().update(plan));
+        run(() -> {
+            db.routePlanDao().update(plan);
+            syncUpsert("route_plans", plan);
+        });
     }
 
     public List<RouteStop> getRouteStopsSync(String planId) {
@@ -645,7 +1034,10 @@ public class AmperlyRepository {
     }
 
     public void saveRouteStops(List<RouteStop> stops) {
-        run(() -> db.routeStopDao().insertAll(stops));
+        run(() -> {
+            db.routeStopDao().insertAll(stops);
+            syncUpsertAll("route_stops", stops);
+        });
     }
 
     public void replaceRouteStops(String planId, List<RouteStop> stops) {
@@ -660,7 +1052,10 @@ public class AmperlyRepository {
     // -------------------------------------------------------- trip estimates
 
     public void saveTripEstimate(TripEstimate estimate) {
-        run(() -> db.tripEstimateDao().insert(estimate));
+        run(() -> {
+            db.tripEstimateDao().insert(estimate);
+            syncUpsert("trip_estimates", estimate);
+        });
     }
 
     public List<TripEstimate> getTripEstimatesSync(String vehicleId) {
@@ -682,7 +1077,10 @@ public class AmperlyRepository {
     // -------------------------------------------------------- battery updates
 
     public void saveBatteryUpdate(BatteryUpdate update) {
-        run(() -> db.batteryUpdateDao().insert(update));
+        run(() -> {
+            db.batteryUpdateDao().insert(update);
+            syncUpsert("battery_updates", update);
+        });
     }
 
     public List<BatteryUpdate> getBatteryUpdatesSync(String planId) {
@@ -700,7 +1098,10 @@ public class AmperlyRepository {
     // --------------------------------------------------- android auto session
 
     public void saveAutoSession(AndroidAutoSession session) {
-        run(() -> db.androidAutoSessionDao().insert(session));
+        run(() -> {
+            db.androidAutoSessionDao().insert(session);
+            syncUpsert("android_auto_sessions", session);
+        });
     }
 
     public AndroidAutoSession getLatestAutoSessionSync(String userId) {

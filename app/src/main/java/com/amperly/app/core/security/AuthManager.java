@@ -45,6 +45,16 @@ public class AuthManager {
         return usersByRole.get(currentRole);
     }
 
+    /**
+     * Forgets the acting identity entirely. Called when a Supabase session ends, so the
+     * next account on this device starts from its own profile rather than the previous
+     * holder's, and so the demo identities are not left reachable.
+     */
+    public void clearCurrentUser() {
+        usersByRole.clear();
+        AppStateStore.get().setUserId("");
+    }
+
     public void setCurrentUser(User user) {
         if (user != null && user.getRole() != null) {
             usersByRole.put(user.getRole(), user);

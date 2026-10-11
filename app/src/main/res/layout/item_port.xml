@@ -16,12 +16,13 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:textAppearance="@style/TextAppearance.Amperly.Body" />
+            android:textAppearance="@style/TextAppearance.Amperly.BodyStrong" />
 
         <TextView
             android:id="@+id/portStatusText"
+            style="@style/Widget.Amperly.Badge.Neutral"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textAppearance="@style/TextAppearance.Amperly.Label" />
+            android:layout_marginStart="@dimen/amp_space_s" />
     </LinearLayout>
 </com.google.android.material.card.MaterialCardView>

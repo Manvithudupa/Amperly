@@ -31,6 +31,10 @@ public interface ChatMessageDao {
     @Query("SELECT * FROM chat_messages ORDER BY createdAtMs DESC")
     List<ChatMessage> getAllMessagesSync();
 
+    /** Used by sync to re-read a message after the reported flag changes. */
+    @Query("SELECT * FROM chat_messages WHERE id = :id")
+    ChatMessage getMessageByIdSync(String id);
+
     @Query("UPDATE chat_messages SET isReported = 1 WHERE id = :messageId")
     void markReported(String messageId);
 
