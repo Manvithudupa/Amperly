@@ -256,7 +256,13 @@ public class MainActivity extends AppCompatActivity {
     private void syncAfterSignIn(boolean discardDemoData) {
         repo.background(() -> {
             if (discardDemoData) {
+                User currentUser = AuthManager.getInstance().getCurrentUser();
                 repo.clearLocalData();
+                if (currentUser != null) {
+                    try {
+                        repo.database().userDao().insert(currentUser);
+                    } catch (Exception ignored) {}
+                }
             }
             return SyncEngine.syncNow(this, repo.database());
         }, result -> {
