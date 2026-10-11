@@ -1,134 +1,133 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-  Chargers near you.
-
-  The map is anchored above the filters so the list and the map describe the same
-  set of results, and the result count is promoted to a strong line so the user can
-  tell whether a filter emptied the list or the data is simply still loading.
--->
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical">
+    android:fillViewport="true">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:paddingHorizontal="@dimen/amp_screen_padding"
-        android:paddingTop="@dimen/amp_space_m">
+        android:paddingBottom="@dimen/amp_space_xl">
 
-        <TextView
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/discovery_title"
-            android:textAppearance="@style/TextAppearance.Amperly.ScreenTitle" />
+            android:orientation="vertical"
+            android:paddingHorizontal="@dimen/amp_screen_padding"
+            android:paddingTop="@dimen/amp_space_m">
 
-        <TextView
-            android:id="@+id/discoverySubtitleText"
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/discovery_title"
+                android:textAppearance="@style/TextAppearance.Amperly.ScreenTitle" />
+
+            <TextView
+                android:id="@+id/discoverySubtitleText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/amp_space_xs"
+                android:text="@string/discovery_subtitle"
+                android:textAppearance="@style/TextAppearance.Amperly.Body" />
+
+            <TextView
+                android:id="@+id/resultCountText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/amp_space_s"
+                android:textAppearance="@style/TextAppearance.Amperly.BodyStrong" />
+        </LinearLayout>
+
+        <com.google.android.material.card.MaterialCardView
+            style="@style/Widget.Amperly.Card.Map"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/amp_space_xs"
-            android:text="@string/discovery_subtitle"
-            android:textAppearance="@style/TextAppearance.Amperly.Body" />
+            android:layout_height="@dimen/amp_map_panel_height"
+            android:layout_marginHorizontal="@dimen/amp_screen_padding"
+            android:layout_marginTop="@dimen/amp_space_m">
 
-        <TextView
-            android:id="@+id/resultCountText"
+            <FrameLayout
+                android:id="@+id/mapContainer"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent" />
+        </com.google.android.material.card.MaterialCardView>
+
+        <HorizontalScrollView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/amp_space_s"
-            android:textAppearance="@style/TextAppearance.Amperly.BodyStrong" />
-    </LinearLayout>
+            android:paddingHorizontal="@dimen/amp_screen_padding"
+            android:scrollbars="none">
 
-    <com.google.android.material.card.MaterialCardView
-        style="@style/Widget.Amperly.Card.Map"
-        android:layout_width="match_parent"
-        android:layout_height="@dimen/amp_map_panel_height"
-        android:layout_marginHorizontal="@dimen/amp_screen_padding"
-        android:layout_marginTop="@dimen/amp_space_m">
+            <com.google.android.material.chip.ChipGroup
+                android:id="@+id/filterChipGroup"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                app:singleLine="true"
+                app:singleSelection="true">
 
-        <FrameLayout
-            android:id="@+id/mapContainer"
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/filterAllChip"
+                    style="@style/Widget.Amperly.Chip"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:checked="true"
+                    android:text="@string/filter_all" />
+
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/filterCompatibleChip"
+                    style="@style/Widget.Amperly.Chip"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/filter_compatible" />
+
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/filterCampusChip"
+                    style="@style/Widget.Amperly.Chip"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/filter_campus" />
+
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/filterApartmentChip"
+                    style="@style/Widget.Amperly.Chip"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/filter_apartment" />
+
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/filterDcChip"
+                    style="@style/Widget.Amperly.Chip"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/filter_dc_fast" />
+
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/filterVerifiedMeterChip"
+                    style="@style/Widget.Amperly.Chip"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/filter_verified_only" />
+            </com.google.android.material.chip.ChipGroup>
+        </HorizontalScrollView>
+
+        <TextView
+            android:id="@+id/emptyStateText"
             android:layout_width="match_parent"
-            android:layout_height="match_parent" />
-    </com.google.android.material.card.MaterialCardView>
-
-    <HorizontalScrollView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="@dimen/amp_space_s"
-        android:paddingHorizontal="@dimen/amp_screen_padding"
-        android:scrollbars="none">
-
-        <com.google.android.material.chip.ChipGroup
-            android:id="@+id/filterChipGroup"
-            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            app:singleLine="true"
-            app:singleSelection="true">
+            android:layout_margin="@dimen/amp_screen_padding"
+            android:text="@string/empty_state"
+            android:textAppearance="@style/TextAppearance.Amperly.Body"
+            android:visibility="gone" />
 
-            <com.google.android.material.chip.Chip
-                android:id="@+id/filterAllChip"
-                style="@style/Widget.Amperly.Chip"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:checked="true"
-                android:text="@string/filter_all" />
-
-            <com.google.android.material.chip.Chip
-                android:id="@+id/filterCompatibleChip"
-                style="@style/Widget.Amperly.Chip"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/filter_compatible" />
-
-            <com.google.android.material.chip.Chip
-                android:id="@+id/filterCampusChip"
-                style="@style/Widget.Amperly.Chip"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/filter_campus" />
-
-            <com.google.android.material.chip.Chip
-                android:id="@+id/filterApartmentChip"
-                style="@style/Widget.Amperly.Chip"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/filter_apartment" />
-
-            <com.google.android.material.chip.Chip
-                android:id="@+id/filterDcChip"
-                style="@style/Widget.Amperly.Chip"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/filter_dc_fast" />
-
-            <com.google.android.material.chip.Chip
-                android:id="@+id/filterVerifiedMeterChip"
-                style="@style/Widget.Amperly.Chip"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/filter_verified_only" />
-        </com.google.android.material.chip.ChipGroup>
-    </HorizontalScrollView>
-
-    <TextView
-        android:id="@+id/emptyStateText"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_margin="@dimen/amp_screen_padding"
-        android:text="@string/empty_state"
-        android:textAppearance="@style/TextAppearance.Amperly.Body"
-        android:visibility="gone" />
-
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/stationsRecyclerView"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:clipToPadding="false"
-        android:paddingHorizontal="@dimen/amp_space_s"
-        android:paddingTop="@dimen/amp_space_xs"
-        android:paddingBottom="@dimen/amp_space_l" />
-</LinearLayout>
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/stationsRecyclerView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:clipToPadding="false"
+            android:nestedScrollingEnabled="false"
+            android:paddingHorizontal="@dimen/amp_space_s"
+            android:paddingTop="@dimen/amp_space_xs" />
+    </LinearLayout>
+</androidx.core.widget.NestedScrollView>

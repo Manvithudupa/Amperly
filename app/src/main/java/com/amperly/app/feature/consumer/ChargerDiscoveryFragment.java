@@ -67,6 +67,7 @@ public class ChargerDiscoveryFragment extends Fragment implements StationAdapter
         mapContainer = view.findViewById(R.id.mapContainer);
         recyclerView = view.findViewById(R.id.stationsRecyclerView);
         recyclerView.setLayoutManager(new LinearLayoutManager(requireContext()));
+        recyclerView.setNestedScrollingEnabled(false);
         adapter = new StationAdapter(this, null);
         recyclerView.setAdapter(adapter);
 

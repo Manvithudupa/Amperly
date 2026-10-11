@@ -166,8 +166,13 @@ public class MainActivity extends AppCompatActivity {
             startOfflineDemo();
             return;
         }
-        showSignIn();
-        restoreSession();
+        if (SupabaseAuth.hasStoredSession(this)) {
+            roleStrip.setVisibility(View.GONE);
+            bottomNavigationView.setVisibility(View.GONE);
+            restoreSession();
+        } else {
+            showSignIn();
+        }
     }
 
     public void startOfflineDemo() {
@@ -213,6 +218,7 @@ public class MainActivity extends AppCompatActivity {
     private void restoreSession() {
         repo.background(() -> SupabaseAuth.restoreSession(this), session -> {
             if (session == null) {
+                showSignIn();
                 return;
             }
             repo.background(
@@ -220,6 +226,7 @@ public class MainActivity extends AppCompatActivity {
                     user -> {
                         if (user == null) {
                             Ux.toast(this, getString(R.string.auth_profile_offline));
+                            showSignIn();
                             return;
                         }
                         onSignedIn(user);

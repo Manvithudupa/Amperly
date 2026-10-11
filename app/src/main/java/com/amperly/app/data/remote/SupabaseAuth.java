@@ -170,6 +170,12 @@ public final class SupabaseAuth {
 
     // ------------------------------------------------------------------ session
 
+    public static boolean hasStoredSession(Context context) {
+        SharedPreferences prefs = prefs(context);
+        String access = prefs.getString(KEY_ACCESS, null);
+        return access != null && !access.trim().isEmpty();
+    }
+
     /** Loads a stored session and refreshes it when it is close to expiring. */
     @Nullable
     public static Session restoreSession(Context context) {

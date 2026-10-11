@@ -194,12 +194,6 @@
             android:layout_marginTop="@dimen/amp_space_l"
             android:text="@string/auth_demo_note" />
 
-        <TextView
-            android:id="@+id/signInPilotHintText"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/amp_space_s"
-            android:text="@string/auth_pilot_accounts"
-            android:textAppearance="@style/TextAppearance.Amperly.BodySmall" />
+
     </LinearLayout>
 </ScrollView>
