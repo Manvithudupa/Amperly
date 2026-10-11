@@ -67,37 +67,46 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
-        setContentView(R.layout.activity_main);
-        applyWindowInsets();
+        try {
+            WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
+            setContentView(R.layout.activity_main);
+            applyWindowInsets();
 
-        repo = AmperlyRepository.getInstance(this);
+            repo = AmperlyRepository.getInstance(this);
 
-        Toolbar toolbar = findViewById(R.id.topToolbar);
-        setSupportActionBar(toolbar);
-        applyBrandMark(toolbar);
+            Toolbar toolbar = findViewById(R.id.topToolbar);
+            setSupportActionBar(toolbar);
+            applyBrandMark(toolbar);
 
-        bottomNavigationView = findViewById(R.id.bottomNavigationView);
-        currentUserText = findViewById(R.id.currentUserText);
-        roleChipGroup = findViewById(R.id.roleChipGroup);
-        roleStrip = findViewById(R.id.roleStrip);
+            bottomNavigationView = findViewById(R.id.bottomNavigationView);
+            currentUserText = findViewById(R.id.currentUserText);
+            roleChipGroup = findViewById(R.id.roleChipGroup);
+            roleStrip = findViewById(R.id.roleStrip);
 
-        roleChipGroup.setOnCheckedStateChangeListener((group, checkedIds) -> {
-            if (applyingRole || checkedIds.isEmpty()) {
-                return;
+            if (roleChipGroup != null) {
+                roleChipGroup.setOnCheckedStateChangeListener((group, checkedIds) -> {
+                    if (applyingRole || checkedIds.isEmpty()) {
+                        return;
+                    }
+                    int id = checkedIds.get(0);
+                    if (id == R.id.roleChipHost) {
+                        applyRole(AppConstants.ROLE_HOST);
+                    } else if (id == R.id.roleChipAdmin) {
+                        applyRole(AppConstants.ROLE_ADMIN);
+                    } else {
+                        applyRole(AppConstants.ROLE_CONSUMER);
+                    }
+                });
             }
-            int id = checkedIds.get(0);
-            if (id == R.id.roleChipHost) {
-                applyRole(AppConstants.ROLE_HOST);
-            } else if (id == R.id.roleChipAdmin) {
-                applyRole(AppConstants.ROLE_ADMIN);
-            } else {
-                applyRole(AppConstants.ROLE_CONSUMER);
-            }
-        });
 
-        handleDeepLink(getIntent());
-        startBackend();
+            handleDeepLink(getIntent());
+            startBackend();
+        } catch (Exception e) {
+            Log.e(TAG, "Critical error in MainActivity onCreate: " + e.getMessage(), e);
+            try {
+                startOfflineDemo();
+            } catch (Exception ignored) {}
+        }
     }
 
     @Override
@@ -118,27 +127,32 @@ public class MainActivity extends AppCompatActivity {
 
     private void applyWindowInsets() {
         View appBar = findViewById(R.id.appBarLayout);
-        final int appBarStart = appBar.getPaddingStart();
-        final int appBarTop = appBar.getPaddingTop();
-        final int appBarEnd = appBar.getPaddingEnd();
-        ViewCompat.setOnApplyWindowInsetsListener(appBar, (view, windowInsets) -> {
-            Insets bars = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars());
-            view.setPadding(appBarStart, appBarTop + bars.top, appBarEnd, view.getPaddingBottom());
-            return windowInsets;
-        });
+        if (appBar != null) {
+            final int appBarStart = appBar.getPaddingStart();
+            final int appBarTop = appBar.getPaddingTop();
+            final int appBarEnd = appBar.getPaddingEnd();
+            ViewCompat.setOnApplyWindowInsetsListener(appBar, (view, windowInsets) -> {
+                Insets bars = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars());
+                view.setPadding(appBarStart, appBarTop + bars.top, appBarEnd, view.getPaddingBottom());
+                return windowInsets;
+            });
+        }
 
         View bottomNav = findViewById(R.id.bottomNavigationView);
-        final int navStart = bottomNav.getPaddingStart();
-        final int navBottom = bottomNav.getPaddingBottom();
-        final int navEnd = bottomNav.getPaddingEnd();
-        ViewCompat.setOnApplyWindowInsetsListener(bottomNav, (view, windowInsets) -> {
-            Insets bars = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars());
-            view.setPadding(navStart, view.getPaddingTop(), navEnd, navBottom + bars.bottom);
-            return windowInsets;
-        });
+        if (bottomNav != null) {
+            final int navStart = bottomNav.getPaddingStart();
+            final int navBottom = bottomNav.getPaddingBottom();
+            final int navEnd = bottomNav.getPaddingEnd();
+            ViewCompat.setOnApplyWindowInsetsListener(bottomNav, (view, windowInsets) -> {
+                Insets bars = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars());
+                view.setPadding(navStart, view.getPaddingTop(), navEnd, navBottom + bars.bottom);
+                return windowInsets;
+            });
+        }
     }
 
     private void applyBrandMark(Toolbar toolbar) {
+        if (toolbar == null) return;
         Drawable mark = AppCompatResources.getDrawable(this, R.drawable.ic_brand_mark);
         if (mark == null) {
             return;
@@ -168,8 +182,8 @@ public class MainActivity extends AppCompatActivity {
                 return;
             }
             if (SupabaseAuth.hasStoredSession(this)) {
-                roleStrip.setVisibility(View.GONE);
-                bottomNavigationView.setVisibility(View.GONE);
+                if (roleStrip != null) roleStrip.setVisibility(View.GONE);
+                if (bottomNavigationView != null) bottomNavigationView.setVisibility(View.GONE);
                 restoreSession();
             } else {
                 showSignIn();
@@ -183,16 +197,16 @@ public class MainActivity extends AppCompatActivity {
     public void startOfflineDemo() {
         DemoMode.setOfflineDemo(this, true);
         PilotDataSeeder.seedPilotData(this);
-        roleStrip.setVisibility(View.VISIBLE);
-        bottomNavigationView.setVisibility(View.VISIBLE);
+        if (roleStrip != null) roleStrip.setVisibility(View.VISIBLE);
+        if (bottomNavigationView != null) bottomNavigationView.setVisibility(View.VISIBLE);
         selectRole(AppConstants.ROLE_CONSUMER);
         invalidateOptionsMenu();
     }
 
     public void showSignIn() {
         DemoMode.setOfflineDemo(this, false);
-        roleStrip.setVisibility(View.GONE);
-        bottomNavigationView.setVisibility(View.GONE);
+        if (roleStrip != null) roleStrip.setVisibility(View.GONE);
+        if (bottomNavigationView != null) bottomNavigationView.setVisibility(View.GONE);
         getSupportFragmentManager()
                 .popBackStack(null, FragmentManager.POP_BACK_STACK_INCLUSIVE);
         getSupportFragmentManager()
@@ -206,8 +220,8 @@ public class MainActivity extends AppCompatActivity {
         boolean wasOfflineDemo = DemoMode.isOfflineDemo(this);
         DemoMode.setOfflineDemo(this, false);
         AuthManager.getInstance().setCurrentUser(user);
-        roleStrip.setVisibility(View.GONE);
-        bottomNavigationView.setVisibility(View.VISIBLE);
+        if (roleStrip != null) roleStrip.setVisibility(View.GONE);
+        if (bottomNavigationView != null) bottomNavigationView.setVisibility(View.VISIBLE);
         applyRole(user.getRole() == null ? AppConstants.ROLE_CONSUMER : user.getRole());
         invalidateOptionsMenu();
         Ux.toast(this, getString(R.string.auth_signed_in_as) + " " + user.getName());
@@ -260,7 +274,7 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     public boolean onPrepareOptionsMenu(Menu menu) {
-        boolean inApp = bottomNavigationView.getVisibility() == View.VISIBLE;
+        boolean inApp = bottomNavigationView != null && bottomNavigationView.getVisibility() == View.VISIBLE;
         for (int i = 0; i < menu.size(); i++) {
             menu.getItem(i).setVisible(inApp);
         }
@@ -287,12 +301,14 @@ public class MainActivity extends AppCompatActivity {
 
     private void selectRole(String role) {
         applyingRole = true;
-        if (AppConstants.ROLE_HOST.equals(role)) {
-            roleChipGroup.check(R.id.roleChipHost);
-        } else if (AppConstants.ROLE_ADMIN.equals(role)) {
-            roleChipGroup.check(R.id.roleChipAdmin);
-        } else {
-            roleChipGroup.check(R.id.roleChipConsumer);
+        if (roleChipGroup != null) {
+            if (AppConstants.ROLE_HOST.equals(role)) {
+                roleChipGroup.check(R.id.roleChipHost);
+            } else if (AppConstants.ROLE_ADMIN.equals(role)) {
+                roleChipGroup.check(R.id.roleChipAdmin);
+            } else {
+                roleChipGroup.check(R.id.roleChipConsumer);
+            }
         }
         applyingRole = false;
         applyRole(role);
@@ -301,11 +317,14 @@ public class MainActivity extends AppCompatActivity {
     private void applyRole(String role) {
         AuthManager.getInstance().setRole(role);
         AppStateStore.get().setUserId(AuthManager.getInstance().getCurrentUserId());
-        currentUserText.setText(AuthManager.getInstance().describeCurrentUser());
+        if (currentUserText != null) {
+            currentUserText.setText(AuthManager.getInstance().describeCurrentUser());
+        }
         buildNavigation(role);
     }
 
     private void buildNavigation(String role) {
+        if (bottomNavigationView == null) return;
         Menu menu = bottomNavigationView.getMenu();
         menu.clear();
         bottomNavigationView.setOnItemSelectedListener(null);
