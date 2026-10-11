@@ -1,64 +1,182 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:padding="16dp">
+    android:fillViewport="true">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical">
+        android:orientation="vertical"
+        android:padding="@dimen/amp_screen_padding">
 
         <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Host Charger Dashboard"
-            android:textSize="20sp"
-            android:textStyle="bold"
-            android:textColor="#212529"
-            android:layout_marginBottom="12dp" />
-
-        <!-- Analytics Summary Card -->
-        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/hostNameText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp">
+            android:text="@string/host_dashboard_title"
+            android:textAppearance="@style/TextAppearance.Amperly.ScreenTitle" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/amp_space_m"
+            android:orientation="horizontal">
 
             <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                style="@style/Widget.Amperly.StatTile"
                 android:orientation="vertical"
-                android:padding="16dp">
+                android:padding="@dimen/amp_space_s">
 
                 <TextView
-                    android:id="@+id/hostStatsText"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Sessions Completed: 18\nEnergy Delivered: 240 kWh\nTotal Earnings: ₹4,320\nUtilization Rate: 68%"
-                    android:textSize="15sp"
-                    android:lineSpacingExtra="4dp" />
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
+                    android:text="@string/analytics_sessions_completed"
+                    android:textAppearance="@style/TextAppearance.Amperly.Label" />
 
-        <Button
-            android:id="@+id/registerNewStationBtn"
+                <TextView
+                    android:id="@+id/statsSessionsText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textAppearance="@style/TextAppearance.Amperly.Metric" />
+            </LinearLayout>
+
+            <LinearLayout
+                style="@style/Widget.Amperly.StatTile"
+                android:orientation="vertical"
+                android:padding="@dimen/amp_space_s">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/analytics_energy_delivered"
+                    android:textAppearance="@style/TextAppearance.Amperly.Label" />
+
+                <TextView
+                    android:id="@+id/statsEnergyText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textAppearance="@style/TextAppearance.Amperly.Metric" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Register New Charger Station"
-            android:layout_marginBottom="16dp" />
+            android:orientation="horizontal">
+
+            <LinearLayout
+                style="@style/Widget.Amperly.StatTile"
+                android:orientation="vertical"
+                android:padding="@dimen/amp_space_s">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/analytics_utilization"
+                    android:textAppearance="@style/TextAppearance.Amperly.Label" />
+
+                <TextView
+                    android:id="@+id/statsUtilizationText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textAppearance="@style/TextAppearance.Amperly.Metric" />
+            </LinearLayout>
+
+            <LinearLayout
+                style="@style/Widget.Amperly.StatTile"
+                android:orientation="vertical"
+                android:padding="@dimen/amp_space_s">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/analytics_revenue"
+                    android:textAppearance="@style/TextAppearance.Amperly.Label" />
+
+                <TextView
+                    android:id="@+id/statsRevenueText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textAppearance="@style/TextAppearance.Amperly.Metric" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/registerNewStationButton"
+            style="@style/Widget.Amperly.Button"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/amp_space_m"
+            android:text="@string/host_register_title" />
 
         <TextView
-            android:layout_width="wrap_content"
+            android:id="@+id/hostEmptyText"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Your Managed Stations"
-            android:textStyle="bold"
-            android:textSize="16sp"
-            android:layout_marginBottom="8dp" />
+            android:layout_marginTop="@dimen/amp_space_m"
+            android:text="@string/host_no_stations"
+            android:textAppearance="@style/TextAppearance.Amperly.Body"
+            android:visibility="gone" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/amp_space_m"
+            android:text="@string/details_ports"
+            android:textAppearance="@style/TextAppearance.Amperly.SectionTitle" />
 
         <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/hostStationsRecyclerView"
+            android:id="@+id/stationsRecyclerView"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content" />
+            android:layout_height="wrap_content"
+            android:nestedScrollingEnabled="false" />
 
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/amp_space_m"
+            android:text="@string/host_tab_reservations"
+            android:textAppearance="@style/TextAppearance.Amperly.SectionTitle" />
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/reservationsRecyclerView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:nestedScrollingEnabled="false" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/amp_space_m"
+            android:text="@string/host_tab_sessions"
+            android:textAppearance="@style/TextAppearance.Amperly.SectionTitle" />
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/sessionsRecyclerView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:nestedScrollingEnabled="false" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/amp_space_m"
+            android:text="@string/host_tab_analytics"
+            android:textAppearance="@style/TextAppearance.Amperly.SectionTitle" />
+
+        <LinearLayout
+            android:id="@+id/analyticsContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical" />
+
+        <TextView
+            android:id="@+id/analyticsNoteText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/amp_space_s"
+            android:textAppearance="@style/TextAppearance.Amperly.Label" />
     </LinearLayout>
 </ScrollView>

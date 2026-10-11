@@ -4,41 +4,99 @@
     android:id="@+id/main"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:background="#F8F9FA">
+    android:background="?android:attr/colorBackground"
+    android:orientation="vertical">
 
-    <!-- Top App Bar with Title & Role Switcher -->
-    <com.google.android.material.appbar.MaterialToolbar
-        android:id="@+id/topToolbar"
+    <com.google.android.material.appbar.AppBarLayout
         android:layout_width="match_parent"
-        android:layout_height="?attr/actionBarSize"
-        android:background="?attr/colorPrimary"
-        app:title="Amperly EV Platform"
-        app:titleTextColor="@android:color/white">
+        android:layout_height="wrap_content"
+        android:background="@color/amp_primary">
 
-        <Spinner
-            android:id="@+id/roleSpinner"
-            android:layout_width="wrap_content"
+        <com.google.android.material.appbar.MaterialToolbar
+            android:id="@+id/topToolbar"
+            android:layout_width="match_parent"
+            android:layout_height="?attr/actionBarSize"
+            android:background="@color/amp_primary"
+            app:subtitle="@string/pilot_subtitle"
+            app:subtitleTextColor="#D6EDE3"
+            app:title="@string/app_name"
+            app:titleTextColor="@color/white" />
+    </com.google.android.material.appbar.AppBarLayout>
+
+    <com.google.android.material.card.MaterialCardView
+        style="@style/Widget.Amperly.Card.Filled"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="@dimen/amp_space_m"
+        android:layout_marginTop="@dimen/amp_space_s"
+        app:cardBackgroundColor="@color/amp_primary_container">
+
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_gravity="end"
-            android:backgroundTint="@android:color/white"
-            android:paddingEnd="12dp"/>
+            android:orientation="vertical"
+            android:padding="@dimen/amp_space_m">
 
-    </com.google.android.material.appbar.MaterialToolbar>
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/role_switcher_label"
+                android:textAppearance="@style/TextAppearance.Amperly.Label" />
 
-    <!-- Main Fragment Container -->
+            <com.google.android.material.chip.ChipGroup
+                android:id="@+id/roleChipGroup"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/amp_space_xs"
+                app:singleLine="true"
+                app:singleSelection="true">
+
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/roleChipConsumer"
+                    style="@style/Widget.Material3.Chip.Filter"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:checkable="true"
+                    android:text="@string/role_consumer" />
+
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/roleChipHost"
+                    style="@style/Widget.Material3.Chip.Filter"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:checkable="true"
+                    android:text="@string/role_host" />
+
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/roleChipAdmin"
+                    style="@style/Widget.Material3.Chip.Filter"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:checkable="true"
+                    android:text="@string/role_admin" />
+            </com.google.android.material.chip.ChipGroup>
+
+            <TextView
+                android:id="@+id/currentUserText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/amp_space_xs"
+                android:textAppearance="@style/TextAppearance.Amperly.Body" />
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+
     <FrameLayout
         android:id="@+id/fragment_container"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1" />
 
-    <!-- Bottom Navigation View -->
     <com.google.android.material.bottomnavigation.BottomNavigationView
         android:id="@+id/bottomNavigationView"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="@android:color/white"
-        app:elevation="8dp" />
+        android:background="@color/amp_card"
+        app:elevation="8dp"
+        app:labelVisibilityMode="labeled" />
 
 </LinearLayout>

@@ -28,6 +28,15 @@ public interface UserDao {
     @Query("SELECT * FROM users WHERE id = :id LIMIT 1")
     LiveData<User> getUserById(String id);
 
-    @Query("SELECT * FROM users")
+    @Query("SELECT * FROM users ORDER BY name")
     LiveData<List<User>> getAllUsers();
+
+    @Query("SELECT * FROM users ORDER BY name")
+    List<User> getAllUsersSync();
+
+    @Query("SELECT * FROM users WHERE email = :email LIMIT 1")
+    User getUserByEmailSync(String email);
+
+    @Query("SELECT COUNT(*) FROM users")
+    int countUsers();
 }

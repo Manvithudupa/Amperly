@@ -19,12 +19,17 @@ public class CarScreenFactory {
         RESERVATION_STATUS
     }
 
+    /** Screen with no extra arguments. Charger details has no station yet, so it stays on the list. */
     public static Screen createScreen(ScreenType type, CarContext carContext) {
+        return createScreen(type, carContext, null);
+    }
+
+    public static Screen createScreen(ScreenType type, CarContext carContext, String stationId) {
         switch (type) {
             case CHARGER_LIST:
                 return new ChargerListCarScreen(carContext);
             case CHARGER_DETAILS:
-                return new ChargerDetailsCarScreen(carContext);
+                return new ChargerDetailsCarScreen(carContext, stationId);
             case SOC_UPDATE:
                 return new SoCUpdateCarScreen(carContext);
             case RESERVATION_STATUS:

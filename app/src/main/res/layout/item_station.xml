@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/stationCard"
+    style="@style/Widget.Amperly.Card"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginHorizontal="@dimen/amp_space_s"
+    android:layout_marginVertical="@dimen/amp_space_xs"
+    android:clickable="true"
+    android:focusable="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="@dimen/amp_space_m">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/stationNameText"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:textAppearance="@style/TextAppearance.Amperly.SectionTitle" />
+
+            <TextView
+                android:id="@+id/verificationBadgeText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@color/amp_primary_container"
+                android:paddingHorizontal="@dimen/amp_space_s"
+                android:paddingVertical="2dp"
+                android:textAppearance="@style/TextAppearance.Amperly.Label"
+                android:textColor="@color/amp_on_primary_container" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/stationAddressText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:textAppearance="@style/TextAppearance.Amperly.Body" />
+
+        <TextView
+            android:id="@+id/stationTypeText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/amp_space_s"
+            android:textAppearance="@style/TextAppearance.Amperly.Body" />
+
+        <TextView
+            android:id="@+id/availabilityText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/amp_space_xs"
+            android:textAppearance="@style/TextAppearance.Amperly.Body"
+            android:textColor="@color/amp_primary" />
+
+        <TextView
+            android:id="@+id/freshnessText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textAppearance="@style/TextAppearance.Amperly.Label" />
+
+        <TextView
+            android:id="@+id/priceText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/amp_space_s"
+            android:textAppearance="@style/TextAppearance.Amperly.Metric" />
+
+        <TextView
+            android:id="@+id/compatibilityText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textAppearance="@style/TextAppearance.Amperly.Body" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/amp_space_s"
+            android:orientation="horizontal">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/viewDetailsButton"
+                style="@style/Widget.Amperly.Button.Tonal"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/action_view_details" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/navigateButton"
+                style="@style/Widget.Amperly.Button.Outlined"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="@dimen/amp_space_s"
+                android:layout_weight="1"
+                android:text="@string/action_navigate" />
+        </LinearLayout>
+    </LinearLayout>
+</com.google.android.material.card.MaterialCardView>

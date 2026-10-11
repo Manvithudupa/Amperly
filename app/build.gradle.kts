@@ -1,6 +1,22 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
 }
+
+// The Google Maps API key is read from local.properties (MAPS_API_KEY=...) or the
+// MAPS_API_KEY environment variable. When it is missing the app still runs: map panels
+// fall back to a "map key not configured" placeholder and navigation is handed off to the
+// phone's installed maps application through an intent.
+val localProperties = Properties().apply {
+    val file = rootProject.file("local.properties")
+    if (file.exists()) {
+        file.inputStream().use { load(it) }
+    }
+}
+val mapsApiKey: String = (localProperties.getProperty("MAPS_API_KEY")
+    ?: System.getenv("MAPS_API_KEY")
+    ?: "").trim()
 
 android {
     namespace = "com.amperly.app"
@@ -14,6 +30,10 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        manifestPlaceholders["MAPS_API_KEY"] = mapsApiKey
+        buildConfigField("String", "MAPS_API_KEY", "\"$mapsApiKey\"")
+        buildConfigField("boolean", "MAPS_ENABLED", (mapsApiKey.isNotEmpty()).toString())
     }
 
     buildTypes {
@@ -31,6 +51,7 @@ android {
     }
     buildFeatures {
         viewBinding = true
+        buildConfig = true
     }
 }
 
@@ -47,12 +68,10 @@ dependencies {
     implementation("androidx.room:room-runtime:2.6.1")
     annotationProcessor("androidx.room:room-compiler:2.6.1")
 
-    // Networking & Retrofit (for Supabase & API)
-    implementation("com.squareup.retrofit2:retrofit:2.9.0")
-    implementation("com.squareup.retrofit2:converter-gson:2.9.0")
-    implementation("com.squareup.okhttp3:okhttp:4.12.0")
-    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
-    implementation("com.google.code.gson:gson:2.10.1")
+    // Lists & lifecycle-aware UI
+    implementation("androidx.recyclerview:recyclerview:1.3.2")
+    implementation("androidx.core:core:1.13.1")
+    implementation("androidx.fragment:fragment:1.6.2")
 
     // Location & Maps Services
     implementation("com.google.android.gms:play-services-location:21.2.0")

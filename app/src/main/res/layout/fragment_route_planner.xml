@@ -1,142 +1,399 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:padding="16dp"
     android:fillViewport="true">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical">
+        android:orientation="vertical"
+        android:padding="@dimen/amp_screen_padding">
 
         <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Route Corridor Charger Planner"
-            android:textSize="20sp"
-            android:textStyle="bold"
-            android:textColor="#212529"
-            android:layout_marginBottom="12dp" />
-
-        <EditText
-            android:id="@+id/originEdit"
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:hint="Origin (e.g. Mysore)"
-            android:text="Mysore"
-            android:background="@android:drawable/editbox_background"
-            android:paddingHorizontal="12dp"
-            android:layout_marginBottom="8dp" />
-
-        <EditText
-            android:id="@+id/destinationEdit"
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:hint="Destination (e.g. Mangalore)"
-            android:text="Mangalore"
-            android:background="@android:drawable/editbox_background"
-            android:paddingHorizontal="12dp"
-            android:layout_marginBottom="8dp" />
-
-        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginBottom="12dp">
+            android:text="@string/route_title"
+            android:textAppearance="@style/TextAppearance.Amperly.ScreenTitle" />
 
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Starting Battery (SoC %):"
-                android:textSize="15sp"
-                android:textStyle="bold" />
-
-            <EditText
-                android:id="@+id/startSocEdit"
-                android:layout_width="80dp"
-                android:layout_height="48dp"
-                android:inputType="number"
-                android:text="100"
-                android:gravity="center"
-                android:background="@android:drawable/editbox_background" />
-        </LinearLayout>
-
-        <Button
-            android:id="@+id/planRouteBtn"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Plan Route Corridor"
-            android:layout_marginBottom="16dp" />
-
-        <!-- Actual Dashboard SoC Override Section -->
         <com.google.android.material.card.MaterialCardView
+            style="@style/Widget.Amperly.Card"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
-            android:backgroundTint="#FFF3CD">
+            android:layout_marginTop="@dimen/amp_space_m">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="12dp">
+                android:padding="@dimen/amp_space_m">
 
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Manual Dashboard Battery Correction"
-                    android:textStyle="bold"
-                    android:textColor="#856404"
-                    android:layout_marginBottom="4dp" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="If dashboard SoC differs from estimate during trip, update below for instant authoritative rerouting."
-                    android:textSize="12sp"
-                    android:textColor="#856404"
-                    android:layout_marginBottom="8dp" />
-
-                <LinearLayout
+                <com.google.android.material.textfield.TextInputLayout
+                    style="@style/Widget.Amperly.TextInput"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="horizontal">
+                    android:hint="@string/route_origin">
 
-                    <EditText
-                        android:id="@+id/actualSocEdit"
-                        android:layout_width="0dp"
-                        android:layout_height="48dp"
-                        android:layout_weight="1"
-                        android:hint="Actual SoC (e.g. 25%)"
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/originEdit"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Mysore" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <com.google.android.material.textfield.TextInputLayout
+                    style="@style/Widget.Amperly.TextInput"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/amp_space_s"
+                    android:hint="@string/route_destination">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/destinationEdit"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Mangalore" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <com.google.android.material.textfield.TextInputLayout
+                    style="@style/Widget.Amperly.TextInput"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/amp_space_s"
+                    android:hint="@string/route_distance_hint">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/distanceEdit"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="numberDecimal"
+                        android:text="140" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <com.google.android.material.textfield.TextInputLayout
+                    style="@style/Widget.Amperly.TextInput"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/amp_space_s"
+                    android:hint="@string/route_current_soc">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/currentSocEdit"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
                         android:inputType="number"
-                        android:background="@android:drawable/editbox_background"
-                        android:paddingHorizontal="12dp" />
+                        android:text="55" />
+                </com.google.android.material.textfield.TextInputLayout>
 
-                    <Button
-                        android:id="@+id/updateActualSocBtn"
+                <TextView
+                    android:id="@+id/socSourceText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textAppearance="@style/TextAppearance.Amperly.Label" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/amp_space_s"
+                    android:text="@string/route_corridor"
+                    android:textAppearance="@style/TextAppearance.Amperly.Label" />
+
+                <com.google.android.material.chip.ChipGroup
+                    android:id="@+id/corridorChipGroup"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    app:singleLine="true"
+                    app:singleSelection="true">
+
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/corridor5Chip"
+                        style="@style/Widget.Amperly.Chip"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginStart="8dp"
-                        android:text="Update &amp; Reroute" />
-                </LinearLayout>
+                        android:checkable="true"
+                        android:text="5 km" />
+
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/corridor10Chip"
+                        style="@style/Widget.Amperly.Chip"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:checkable="true"
+                        android:checked="true"
+                        android:text="10 km" />
+
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/corridor20Chip"
+                        style="@style/Widget.Amperly.Chip"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:checkable="true"
+                        android:text="20 km" />
+                </com.google.android.material.chip.ChipGroup>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/amp_space_s"
+                    android:text="@string/route_preference"
+                    android:textAppearance="@style/TextAppearance.Amperly.Label" />
+
+                <com.google.android.material.chip.ChipGroup
+                    android:id="@+id/preferenceChipGroup"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    app:singleLine="false"
+                    app:singleSelection="true">
+
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/prefFastestChip"
+                        style="@style/Widget.Amperly.Chip"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:checkable="true"
+                        android:checked="true"
+                        android:text="@string/pref_fastest" />
+
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/prefCheapestChip"
+                        style="@style/Widget.Amperly.Chip"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:checkable="true"
+                        android:text="@string/pref_cheapest" />
+
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/prefReliableChip"
+                        style="@style/Widget.Amperly.Chip"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:checkable="true"
+                        android:text="@string/pref_reliable" />
+
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/prefShortestDetourChip"
+                        style="@style/Widget.Amperly.Chip"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:checkable="true"
+                        android:text="@string/pref_shortest_detour" />
+                </com.google.android.material.chip.ChipGroup>
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/planRouteButton"
+                    style="@style/Widget.Amperly.Button"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/amp_space_m"
+                    android:text="@string/route_plan_action" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- Route Results Summary -->
+        <com.google.android.material.card.MaterialCardView
+            style="@style/Widget.Amperly.Card"
+            android:layout_width="match_parent"
+            android:layout_height="@dimen/amp_map_panel_height"
+            android:layout_marginTop="@dimen/amp_space_m">
+
+            <FrameLayout
+                android:id="@+id/routeMapContainer"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent" />
+        </com.google.android.material.card.MaterialCardView>
+
         <TextView
             android:id="@+id/routeSummaryText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textSize="14sp"
-            android:textColor="#333333"
-            android:layout_marginBottom="12dp" />
+            android:layout_marginTop="@dimen/amp_space_m"
+            android:textAppearance="@style/TextAppearance.Amperly.Body" />
+
+        <TextView
+            android:id="@+id/confidenceText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textAppearance="@style/TextAppearance.Amperly.Label" />
+
+        <TextView
+            android:id="@+id/planStatusText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/amp_space_s"
+            android:background="@color/amp_tertiary_container"
+            android:padding="@dimen/amp_space_s"
+            android:textAppearance="@style/TextAppearance.Amperly.Body"
+            android:visibility="gone" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/amp_space_m"
+            android:text="@string/route_recommended_stop"
+            android:textAppearance="@style/TextAppearance.Amperly.SectionTitle" />
 
         <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/routeChargersRecyclerView"
+            android:id="@+id/plannedStopsRecyclerView"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content" />
+            android:layout_height="wrap_content"
+            android:nestedScrollingEnabled="false" />
 
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/amp_space_s"
+            android:text="@string/route_backups"
+            android:textAppearance="@style/TextAppearance.Amperly.SectionTitle" />
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/backupsRecyclerView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:nestedScrollingEnabled="false" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/amp_space_m"
+            android:text="@string/route_candidates"
+            android:textAppearance="@style/TextAppearance.Amperly.SectionTitle" />
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/candidatesRecyclerView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:nestedScrollingEnabled="false" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/amp_space_m"
+            android:text="@string/route_assumptions"
+            android:textAppearance="@style/TextAppearance.Amperly.SectionTitle" />
+
+        <LinearLayout
+            android:id="@+id/assumptionsContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical" />
+
+        <TextView
+            android:id="@+id/estimateNoticeText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/amp_space_s"
+            android:background="@color/amp_secondary_container"
+            android:padding="@dimen/amp_space_s"
+            android:text="@string/route_estimate_notice"
+            android:textAppearance="@style/TextAppearance.Amperly.Label" />
+
+        <com.google.android.material.card.MaterialCardView
+            style="@style/Widget.Amperly.Card"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/amp_space_m">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="@dimen/amp_space_m">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/soc_update_title"
+                    android:textAppearance="@style/TextAppearance.Amperly.SectionTitle" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/soc_update_hint"
+                    android:textAppearance="@style/TextAppearance.Amperly.Body" />
+
+                <com.google.android.material.textfield.TextInputLayout
+                    style="@style/Widget.Amperly.TextInput"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/amp_space_s"
+                    android:hint="@string/route_current_soc">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/actualSocEdit"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="number" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/updateSocButton"
+                    style="@style/Widget.Amperly.Button.Tonal"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/amp_space_s"
+                    android:text="@string/soc_update_action" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <LinearLayout
+            android:id="@+id/recalcContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/amp_space_m"
+            android:orientation="vertical" />
+
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/noSafeChargerContainer"
+            style="@style/Widget.Amperly.Card"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/amp_space_m"
+            android:visibility="gone"
+            app:cardBackgroundColor="@color/amp_error_container">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="@dimen/amp_space_m">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/soc_no_safe_charger"
+                    android:textAppearance="@style/TextAppearance.Amperly.SectionTitle"
+                    android:textColor="@color/amp_on_error_container" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/soc_no_safe_body"
+                    android:textAppearance="@style/TextAppearance.Amperly.Body" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/widerRadiusButton"
+                    style="@style/Widget.Amperly.Button.Outlined"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/amp_space_s"
+                    android:text="@string/soc_wider_radius" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/slowerChargerButton"
+                    style="@style/Widget.Amperly.Button.Outlined"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/amp_space_s"
+                    android:text="@string/soc_slower_charger" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/emergencyButton"
+                    style="@style/Widget.Amperly.Button.Outlined"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/amp_space_s"
+                    android:text="@string/soc_emergency" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
     </LinearLayout>
 </ScrollView>

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <item
+        android:id="@+id/action_vehicle"
+        android:icon="@drawable/ic_vehicle"
+        android:title="@string/vehicle_title"
+        app:showAsAction="ifRoom" />
+
+    <item
+        android:id="@+id/action_safety"
+        android:icon="@drawable/ic_safety"
+        android:title="@string/safety_title"
+        app:showAsAction="ifRoom" />
+</menu>

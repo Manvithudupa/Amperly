@@ -13,13 +13,20 @@ public class User {
     private String email;
     private String phone;
     private String role; // CONSUMER, HOST, ADMIN
+    private String organizationName;
+    private String verificationStatus; // UNVERIFIED, PENDING, VERIFIED
+    private boolean isBlocked;
 
-    public User(@NonNull String id, String name, String email, String phone, String role) {
+    public User(@NonNull String id, String name, String email, String phone, String role,
+                String organizationName, String verificationStatus, boolean isBlocked) {
         this.id = id;
         this.name = name;
         this.email = email;
         this.phone = phone;
         this.role = role;
+        this.organizationName = organizationName;
+        this.verificationStatus = verificationStatus;
+        this.isBlocked = isBlocked;
     }
 
     @NonNull
@@ -37,4 +44,13 @@ public class User {
 
     public String getRole() { return role; }
     public void setRole(String role) { this.role = role; }
+
+    public String getOrganizationName() { return organizationName; }
+    public void setOrganizationName(String organizationName) { this.organizationName = organizationName; }
+
+    public String getVerificationStatus() { return verificationStatus; }
+    public void setVerificationStatus(String verificationStatus) { this.verificationStatus = verificationStatus; }
+
+    public boolean isBlocked() { return isBlocked; }
+    public void setBlocked(boolean blocked) { isBlocked = blocked; }
 }

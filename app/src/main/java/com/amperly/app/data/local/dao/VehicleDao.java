@@ -27,4 +27,10 @@ public interface VehicleDao {
 
     @Query("SELECT * FROM vehicles WHERE userId = :userId LIMIT 1")
     LiveData<Vehicle> getVehicleByUserId(String userId);
+
+    @Query("SELECT * FROM vehicles WHERE userId = :userId")
+    List<Vehicle> getVehiclesForUserSync(String userId);
+
+    @Query("SELECT * FROM vehicles")
+    List<Vehicle> getAllVehiclesSync();
 }

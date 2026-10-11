@@ -2,4 +2,33 @@
 <resources>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+
+    <!-- Amperly brand: trustworthy green for energy, electric blue for the route layer -->
+    <color name="amp_primary">#0E7C56</color>
+    <color name="amp_primary_dark">#0A5C40</color>
+    <color name="amp_primary_light">#3FA37C</color>
+    <color name="amp_primary_container">#C6F0DC</color>
+    <color name="amp_on_primary_container">#04301F</color>
+
+    <color name="amp_secondary">#1B6FE3</color>
+    <color name="amp_secondary_container">#D8E6FF</color>
+    <color name="amp_on_secondary_container">#04213F</color>
+
+    <color name="amp_tertiary">#B26A00</color>
+    <color name="amp_tertiary_container">#FFE1BA</color>
+
+    <color name="amp_error">#C62828</color>
+    <color name="amp_error_container">#FFDAD6</color>
+    <color name="amp_on_error_container">#410E0B</color>
+
+    <color name="amp_surface">#F5F8F6</color>
+    <color name="amp_surface_variant">#E3EAE6</color>
+    <color name="amp_on_surface">#161D1A</color>
+    <color name="amp_on_surface_variant">#4A5550</color>
+    <color name="amp_outline">#BFCBC5</color>
+    <color name="amp_card">#FFFFFF</color>
+
+    <color name="amp_success">#1B7F4B</color>
+    <color name="amp_warning">#B26A00</color>
+    <color name="amp_info">#1B6FE3</color>
 </resources>

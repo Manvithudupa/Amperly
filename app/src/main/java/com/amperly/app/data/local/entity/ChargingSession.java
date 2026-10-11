@@ -13,6 +13,7 @@ public class ChargingSession {
     private String consumerId;
     private String hostId;
     private String stationId;
+    private String stationName;
     private String portId;
     private long startTimeMs;
     private long endTimeMs;
@@ -23,18 +24,24 @@ public class ChargingSession {
     private double serviceFee;
     private double gatewayFee;
     private double totalPaid;
-    private String status;
+    private String status; // CHECKED_IN, CHARGING, COMPLETED, DISPUTED, REFUNDED
+    private String meterReadingId;
+    private String invoiceId;
+    private boolean isMeterSimulated;
+    private String verificationLevel;
 
     public ChargingSession(@NonNull String id, String reservationId, String consumerId, String hostId,
-                           String stationId, String portId, long startTimeMs, long endTimeMs,
-                           double startingMeterKwh, double endingMeterKwh, double verifiedKwhConsumed,
-                           double energyCharge, double serviceFee, double gatewayFee, double totalPaid,
-                           String status) {
+                           String stationId, String stationName, String portId, long startTimeMs,
+                           long endTimeMs, double startingMeterKwh, double endingMeterKwh,
+                           double verifiedKwhConsumed, double energyCharge, double serviceFee,
+                           double gatewayFee, double totalPaid, String status, String meterReadingId,
+                           String invoiceId, boolean isMeterSimulated, String verificationLevel) {
         this.id = id;
         this.reservationId = reservationId;
         this.consumerId = consumerId;
         this.hostId = hostId;
         this.stationId = stationId;
+        this.stationName = stationName;
         this.portId = portId;
         this.startTimeMs = startTimeMs;
         this.endTimeMs = endTimeMs;
@@ -46,6 +53,10 @@ public class ChargingSession {
         this.gatewayFee = gatewayFee;
         this.totalPaid = totalPaid;
         this.status = status;
+        this.meterReadingId = meterReadingId;
+        this.invoiceId = invoiceId;
+        this.isMeterSimulated = isMeterSimulated;
+        this.verificationLevel = verificationLevel;
     }
 
     @NonNull
@@ -63,6 +74,9 @@ public class ChargingSession {
 
     public String getStationId() { return stationId; }
     public void setStationId(String stationId) { this.stationId = stationId; }
+
+    public String getStationName() { return stationName; }
+    public void setStationName(String stationName) { this.stationName = stationName; }
 
     public String getPortId() { return portId; }
     public void setPortId(String portId) { this.portId = portId; }
@@ -96,4 +110,16 @@ public class ChargingSession {
 
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
+
+    public String getMeterReadingId() { return meterReadingId; }
+    public void setMeterReadingId(String meterReadingId) { this.meterReadingId = meterReadingId; }
+
+    public String getInvoiceId() { return invoiceId; }
+    public void setInvoiceId(String invoiceId) { this.invoiceId = invoiceId; }
+
+    public boolean isMeterSimulated() { return isMeterSimulated; }
+    public void setMeterSimulated(boolean meterSimulated) { isMeterSimulated = meterSimulated; }
+
+    public String getVerificationLevel() { return verificationLevel; }
+    public void setVerificationLevel(String verificationLevel) { this.verificationLevel = verificationLevel; }
 }

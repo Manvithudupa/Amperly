@@ -1,14 +1,18 @@
 package com.amperly.app;
 
 import android.os.Bundle;
-import android.view.View;
-import android.widget.AdapterView;
-import android.widget.ArrayAdapter;
-import android.widget.Spinner;
+import android.view.Menu;
+import android.view.MenuItem;
+import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.Toolbar;
 import androidx.fragment.app.Fragment;
 
+import com.amperly.app.core.common.AppConstants;
+import com.amperly.app.core.nav.Navigator;
+import com.amperly.app.core.security.AuthManager;
+import com.amperly.app.core.state.AppStateStore;
 import com.amperly.app.data.local.PilotDataSeeder;
 import com.amperly.app.feature.admin.AdminDashboardFragment;
 import com.amperly.app.feature.consumer.ActiveSessionFragment;
@@ -17,97 +21,165 @@ import com.amperly.app.feature.consumer.HostChatFragment;
 import com.amperly.app.feature.consumer.ReservationFragment;
 import com.amperly.app.feature.consumer.RoutePlannerFragment;
 import com.amperly.app.feature.consumer.SafetySOSFragment;
+import com.amperly.app.feature.consumer.VehicleProfileFragment;
 import com.amperly.app.feature.host.HostDashboardFragment;
 import com.amperly.app.feature.host.RegisterStationFragment;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
+import com.google.android.material.chip.ChipGroup;
 
 public class MainActivity extends AppCompatActivity {
 
     private BottomNavigationView bottomNavigationView;
+    private TextView currentUserText;
+    private ChipGroup roleChipGroup;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        // Seed pilot data
         PilotDataSeeder.seedPilotData(this);
 
-        Spinner roleSpinner = findViewById(R.id.roleSpinner);
+        Toolbar toolbar = findViewById(R.id.topToolbar);
+        setSupportActionBar(toolbar);
+
         bottomNavigationView = findViewById(R.id.bottomNavigationView);
+        currentUserText = findViewById(R.id.currentUserText);
+        roleChipGroup = findViewById(R.id.roleChipGroup);
 
-        String[] roles = {"Consumer Mode", "Host Mode", "Administrator Mode"};
-        ArrayAdapter<String> roleAdapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, roles);
-        roleSpinner.setAdapter(roleAdapter);
-
-        roleSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
-            @Override
-            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-                setupRoleNavigation(position);
+        roleChipGroup.setOnCheckedStateChangeListener((group, checkedIds) -> {
+            if (checkedIds.isEmpty()) {
+                return;
             }
-
-            @Override
-            public void onNothingSelected(AdapterView<?> parent) {}
+            int id = checkedIds.get(0);
+            if (id == R.id.roleChipHost) {
+                applyRole(AppConstants.ROLE_HOST);
+            } else if (id == R.id.roleChipAdmin) {
+                applyRole(AppConstants.ROLE_ADMIN);
+            } else {
+                applyRole(AppConstants.ROLE_CONSUMER);
+            }
         });
 
-        // Initial default: Consumer Mode
-        setupRoleNavigation(0);
+        roleChipGroup.check(R.id.roleChipConsumer);
+        applyRole(AppConstants.ROLE_CONSUMER);
     }
 
-    private void setupRoleNavigation(int roleIndex) {
-        bottomNavigationView.getMenu().clear();
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.main_menu, menu);
+        return true;
+    }
 
-        if (roleIndex == 0) { // Consumer
-            bottomNavigationView.getMenu().add(0, 1, 0, "Discover").setIcon(android.R.drawable.ic_menu_search);
-            bottomNavigationView.getMenu().add(0, 2, 1, "Route").setIcon(android.R.drawable.ic_menu_directions);
-            bottomNavigationView.getMenu().add(0, 3, 2, "Reserve").setIcon(android.R.drawable.ic_menu_day);
-            bottomNavigationView.getMenu().add(0, 4, 3, "Session").setIcon(android.R.drawable.ic_menu_agenda);
-            bottomNavigationView.getMenu().add(0, 5, 4, "Safety").setIcon(android.R.drawable.ic_menu_help);
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        if (item.getItemId() == R.id.action_vehicle) {
+            roleChipGroup.check(R.id.roleChipConsumer);
+            applyRole(AppConstants.ROLE_CONSUMER);
+            Navigator.openRoot(this, new VehicleProfileFragment(), "vehicle");
+            return true;
+        }
+        if (item.getItemId() == R.id.action_safety) {
+            Navigator.openRoot(this, new SafetySOSFragment(), "safety");
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
+    }
 
-            bottomNavigationView.setOnItemSelectedListener(item -> {
-                switch (item.getItemId()) {
-                    case 1: loadFragment(new ChargerDiscoveryFragment()); return true;
-                    case 2: loadFragment(new RoutePlannerFragment()); return true;
-                    case 3: loadFragment(new ReservationFragment()); return true;
-                    case 4: loadFragment(new ActiveSessionFragment()); return true;
-                    case 5: loadFragment(new SafetySOSFragment()); return true;
-                }
-                return false;
-            });
-            loadFragment(new ChargerDiscoveryFragment());
+    private void applyRole(String role) {
+        AuthManager.getInstance().setRole(role);
+        AppStateStore.get().setUserId(AuthManager.getInstance().getCurrentUserId());
+        currentUserText.setText(AuthManager.getInstance().describeCurrentUser());
+        buildNavigation(role);
+    }
 
-        } else if (roleIndex == 1) { // Host
-            bottomNavigationView.getMenu().add(0, 10, 0, "Dashboard").setIcon(android.R.drawable.ic_menu_manage);
-            bottomNavigationView.getMenu().add(0, 11, 1, "Add Station").setIcon(android.R.drawable.ic_menu_add);
-            bottomNavigationView.getMenu().add(0, 12, 2, "Messages").setIcon(android.R.drawable.ic_menu_send);
+    private void buildNavigation(String role) {
+        Menu menu = bottomNavigationView.getMenu();
+        menu.clear();
+        bottomNavigationView.setOnItemSelectedListener(null);
 
-            bottomNavigationView.setOnItemSelectedListener(item -> {
-                switch (item.getItemId()) {
-                    case 10: loadFragment(new HostDashboardFragment()); return true;
-                    case 11: loadFragment(new RegisterStationFragment()); return true;
-                    case 12: loadFragment(new HostChatFragment()); return true;
-                }
-                return false;
-            });
-            loadFragment(new HostDashboardFragment());
+        if (AppConstants.ROLE_HOST.equals(role)) {
+            menu.add(0, 10, 0, R.string.nav_dashboard).setIcon(R.drawable.ic_dashboard);
+            menu.add(0, 11, 1, R.string.nav_add_station).setIcon(R.drawable.ic_add);
+            menu.add(0, 12, 2, R.string.nav_chat).setIcon(R.drawable.ic_chat);
+            bottomNavigationView.setOnItemSelectedListener(item -> loadHostScreen(item.getItemId()));
+            bottomNavigationView.setSelectedItemId(10);
+            loadRoot(new HostDashboardFragment(), "host_dashboard");
+            return;
+        }
 
-        } else if (roleIndex == 2) { // Admin
-            bottomNavigationView.getMenu().add(0, 20, 0, "Admin Desk").setIcon(android.R.drawable.ic_menu_edit);
+        if (AppConstants.ROLE_ADMIN.equals(role)) {
+            menu.add(0, 20, 0, R.string.nav_admin).setIcon(R.drawable.ic_admin);
+            bottomNavigationView.setOnItemSelectedListener(item -> loadAdminScreen(item.getItemId()));
+            bottomNavigationView.setSelectedItemId(20);
+            loadRoot(new AdminDashboardFragment(), "admin_dashboard");
+            return;
+        }
 
-            bottomNavigationView.setOnItemSelectedListener(item -> {
-                if (item.getItemId() == 20) {
-                    loadFragment(new AdminDashboardFragment());
-                    return true;
-                }
-                return false;
-            });
-            loadFragment(new AdminDashboardFragment());
+        menu.add(0, 1, 0, R.string.nav_discover).setIcon(R.drawable.ic_discover);
+        menu.add(0, 2, 1, R.string.nav_route).setIcon(R.drawable.ic_route);
+        menu.add(0, 3, 2, R.string.nav_reserve).setIcon(R.drawable.ic_reserve);
+        menu.add(0, 4, 3, R.string.nav_session).setIcon(R.drawable.ic_session);
+        menu.add(0, 5, 4, R.string.nav_safety).setIcon(R.drawable.ic_safety);
+        bottomNavigationView.setOnItemSelectedListener(item -> loadConsumerScreen(item.getItemId()));
+        bottomNavigationView.setSelectedItemId(1);
+        loadRoot(new ChargerDiscoveryFragment(), "discover");
+    }
+
+    private boolean loadConsumerScreen(int itemId) {
+        Fragment fragment;
+        String tag;
+        switch (itemId) {
+            case 2:
+                fragment = new RoutePlannerFragment();
+                tag = "route";
+                break;
+            case 3:
+                fragment = new ReservationFragment();
+                tag = "reserve";
+                break;
+            case 4:
+                fragment = new ActiveSessionFragment();
+                tag = "session";
+                break;
+            case 5:
+                fragment = new SafetySOSFragment();
+                tag = "safety";
+                break;
+            default:
+                fragment = new ChargerDiscoveryFragment();
+                tag = "discover";
+                break;
+        }
+        loadRoot(fragment, tag);
+        return true;
+    }
+
+    private boolean loadHostScreen(int itemId) {
+        switch (itemId) {
+            case 11:
+                loadRoot(new RegisterStationFragment(), "register");
+                return true;
+            case 12:
+                loadRoot(new HostChatFragment(), "chat");
+                return true;
+            default:
+                loadRoot(new HostDashboardFragment(), "host_dashboard");
+                return true;
         }
     }
 
-    private void loadFragment(Fragment fragment) {
-        getSupportFragmentManager().beginTransaction()
-                .replace(R.id.fragment_container, fragment)
+    private boolean loadAdminScreen(int itemId) {
+        loadRoot(new AdminDashboardFragment(), "admin");
+        return true;
+    }
+
+    private void loadRoot(Fragment fragment, String tag) {
+        getSupportFragmentManager()
+                .popBackStack(null, androidx.fragment.app.FragmentManager.POP_BACK_STACK_INCLUSIVE);
+        getSupportFragmentManager()
+                .beginTransaction()
+                .replace(R.id.fragment_container, fragment, tag)
                 .commit();
     }
 }

@@ -1,164 +1,280 @@
 # Amperly
 ### Smart Reservation and Management Platform for Existing EV Chargers
 
-**Amperly** is an Android-first hyperlocal EV charger-management, route-planning, and reservation platform built in Java. It enables drivers to find compatible chargers along a journey, reserve charging slots, check in with QR codes, communicate securely with station Hosts, and pay transparently according to verified meter readings.
+**Amperly** is an Android-first hyperlocal EV charger-management, route-planning, and reservation platform written in Java. It helps drivers plan a journey around compatible chargers that already exist, reserve a specific port, check in with a QR code, talk to the Host through masked channels, and pay only for **verified meter readings** — with a glanceable version of the same trip on the car display through **Android Auto**.
 
-Google Maps helps you find a charger. **Amperly helps you reserve, access, use, and pay for it**—with route-aware charging plans projected directly onto the car display via Android Auto.
+Google Maps helps you find a charger. **Amperly helps you reserve, access, use, and pay for it** — with route-aware charging plans projected onto the car display.
+
+> Route energy and battery-drain figures are **planning estimates**. The final bill is always based on verified meter readings. Stations without a verified meter can only take a reservation **without automatic billing**.
 
 ---
 
-## 🌟 Key Product Architecture
+## 1. What this build actually is
 
-Amperly operates as a software management layer for existing charging infrastructure in college campuses, apartment communities, offices, parking areas, and commercial sites.
+The MVP is a **single-process Android application**. There is no live backend and no charger hardware integration:
+
+| Concern | How it works in this MVP |
+|---|---|
+| Persistence | Room database (`AmperlyDatabase`, **v2, 23 entities + 23 DAOs**), the single source of truth |
+| Data access | One hub, `AmperlyRepository` (all DAO access, off-main-thread helpers) |
+| Demo data | `PilotDataSeeder` seeds the controlled pilot on first launch |
+| Maps | Google Maps panel when a key is configured, explanatory card + `geo:` intent handoff when it is not |
+| Payments | `PaymentManager` sandbox: authorize → capture/refund/release, idempotency keys, offline failure path |
+| Charger telemetry | None. Availability is schedule-, reservation- and host-update-based, and is labelled with a freshness timestamp |
+| Meter data | `MeterSimulator` / manual entry, always labelled **Demo meter** or **manually entered** |
+| Cloud | None. The MVP is fully on-device; a server and API layer are future work, so no networking client is declared
+
+`AmperlyDatabase` uses `fallbackToDestructiveMigration()`, so a schema change resets local demo data instead of migrating it.
+
+---
+
+## 2. Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    Android Phone Application                │
-│  Consumer UI | Host Dashboard | Admin Dashboard | Settings  │
-└──────────────────────────────┬──────────────────────────────┘
-                               │
-                               │ Shared authenticated APIs
-                               │
-┌──────────────────────────────▼──────────────────────────────┐
-│                  Amperly Backend Services                   │
-│ Auth | Stations | Reservations | Routes | Billing | Safety  │
-└───────────────┬──────────────────────┬──────────────────────┘
-                │                      │
-        ┌───────▼────────┐     ┌───────▼─────────┐
-        │ Supabase Cloud │     │ Room Local DB   │
-        │ PostgreSQL     │     │ Cache/Offline   │
-        └────────────────┘     └─────────────────┘
-
-┌─────────────────────────────────────────────────────────────┐
-│                     Android Auto Experience                 │
-│ Route | Chargers | Detours | Reservation | Safe SoC Update  │
-└─────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│                          MainActivity (role switch)                  │
+│        Consumer tabs │ Host tabs │ Admin tabs  (ChipGroup of roles)   │
+└───────────────┬──────────────────────────────────────────────────────┘
+                │  fragments call engines directly (no ViewModels)
+                ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│                              Engines                                 │
+│ Routing │ SoC │ Billing │ Availability │ Meter │ Booking │ Analytics  │
+│                     Enforcement policy                                │
+└───────────────┬──────────────────────────────────────────────────────┘
+                │
+┌───────────────▼──────────────────────────────────────────────────────┐
+│                         AmperlyRepository                            │
+│      stations · ports · schedules · reservations · sessions ·         │
+│      meters · invoices · payments · reports · disputes · chat ·       │
+│      safety · route plans · auto sessions   (Room, background IO)     │
+└───────────────┬──────────────────────────────────────────────────────┘
+                │
+     ┌──────────┴───────────┐
+     ▼                      ▼
+┌──────────────┐   ┌──────────────────────────────────────────┐
+│ AppStateStore│   │            Android Auto layer            │
+│ shared trip  │◄──│ CarBridge · AmperlyCarSession · screens  │
+│ + SoC state  │   │ RouteOverview · ChargerList · Details ·   │
+└──────────────┘   │ SoCUpdate · ReservationStatus            │
+                   └──────────────────────────────────────────┘
 ```
 
----
-
-## 🚀 Key Features & Capabilities
-
-### 🚗 Consumer Experience (Phone & Android Auto)
-- **Vehicle Profile Management:** Store vehicle make, model, variant, battery size (kWh), connector standard (Type 2 AC, CCS2 DC, GB/T), and efficiency parameters.
-- **Route Corridor Charger Planner:** Search candidate chargers along journey corridors (e.g., Mysore to Mangalore) with detour distance (+km), detour time (+mins), estimated charging time, and expected arrival SoC %.
-- **Authoritative Battery SoC Correction:** Amperly estimates battery drain during driving. If the actual dashboard SoC differs, the Consumer can enter the actual percentage at any time. This value becomes **authoritative**, recalculates remaining range, removes unreachable chargers, and highlights the nearest safe compatible stop.
-- **Port Reservation & QR Check-In:** Reserve specific ports for time slots, receive a booking QR code, and authorize payment in sandbox mode.
-- **Level 1/2 Verified Meter Billing:** Itemized bills separating Energy Charge (`Verified kWh * Tariff`), Amperly Service Fee, and Gateway Fee based strictly on start/end meter readings.
-- **Active Session Safety & SOS:** Emergency alert trigger, local emergency guidance, and time-limited live location sharing with trusted contacts.
-- **Masked Host Communication:** Reservation-scoped chat threads with phone number masking and off-platform payment detection warnings.
-
-### 🏢 Host Experience
-- **Charger Registration:** Register existing chargers with location, connector types, power ratings (kW), operating hours, and tariffs.
-- **Availability Management:** Open/close ports, mark maintenance blocks, and approve upcoming reservations.
-- **Meter Evidence Verification:** Enter or upload starting and ending meter readings with photograph evidence simulation.
-- **Earnings & Utilization Analytics:** Real-time metrics on completed sessions, energy delivered (kWh), total revenue, and station utilization rates.
-
-### 🛡️ Administrator Experience
-- **Verification Queue:** Review and approve pending station listings and Host identity documentation.
-- **Billing Disputes Desk:** Review meter evidence, resolve Consumer/Host disputes, and issue refunds.
-- **Host Enforcement:** Issue policy warnings, fines, station suspensions, or bans for proven misconduct.
+The phone and the car read the **same** `AppStateStore`, so a reservation or battery update made on one surface is visible on the other.
 
 ---
 
-## 🛠️ Technology Stack
+## 3. Engines and the guarantees they hold
 
-| Layer | Technology | Purpose |
-|---|---|---|
-| **Language** | Native Java | Android application and Android Auto service logic |
-| **IDE** | Android Studio | Development, build system, and debugging |
-| **Car UI** | Android for Cars App Library (`androidx.car.app:app`) | Driver-optimized glanceable car-display screens |
-| **Local Persistence** | Room Database (`androidx.room:room-runtime`) | Fast local caching and offline-first state |
-| **Cloud Backend** | Supabase PostgreSQL & PostgREST API | User auth, station listings, real-time reservations, and audit logs |
-| **Networking** | Retrofit 2 & OkHttp 4 | REST API communication and Supabase integration |
-| **Maps & Location** | Google Play Services Location & Maps SDK | GPS tracking, route corridors, and station navigation |
-| **Payments** | Sandbox Payment Manager | Authorization, capture, fee separation, and idempotency protection |
-| **Testing** | JUnit 4 & AndroidX Test | Automated unit testing for engines, security, and repositories |
+| Engine | Responsibility and hard rules |
+|---|---|
+| `RoutePlannerEngine` | Corridor filtering, connector compatibility, detour cost, greedy multi-stop plan, backup stops before/after, recorded assumptions, HIGH/MEDIUM/LOW confidence. **Never routes beyond the safe range**: if nothing is reachable it returns a `noStopWarning` instead of an invented stop. Out-of-corridor and incompatible stations are returned as **explanations with reasons**, not silently dropped. |
+| `SoCEstimatorEngine` | Estimates a starting SoC from the vehicle profile (always labelled an estimate) and applies the consumer's dashboard value as **authoritative**: keeps the old estimate for audit, removes unreachable chargers, adds newly reachable ones, recalculates the **remaining** trip, and reports a prominent **no safe charger** state with alternatives instead of a fake route. |
+| `BillingEngine` | Blocks paid billing entirely at stations without a verified meter. Itemises starting/ending readings, verified kWh, energy charge, service fee, gateway fee and final total. Zero energy ⇒ zero charge. Unusually large readings are flagged for admin review. Also owns the cancellation policy and refund/adjustment maths. |
+| `AvailabilityEngine` | Builds bookable slots from operating schedules, port status, maintenance blocks and existing reservations; detects conflicts; summarises openness. |
+| `MeterSimulator` | Cumulative demo readings, session progression, offline state, invalid (reversed) readings and physically implausible readings. |
+| `ReservationEngine` | Double-booking prevention, port-level connector compatibility, paused/unverified station rejection, meterless-station policy, price preview with authorized headroom, booking code and QR payload, and the published cancellation policy copy. |
+| `HostAnalyticsEngine` | Utilisation, energy delivered, revenue, repeat consumers, cancellation rate, average session size, disputes and refunds — for one host or the whole platform. |
+| `EnforcementPolicyEngine` | Evidence-based escalation: warning → fine → suspension → ban. An **unverified** accusation results in `NONE`; hosts are never punished on an unproven complaint. |
+
+`PaymentManager` (sandbox authorize/capture/refund/release + idempotency) and `ChatManager` (number masking, text sanitising, off-platform payment detection, 7-day thread expiry) sit alongside the engines.
 
 ---
 
-## 📂 Project Package Structure (`com.amperly.app`)
+## 4. Honesty rules baked into the product
+
+These are requirements, not niceties, and the code enforces them:
+
+1. **Meter-first billing.** No verified meter ⇒ no automatic energy charge. Level 3 stations stay visible as *discovery only*.
+2. **Estimates are labelled.** Route energy, SoC and arrival percentages are always presented as estimates; the UI shows when the battery figure was last updated.
+3. **The consumer's battery value wins.** A dashboard SoC always overrides Amperly's estimate for the remaining trip.
+4. **The original plan is never silently rewritten.** Screens show `Original estimate → Actual update → Revised recommendation`, and the audit record is stored.
+5. **Simulated data says so.** Demo meter readings are labelled "Demo meter — simulated reading, not live charger hardware".
+6. **No emergency-service claim.** The SOS screen offers trusted-contact live-location sharing (60 minutes, opt-in, cancellable) and points at local emergency numbers — it does not promise a response.
+7. **Free-text chat is phone-only.** The car surface never offers typing.
+8. **Freshness is visible.** "Availability last updated X ago" is shown wherever availability is presented.
+
+---
+
+## 5. Package structure (`com.amperly.app`)
 
 ```text
 com.amperly.app/
-├── AmperlyApplication.java
-├── MainActivity.java
+├── AmperlyApplication.java, MainActivity.java
 │
 ├── core/
-│   ├── common/         # AppConstants, ValidationUtils
-│   ├── location/       # LocationProvider
-│   ├── security/       # AuthManager, RoleGuard
-│   └── ui/             # Base UI abstractions
+│   ├── common/     AppConstants, Formatters, GeoUtils, PilotPlaces, ValidationUtils
+│   ├── location/   LocationProvider
+│   ├── map/        MapHelper            (keyed map panel or graceful fallback)
+│   ├── nav/        Navigator            (fragment nav + geo:/tel: handoff)
+│   ├── security/   AuthManager, RoleGuard
+│   └── state/      AppStateStore        (shared phone ↔ car trip + SoC state)
 │
 ├── data/
-│   ├── local/          # AmperlyDatabase, PilotDataSeeder
-│   │   ├── dao/        # UserDao, VehicleDao, ChargerStationDao, ReservationDao, SessionDao, DisputeDao
-│   │   └── entity/     # User, Vehicle, ChargerStation, ChargerPort, Reservation, ChargingSession, MeterReading, Invoice, Dispute, SafetyEvent, BatteryUpdate, ChatMessage, Report, HostEnforcementAction, Notification, TrustedContact
-│   ├── remote/         # SupabaseClient, SupabaseApi
-│   └── repository/     # AuthRepository, ChargerRepository, ReservationRepository, RouteRepository, SessionRepository, UserRepository, VehicleRepository
+│   ├── local/      AmperlyDatabase (v2), PilotDataSeeder
+│   │   ├── dao/    23 DAOs
+│   │   └── entity/ 23 entities (User, Vehicle, ChargerStation, ChargerPort,
+│   │               AvailabilitySchedule, Reservation, ChargingSession,
+│   │               MeterReading, Invoice, Payment, RoutePlan, RouteStop,
+│   │               TripEstimate, BatteryUpdate, CommunicationThread,
+│   │               ChatMessage, SafetyEvent, TrustedContact, Report, Dispute,
+│   │               HostEnforcementAction, Notification, AndroidAutoSession)
+│   └── repository/ AmperlyRepository            (single data hub)
 │
-├── domain/
-│   ├── model/          # Clean domain models
-│   └── enums/          # UserRole, ReservationStatus, ConnectorType, ChargerStatus, MeterVerificationLevel
+├── domain/enums/   ChargerStatus, ConnectorType, MeterVerificationLevel,
+│                   ReservationStatus, UserRole
 │
 ├── engine/
-│   ├── billing/        # BillingEngine
-│   ├── routing/        # RoutePlannerEngine, TripTimeEngine
-│   └── soc/            # SoCEstimatorEngine
+│   ├── admin/        EnforcementPolicyEngine
+│   ├── analytics/    HostAnalyticsEngine
+│   ├── availability/ AvailabilityEngine
+│   ├── billing/      BillingEngine
+│   ├── booking/      ReservationEngine
+│   ├── meter/        MeterSimulator
+│   ├── routing/      RoutePlannerEngine, TripTimeEngine
+│   └── soc/          SoCEstimatorEngine
 │
 ├── feature/
-│   ├── consumer/       # ChargerDiscoveryFragment, RoutePlannerFragment, VehicleProfileFragment, ReservationFragment, ActiveSessionFragment, SafetySOSFragment, HostChatFragment, BookingQrFragment, ReceiptFragment
-│   ├── host/           # HostDashboardFragment, RegisterStationFragment
-│   └── admin/          # AdminDashboardFragment
+│   ├── consumer/   ChargerDiscovery, ChargerDetails, RoutePlanner, VehicleProfile,
+│   │               Reservation, BookingQr, ActiveSession, Receipt, SafetySOS,
+│   │               HostChat
+│   ├── host/       HostDashboard, RegisterStation
+│   └── admin/      AdminDashboard
+│
+├── ui/             Ux, adapter/* (9 adapters), dialog/* (ReportDialog, MeterEvidenceDialog)
 │
 ├── car/
-│   ├── AmperlyCarAppService.java
-│   ├── AmperlyCarSession.java
-│   ├── CarScreenFactory.java
-│   └── screen/         # RouteOverviewCarScreen, ChargerListCarScreen, ChargerDetailsCarScreen, SoCUpdateCarScreen, ReservationStatusCarScreen
+│   ├── AmperlyCarAppService.java, AmperlyCarSession.java, CarBridge.java, CarScreenFactory.java
+│   └── screen/     RouteOverview, ChargerList, ChargerDetails, SoCUpdate, ReservationStatus
 │
-├── payment/            # PaymentManager
-└── communication/      # ChatManager
+├── payment/        PaymentManager
+└── communication/  ChatManager
 ```
 
 ---
 
-## ⚡ How to Build & Run
+## 6. Build & run
 
 ### Prerequisites
-- Android Studio Iguana / Jellyfish or newer.
-- JDK 11+.
-- Android SDK Platform 35 (Android 15) or Android SDK 34+.
+- Android Studio (JDK 11+ sources; the Studio bundled JBR works).
+- Android SDK Platform 35 (compile/target 35, min 24).
 
-### Build & Run Unit Tests
-To execute the automated unit test suite (`EngineUnitTest`, `RoleGuardTest`, `PaymentManagerTest`, `ChatManagerTest`):
+### Commands
 
 ```bash
-./gradlew testDebugUnitTest
+# Unit tests (55 tests across 7 classes)
+./gradlew :app:testDebugUnitTest
+
+# Debug APK → app/build/outputs/apk/debug/app-debug.apk
+./gradlew :app:assembleDebug
 ```
 
-### Assemble Debug APK
-To compile and assemble the debug application package:
+On Windows, if `JAVA_HOME` is not set globally:
 
 ```bash
-./gradlew assembleDebug
+export JAVA_HOME="/c/Program Files/Android/Android Studio/jbr"
+./gradlew :app:testDebugUnitTest --console=plain
 ```
+
+### Google Maps (optional)
+
+The embedded map panel needs an API key. Add it to `local.properties` (or export `MAPS_API_KEY`):
+
+```properties
+sdk.dir=C\:\\Users\\<you>\\AppData\\Local\\Android\\Sdk
+MAPS_API_KEY=your_google_maps_android_key_here
+```
+
+`app/build.gradle.kts` reads the key into `manifestPlaceholders` plus `BuildConfig.MAPS_ENABLED`.
+
+**Without a key the app still works.** `MapHelper` renders a "map key not configured" card, and every station still offers a `geo:` intent handoff so turn-by-turn navigation opens in the phone's own maps application.
+
+### Enabling the key on a Google Maps API key
+Restrict it to Android apps with package `com.amperly.app` and your debug signing SHA-1, and enable **Maps SDK for Android**.
 
 ---
 
-## 🧪 Demonstration Pilot Data
+## 7. Pilot data (`PilotDataSeeder`)
 
-Amperly includes pre-populated pilot datasets in `PilotDataSeeder.java` covering two initial pilot scenarios:
+Seeded once, on first launch:
 
-1. **ABC College Campus Pilot:**
-   - **Station:** ABC College Campus Charger (Port 1 Type 2 AC 7.2 kW @ ₹18/kWh, Port 2 CCS2 DC 30 kW @ ₹22/kWh).
-   - **Users:** Students & Staff as Consumers; College Administration as Host/Admin.
-2. **GreenPark Apartment Community Pilot:**
-   - **Station:** GreenPark Shared Charger (Visitor Parking, Type 2 AC 7.2 kW @ ₹16/kWh).
-   - **Users:** Residents as Consumers; Apartment Association as Host.
+**Users** — `user_campus_admin` (Host/Admin, ABC College), `user_student_1` (Consumer), `user_apt_association` (Host, GreenPark), `user_platform_admin` (platform Admin).
+**Vehicle** — `veh_101`, Tata Nexon EV Max, CCS2 DC + 7.2 kW AC, 96% health.
+
+**Stations**
+
+| Station | Type | Connector / power | Meter level | Tariff |
+|---|---|---|---|---|
+| ABC College Campus Charger (Gate 2) | Campus, 08:00–20:00 | Type 2 AC 7.2 kW + CCS2 DC 30 kW, 4 ports | L1 verified manual | ₹18/kWh + ₹5 + ₹4 |
+| GreenPark Shared Charger | Apartment, 24/7 | Type 2 AC 7.2 kW, 2 ports | L1 verified manual | ₹16/kWh + ₹5 + ₹4 |
+| Highway Hub Charger | Commercial, 24/7 | CCS2 DC 60 kW + CHAdeMO, 2 ports | L2 simulated smart meter | ₹21/kWh + ₹6 + ₹4 |
+| Kodagu Roadside Charger | Parking, 06:00–22:00 | Type 2 AC 7.2 kW | L1 verified manual | ₹15/kWh + ₹5 + ₹4 |
+| Cafe ChargePoint | Café | Type 2 AC 3.3 kW | **L3 no verified meter** | discovery only, no billing |
+| Tech Park Tower Charger | Office, **approval pending** | Type 2 AC 11 kW | L1 | appears in the admin queue |
+
+Also seeded: full weekly availability schedules, two completed sessions with invoices + payments, one upcoming reservation **`AMP-2002`** with a payment authorization, one dispute, one report, one chat thread (with masked and off-platform messages), a trusted contact, a safety event, notifications, and a completed route plan with stops, a backup, a trip estimate, an auto session and a battery update.
 
 ---
 
-## 📄 License & Attribution
+## 8. Suggested demo script
 
-Amperly is developed as an open EV management platform.
+Run the whole value chain, not just a map:
+
+1. **Admin** → open the admin dashboard, approve **Tech Park Tower Charger** from the verification queue.
+2. **Consumer** → set the vehicle profile (or use the seeded Nexon EV) and open **Discover**: filter by connector, price, availability and distance; the map plots compatible stations and the meter status of each.
+3. **Consumer** → open **Route planner**, enter *Mysore → Mangalore* with the current battery. Show the corridor chargers, the detour/charge-time/arrival trade-off, the recommended stop plus **backup stops before and after**, the recorded assumptions, and the confidence level.
+4. **Consumer** → in the same screen, enter a lower **actual dashboard SoC**. Show that the value becomes authoritative: unreachable chargers are removed, the remaining trip is recalculated, and the revised recommendation is explained. Then demonstrate the **no safe charger** state (drop the battery very low) — alternatives are offered instead of a route past the safe range.
+5. **Consumer** → reserve a port on the campus charger: real free slots, port choice, price breakdown, cancellation policy, sandbox authorization, then the **booking QR code**.
+6. **Host** → on the host dashboard, see the reservation, scan the booking code, start the session, and watch the demo meter record the starting reading.
+7. **Consumer** → complete the session: end reading, verified kWh, itemised receipt (energy / service / gateway) and capture.
+8. **Host** → show analytics: sessions, energy delivered, utilisation, revenue, cancellations, disputes.
+9. **Consumer ↔ Host** → open the reservation chat: masked numbers, quick questions, and an off-platform payment attempt being flagged.
+10. **Safety** → long-press SOS during an active session: trusted contacts, 60-minute live-location sharing, and the clear "Amperly is not an emergency service" guidance.
+11. **Consumer** → file a report from the receipt; **Admin** → review the evidence, refund, and action the host. Show that an *unverified* accusation produces no enforcement.
+12. **Car** → launch the Android Auto service (Desktop Head Unit or a real head unit): route overview, charger list, single-tap reservation of the next free slot, and the large **Update battery** action that recalculates from shared state.
+
+---
+
+## 9. Tests
+
+```bash
+./gradlew :app:testDebugUnitTest    # 55 tests, all green
+```
+
+| Class | Covers |
+|---|---|
+| `EngineUnitTest` | Corridor filtering and exclusion reasons, trade-off explanation + backup stop, no-stop-needed at full battery, SoC override authority, no-safe-charger state, relaxed-reserve alternative, meter-only billing, invalid/unverified meter rejection, zero-energy rule, geo helpers, port labels |
+| `BookingAndMeterTest` | Free slot booking, double-booking prevention, **port-level** connector rejection, paused/pending station rejection, meterless reservation policy, price preview, published cancellation policy, free-cancellation window, meter simulator progression/implausible readings/offline state, itemised receipt lines |
+| `AvailabilityEngineTest` | Slot generation from schedules, ports, blocks and reservations; conflicts; summaries |
+| `EnforcementPolicyTest` | Warning → fine → suspension → ban escalation, and no action on unverified accusations |
+| `PaymentManagerTest` | Authorization, idempotency, capture, refund, release, gateway-offline failure |
+| `ChatManagerTest` | Number masking, sanitising, off-platform detection, thread open/expiry rules, quick questions, audit fields |
+| `RoleGuardTest` | Consumer / Host / Admin permission boundaries |
+
+---
+
+## 10. Technology stack
+
+| Layer | Technology |
+|---|---|
+| Language / IDE | Java 11 source level, Android Studio, Gradle 9 + AGP 9 |
+| Compile/target SDK | 35 (minSdk 24) |
+| UI | Material 3 components, `viewBinding`, RecyclerView, custom `Widget.Amperly.*` styles + `values-night` theme |
+| Car UI | Android for Cars App Library (`androidx.car.app:app:1.4.0`), Charging + Navigation categories |
+| Persistence | Room (`room-runtime 2.6.1`) — 23 entities, 23 DAOs |
+| Maps & location | `play-services-maps`, `play-services-location` |
+| QR codes | ZXing `core` (bitmap generated in-app) |
+| Payments | In-repo sandbox `PaymentManager` (no card data is ever stored) |
+| Tests | JUnit 4 (unit tests, no device required) |
+
+---
+
+## 11. Explicitly out of scope for this MVP
+
+No new charger installation; no remote charger control; no connector API or OCPP; no vehicle-to-vehicle sharing; no private-home chargers; no bidding for slots; no time-based energy estimation; no paid billing without a verified meter; no claim that estimates are measurements; no guarantee of reachability; no emergency-service guarantee; Android Automotive OS (installed-in-car) is a **future** target — this build targets **Android Auto projection**.
+
+---
+
+## 12. License & attribution
+
+Amperly is developed as an open EV charger management platform.

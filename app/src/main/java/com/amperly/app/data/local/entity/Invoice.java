@@ -12,25 +12,36 @@ public class Invoice {
     private String sessionId;
     private String consumerId;
     private String hostId;
+    private String stationName;
     private double verifiedKwh;
     private double energyCharge;
     private double serviceFee;
     private double gatewayFee;
+    private double adjustment;
+    private String adjustmentNote;
     private double finalTotal;
+    private String paymentId;
+    private String status; // ISSUED, PARTIALLY_REFUNDED, REFUNDED, PAID
     private long issuedAtMs;
 
     public Invoice(@NonNull String id, String sessionId, String consumerId, String hostId,
-                   double verifiedKwh, double energyCharge, double serviceFee,
-                   double gatewayFee, double finalTotal, long issuedAtMs) {
+                   String stationName, double verifiedKwh, double energyCharge, double serviceFee,
+                   double gatewayFee, double adjustment, String adjustmentNote, double finalTotal,
+                   String paymentId, String status, long issuedAtMs) {
         this.id = id;
         this.sessionId = sessionId;
         this.consumerId = consumerId;
         this.hostId = hostId;
+        this.stationName = stationName;
         this.verifiedKwh = verifiedKwh;
         this.energyCharge = energyCharge;
         this.serviceFee = serviceFee;
         this.gatewayFee = gatewayFee;
+        this.adjustment = adjustment;
+        this.adjustmentNote = adjustmentNote;
         this.finalTotal = finalTotal;
+        this.paymentId = paymentId;
+        this.status = status;
         this.issuedAtMs = issuedAtMs;
     }
 
@@ -47,6 +58,9 @@ public class Invoice {
     public String getHostId() { return hostId; }
     public void setHostId(String hostId) { this.hostId = hostId; }
 
+    public String getStationName() { return stationName; }
+    public void setStationName(String stationName) { this.stationName = stationName; }
+
     public double getVerifiedKwh() { return verifiedKwh; }
     public void setVerifiedKwh(double verifiedKwh) { this.verifiedKwh = verifiedKwh; }
 
@@ -59,8 +73,20 @@ public class Invoice {
     public double getGatewayFee() { return gatewayFee; }
     public void setGatewayFee(double gatewayFee) { this.gatewayFee = gatewayFee; }
 
+    public double getAdjustment() { return adjustment; }
+    public void setAdjustment(double adjustment) { this.adjustment = adjustment; }
+
+    public String getAdjustmentNote() { return adjustmentNote; }
+    public void setAdjustmentNote(String adjustmentNote) { this.adjustmentNote = adjustmentNote; }
+
     public double getFinalTotal() { return finalTotal; }
     public void setFinalTotal(double finalTotal) { this.finalTotal = finalTotal; }
+
+    public String getPaymentId() { return paymentId; }
+    public void setPaymentId(String paymentId) { this.paymentId = paymentId; }
+
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
 
     public long getIssuedAtMs() { return issuedAtMs; }
     public void setIssuedAtMs(long issuedAtMs) { this.issuedAtMs = issuedAtMs; }

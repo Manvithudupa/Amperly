@@ -1,3 +1,298 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Amperly</string>
+    <string name="app_tagline">Reserve, access and pay for existing EV chargers</string>
+    <string name="pilot_subtitle">Mysore pilot · campus, apartment and corridor chargers</string>
+
+    <!-- Roles -->
+    <string name="role_consumer">Consumer</string>
+    <string name="role_host">Host</string>
+    <string name="role_admin">Admin</string>
+    <string name="role_switcher_label">Acting as</string>
+
+    <!-- Bottom navigation -->
+    <string name="nav_discover">Discover</string>
+    <string name="nav_route">Route</string>
+    <string name="nav_reserve">Reserve</string>
+    <string name="nav_session">Session</string>
+    <string name="nav_safety">Safety</string>
+    <string name="nav_vehicle">Vehicle</string>
+    <string name="nav_chat">Chat</string>
+    <string name="nav_dashboard">Dashboard</string>
+    <string name="nav_add_station">Add Station</string>
+    <string name="nav_admin">Admin</string>
+
+    <!-- Generic -->
+    <string name="action_continue">Continue</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_save">Save</string>
+    <string name="action_close">Close</string>
+    <string name="action_view_details">View details</string>
+    <string name="action_view_receipt">View receipt</string>
+    <string name="action_retry">Retry</string>
+    <string name="action_navigate">Navigate</string>
+    <string name="action_call">Call</string>
+    <string name="action_report">Report</string>
+    <string name="action_confirm">Confirm</string>
+    <string name="action_reserve">Reserve slot</string>
+    <string name="action_pay">Authorize payment</string>
+    <string name="empty_state">Nothing here yet</string>
+
+    <!-- Discovery -->
+    <string name="discovery_title">Chargers near you</string>
+    <string name="discovery_subtitle">Compatible with your saved vehicle, with live availability freshness</string>
+    <string name="filter_all">All</string>
+    <string name="filter_compatible">Compatible</string>
+    <string name="filter_campus">Campus</string>
+    <string name="filter_apartment">Apartment</string>
+    <string name="filter_office">Office</string>
+    <string name="filter_dc_fast">DC fast</string>
+    <string name="filter_available_now">Available now</string>
+    <string name="filter_verified_only">Verified meter</string>
+    <string name="label_compatible">Compatible</string>
+    <string name="label_incompatible">Connector mismatch</string>
+    <string name="label_discovery_only">Discovery only</string>
+    <string name="label_availability_freshness">Availability last updated %1$s</string>
+    <string name="label_detour">Detour +%1$.1f km / +%2$d min</string>
+    <string name="label_price_per_kwh">₹%1$.2f / kWh</string>
+    <string name="label_ports_free">%1$d of %2$d ports free</string>
+
+    <!-- Charger details -->
+    <string name="details_title">Charger details</string>
+    <string name="details_access">Access instructions</string>
+    <string name="details_pricing">Pricing and fees</string>
+    <string name="details_ports">Ports</string>
+    <string name="details_verification">Verification</string>
+    <string name="details_reliability">Reliability and incidents</string>
+    <string name="details_price_breakdown">Price breakdown (per kWh)</string>
+    <string name="line_energy_price">Host energy price</string>
+    <string name="line_service_fee">Amperly service fee</string>
+    <string name="line_gateway_fee">Payment gateway charge</string>
+    <string name="line_total_per_kwh">Effective price per kWh</string>
+    <string name="label_meter_level_1">Level 1 — verified manual meter</string>
+    <string name="label_meter_level_2">Level 2 — simulated smart meter</string>
+    <string name="label_meter_level_3">Level 3 — no verified meter (no paid energy sessions)</string>
+    <string name="meter_gating_warning">This station has no verified meter. It is shown for discovery only and cannot process automatic energy-based paid billing.</string>
+
+    <!-- Reservation -->
+    <string name="reserve_title">Reserve a port</string>
+    <string name="reserve_station">Station</string>
+    <string name="reserve_port">Port</string>
+    <string name="reserve_slot">Time slot</string>
+    <string name="reserve_policy_title">Cancellation policy</string>
+    <string name="policy_line_1">Free cancellation until 60 minutes before the slot.</string>
+    <string name="policy_line_2">A disclosed ₹20 late-cancellation fee may apply after that window.</string>
+    <string name="policy_line_3">No energy charge is applied when no energy was consumed.</string>
+    <string name="policy_line_4">Nothing is charged beyond verified energy plus the disclosed service and gateway fees.</string>
+    <string name="reserve_success">Reservation confirmed. Booking code %1$s</string>
+    <string name="reserve_payment_failed">Payment could not be verified, so no paid reservation was created. You can retry safely — no duplicate booking will be made.</string>
+    <string name="reserve_no_slots">No free slots for this port in the next 24 hours.</string>
+    <string name="reserve_choose_station">Choose a station to reserve</string>
+    <string name="reserve_my_reservations">My reservations</string>
+    <string name="reserve_slot_free">%1$s · free</string>
+    <string name="reserve_requires_meter">Paid reservations require a verified meter at this station.</string>
+
+    <!-- Booking QR -->
+    <string name="qr_title">Booking code</string>
+    <string name="qr_hint">Show this code at the station entrance. The Host scans it to start the session.</string>
+    <string name="qr_code_label">Booking code</string>
+
+    <!-- Session -->
+    <string name="session_title">Charging session</string>
+    <string name="session_check_in">Check in</string>
+    <string name="session_start_meter">Starting meter reading (kWh)</string>
+    <string name="session_end_meter">Ending meter reading (kWh)</string>
+    <string name="session_simulate">Simulate meter</string>
+    <string name="session_simulate_delivers">Simulated session delivers %1$.1f kWh</string>
+    <string name="session_complete">Complete session and bill</string>
+    <string name="session_state">State: %1$s</string>
+    <string name="session_demo_meter">Demo meter — readings are simulated or manually entered, not read from live hardware.</string>
+    <string name="session_invalid_reading">Ending reading cannot be lower than the starting reading.</string>
+    <string name="session_meter_offline">Meter simulator reports the device as offline. Enter a manually verified reading to continue.</string>
+
+    <!-- Receipt -->
+    <string name="receipt_title">Itemized receipt</string>
+    <string name="receipt_start_reading">Starting meter reading</string>
+    <string name="receipt_end_reading">Ending meter reading</string>
+    <string name="receipt_verified_kwh">Verified energy consumed</string>
+    <string name="receipt_energy_charge">Energy charge</string>
+    <string name="receipt_service_fee">Amperly service fee</string>
+    <string name="receipt_gateway_fee">Payment gateway charge</string>
+    <string name="receipt_adjustment">Refund or adjustment</string>
+    <string name="receipt_total">Final amount</string>
+    <string name="receipt_disclaimer">Final billing is based on verified meter readings. Route and battery values never change the final bill.</string>
+
+    <!-- Route planner -->
+    <string name="route_title">Route and charging plan</string>
+    <string name="route_origin">From</string>
+    <string name="route_distance_hint">Route distance (km)</string>
+    <string name="route_destination">To</string>
+    <string name="route_current_soc">Current battery (State of Charge) %</string>
+    <string name="route_arrival_soc">Desired arrival battery %</string>
+    <string name="route_corridor">Corridor</string>
+    <string name="route_preference">Prefer</string>
+    <string name="pref_fastest">Fastest</string>
+    <string name="pref_cheapest">Cheapest</string>
+    <string name="pref_reliable">Most reliable</string>
+    <string name="pref_shortest_detour">Shortest detour</string>
+    <string name="route_plan_action">Plan route and charging stops</string>
+    <string name="route_assumptions">Assumptions used for this plan</string>
+    <string name="route_confidence">Estimate confidence: %1$s</string>
+    <string name="route_summary">%1$s → %2$s · %3$.0f km · %4$s drive · %5$s charging · %6$s total</string>
+    <string name="route_recommended_stop">Recommended stop</string>
+    <string name="route_backups">Backup chargers before and after this stop</string>
+    <string name="route_candidates">Chargers along the corridor</string>
+    <string name="route_estimate_notice">Battery and energy values are planning estimates, not readings from your car. They never change the final bill.</string>
+    <string name="soc_update_title">Update actual battery</string>
+    <string name="soc_update_hint">Enter the percentage shown on your vehicle dashboard. Amperly treats it as authoritative for the rest of this trip.</string>
+    <string name="soc_update_action">Use this value as current SoC</string>
+    <string name="soc_previous_estimate">Previous Amperly estimate: %1$d%%</string>
+    <string name="soc_now_authoritative">Authoritative SoC: %1$d%% (updated %2$s)</string>
+    <string name="soc_no_safe_charger">No safe charger found within the current range</string>
+    <string name="soc_no_safe_body">Amperly will not route you beyond your estimated safe range. Consider a wider search radius, a slower compatible charger, the nearest parking location with charging, or emergency assistance.</string>
+    <string name="soc_wider_radius">Search a wider radius</string>
+    <string name="soc_slower_charger">Allow a slower compatible charger</string>
+    <string name="soc_emergency">Emergency assistance guidance</string>
+    <string name="soc_removed_stations">Removed from plan (no longer safely reachable): %1$d</string>
+    <string name="soc_change_reservation">Keep, change or cancel this reservation</string>
+
+    <!-- Vehicle -->
+    <string name="vehicle_title">Vehicle profile</string>
+    <string name="vehicle_make">Make</string>
+    <string name="vehicle_model">Model</string>
+    <string name="vehicle_variant">Variant</string>
+    <string name="vehicle_year">Year of purchase</string>
+    <string name="vehicle_capacity">Battery capacity (kWh)</string>
+    <string name="vehicle_connector">Connector type</string>
+    <string name="vehicle_max_ac">Maximum AC charging rate (kW)</string>
+    <string name="vehicle_max_dc">Maximum DC charging rate (kW)</string>
+    <string name="vehicle_efficiency">Typical efficiency (km per kWh)</string>
+    <string name="vehicle_degradation">Battery health adjustment (%)</string>
+    <string name="vehicle_min_arrival">Preferred minimum arrival battery (%)</string>
+    <string name="vehicle_max_charge">Preferred maximum charging (%)</string>
+    <string name="vehicle_plate">Registration identifier</string>
+    <string name="vehicle_saved">Vehicle profile saved. Planning estimates will use these values.</string>
+    <string name="vehicle_health_disclaimer">Year of purchase and battery health are used only to improve planning estimates. They are not a certified measurement of battery degradation.</string>
+
+    <!-- Host -->
+    <string name="host_dashboard_title">Host dashboard</string>
+    <string name="host_register_title">Register an existing charger</string>
+    <string name="host_station_name">Station name</string>
+    <string name="host_address">Address</string>
+    <string name="host_latitude">Latitude</string>
+    <string name="host_longitude">Longitude</string>
+    <string name="host_location_type">Location type</string>
+    <string name="host_operating_hours">Operating hours</string>
+    <string name="host_price">Price per kWh (₹)</string>
+    <string name="host_service_fee">Amperly service fee (₹)</string>
+    <string name="host_gateway_fee">Gateway charge (₹)</string>
+    <string name="host_meter_level">Meter verification level</string>
+    <string name="host_access_rules">Access rules</string>
+    <string name="host_port_count">Number of ports</string>
+    <string name="host_port_power">Port power (kW)</string>
+    <string name="host_port_dc">This port is DC</string>
+    <string name="host_submit_station">Submit station for verification</string>
+    <string name="host_station_saved">Station saved and queued for admin verification.</string>
+    <string name="host_tab_reservations">Reservations</string>
+    <string name="host_tab_sessions">Sessions</string>
+    <string name="host_tab_analytics">Analytics</string>
+    <string name="host_pause_station">Pause station</string>
+    <string name="host_resume_station">Reopen station</string>
+    <string name="host_meter_evidence">Meter evidence</string>
+    <string name="host_record_readings">Record start and end meter readings</string>
+    <string name="host_approve_reservation">Approve</string>
+    <string name="host_reject_reservation">Reject</string>
+    <string name="host_no_stations">You have not registered a charger yet. Use Add Station to register an existing charger.</string>
+
+    <!-- Host analytics -->
+    <string name="analytics_sessions_completed">Sessions completed</string>
+    <string name="analytics_energy_delivered">Energy delivered (kWh)</string>
+    <string name="analytics_utilization">Station utilization</string>
+    <string name="analytics_revenue">Revenue</string>
+    <string name="analytics_repeat_consumers">Repeat consumers</string>
+    <string name="analytics_cancellation_rate">Cancellation rate</string>
+    <string name="analytics_avg_session">Average session size</string>
+    <string name="analytics_disputes">Disputes and refunds</string>
+    <string name="analytics_open_disputes">Open disputes</string>
+    <string name="analytics_active_reservations">Active reservations</string>
+    <string name="analytics_repeat_consumers_short">Repeat consumers</string>
+    <string name="analytics_cancellation_rate_short">Cancellation rate</string>
+    <string name="analytics_avg_session_short">Average session</string>
+    <string name="analytics_refunds">Refunds and adjustments</string>
+    <string name="analytics_disputes_count">Disputes</string>
+    <string name="report_status_open">Open</string>
+
+    <!-- Admin -->
+    <string name="admin_title">Administrator desk</string>
+    <string name="admin_queue">Station verification queue</string>
+    <string name="admin_disputes">Disputes and evidence</string>
+    <string name="admin_enforcement">Enforcement actions</string>
+    <string name="admin_analytics">Platform analytics</string>
+    <string name="admin_approve">Approve listing</string>
+    <string name="admin_reject">Reject listing</string>
+    <string name="admin_freeze_payout">Freeze payout</string>
+    <string name="admin_refund">Issue refund</string>
+    <string name="admin_warning">Issue warning</string>
+    <string name="admin_fine">Issue fine</string>
+    <string name="admin_suspend">Suspend station</string>
+    <string name="admin_ban">Ban station</string>
+    <string name="admin_default_fine">Fine amount (₹)</string>
+    <string name="admin_decision_note">Decision note</string>
+    <string name="admin_evidence_review">Review meter evidence</string>
+    <string name="admin_evidence_missing">No meter evidence uploaded for this session.</string>
+    <string name="admin_policy_note">Enforcement is evidence based. A host is never penalised on an unverified accusation alone.</string>
+
+    <!-- Safety -->
+    <string name="safety_title">Session safety</string>
+    <string name="safety_not_emergency">Amperly is not an emergency service. In a real emergency call your local emergency number.</string>
+    <string name="safety_trigger_sos">Trigger SOS</string>
+    <string name="safety_confirm_sos">Hold to confirm SOS</string>
+    <string name="safety_sos_active">SOS logged. Support has your reservation ID and station location.</string>
+    <string name="safety_trusted_contacts">Trusted contacts</string>
+    <string name="safety_contact_name">Contact name</string>
+    <string name="safety_contact_phone">Contact phone</string>
+    <string name="safety_add_contact">Add trusted contact</string>
+    <string name="safety_share_location">Share live location</string>
+    <string name="safety_stop_sharing">Stop sharing</string>
+    <string name="safety_sharing_active">Sharing with %1$s until %2$s</string>
+    <string name="safety_sharing_expired">Live location sharing ended automatically.</string>
+    <string name="safety_emergency_numbers">Local emergency guidance</string>
+
+    <!-- Chat -->
+    <string name="chat_title">Host messages</string>
+    <string name="chat_hint">Messages are linked to a reservation and expire after the session window.</string>
+    <string name="chat_input_hint">Write a message…</string>
+    <string name="chat_send">Send</string>
+    <string name="chat_masked_disclaimer">Phone numbers and private addresses are automatically masked. Calling is routed through a masked number.</string>
+    <string name="chat_quick_question">Quick questions</string>
+    <string name="chat_qq_entrance">Where is the charging entrance?</string>
+    <string name="chat_qq_occupied">The port looks occupied, can you help?</string>
+    <string name="chat_qq_extend">Can I extend my slot by 15 minutes?</string>
+    <string name="chat_qq_receipt">Can you confirm the meter readings?</string>
+    <string name="chat_off_platform_warning">Off-platform payment requests are flagged. Paying outside Amperly removes your dispute protection.</string>
+    <string name="chat_expired">This conversation has expired.</string>
+    <string name="chat_report_thread">Report this conversation</string>
+    <string name="chat_block_thread">Block</string>
+
+    <!-- Reports and disputes -->
+    <string name="report_title">Report an issue</string>
+    <string name="report_reason">What happened?</string>
+    <string name="report_details">Details</string>
+    <string name="report_submit">Submit report</string>
+    <string name="report_submitted">Report submitted. The admin team will review the evidence.</string>
+    <string name="report_type_unavailable">Charger unavailable</string>
+    <string name="report_type_connector">Incorrect connector information</string>
+    <string name="report_type_meter">Incorrect meter reading</string>
+    <string name="report_type_overcharge">Overcharging</string>
+    <string name="report_type_offplatform">Host requested off-platform payment</string>
+    <string name="report_type_unsafe">Unsafe access conditions</string>
+    <string name="report_type_listing">Incorrect station listing</string>
+    <string name="report_type_conflict">Reservation conflict</string>
+    <string name="report_type_route_estimate">Route estimate did not match actual battery usage</string>
+    <string name="report_type_stop_unavailable">Planned charging stop was unavailable</string>
+
+    <!-- Map -->
+    <string name="map_title">Map</string>
+    <string name="map_key_missing">Map key not configured. Add MAPS_API_KEY to local.properties to enable the embedded map. You can still hand navigation off to your maps app.</string>
+    <string name="map_open_external">Open in maps</string>
 </resources>

@@ -1,99 +1,205 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:padding="16dp">
+    android:fillViewport="true">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical">
+        android:orientation="vertical"
+        android:padding="@dimen/amp_screen_padding">
 
         <TextView
-            android:id="@+id/resStationName"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Reserve Charger Slot"
-            android:textSize="20sp"
-            android:textStyle="bold"
-            android:textColor="#212529"
-            android:layout_marginBottom="8dp" />
-
-        <TextView
-            android:id="@+id/resStationAddress"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="ABC College Campus, Port 1 (Type 2 AC 7.2 kW)"
-            android:textSize="14sp"
-            android:textColor="#6C757D"
-            android:layout_marginBottom="16dp" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Select Date &amp; Time Slot:"
-            android:textStyle="bold"
-            android:layout_marginBottom="8dp" />
-
-        <Spinner
-            android:id="@+id/timeSlotSpinner"
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:background="@android:drawable/editbox_background"
-            android:layout_marginBottom="16dp" />
-
-        <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp">
+            android:text="@string/reserve_title"
+            android:textAppearance="@style/TextAppearance.Amperly.ScreenTitle" />
 
-            <LinearLayout
+        <TextView
+            android:id="@+id/reserveStationText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/amp_space_xs"
+            android:textAppearance="@style/TextAppearance.Amperly.Body" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/chooseStationButton"
+            style="@style/Widget.Amperly.Button.Tonal"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/amp_space_m"
+            android:text="@string/reserve_choose_station" />
+
+        <LinearLayout
+            android:id="@+id/bookingFormContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <com.google.android.material.card.MaterialCardView
+                style="@style/Widget.Amperly.Card"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp">
+                android:layout_marginTop="@dimen/amp_space_m">
 
-                <TextView
-                    android:layout_width="wrap_content"
+                <LinearLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Estimated Fee Breakdown"
-                    android:textStyle="bold"
-                    android:textSize="16sp"
-                    android:layout_marginBottom="8dp" />
+                    android:orientation="vertical"
+                    android:padding="@dimen/amp_space_m">
 
-                <TextView
-                    android:id="@+id/tariffText"
-                    android:layout_width="wrap_content"
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/reserve_port"
+                        android:textAppearance="@style/TextAppearance.Amperly.Label" />
+
+                    <Spinner
+                        android:id="@+id/portSpinner"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/amp_space_s"
+                        android:text="@string/reserve_slot"
+                        android:textAppearance="@style/TextAppearance.Amperly.Label" />
+
+                    <Spinner
+                        android:id="@+id/slotSpinner"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content" />
+
+                    <TextView
+                        android:id="@+id/slotHintText"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textAppearance="@style/TextAppearance.Amperly.Body" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.card.MaterialCardView
+                style="@style/Widget.Amperly.Card"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/amp_space_m">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Energy Rate: ₹18.00 / kWh" />
+                    android:orientation="vertical"
+                    android:padding="@dimen/amp_space_m">
 
-                <TextView
-                    android:id="@+id/serviceFeeText"
-                    android:layout_width="wrap_content"
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/details_price_breakdown"
+                        android:textAppearance="@style/TextAppearance.Amperly.SectionTitle" />
+
+                    <TextView
+                        android:id="@+id/priceEnergyText"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/amp_space_s"
+                        android:textAppearance="@style/TextAppearance.Amperly.Body" />
+
+                    <TextView
+                        android:id="@+id/priceServiceText"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textAppearance="@style/TextAppearance.Amperly.Body" />
+
+                    <TextView
+                        android:id="@+id/priceGatewayText"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textAppearance="@style/TextAppearance.Amperly.Body" />
+
+                    <TextView
+                        android:id="@+id/priceTotalText"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/amp_space_s"
+                        android:textAppearance="@style/TextAppearance.Amperly.Metric" />
+
+                    <TextView
+                        android:id="@+id/priceNoteText"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textAppearance="@style/TextAppearance.Amperly.Label" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.card.MaterialCardView
+                style="@style/Widget.Amperly.Card"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/amp_space_m">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Amperly Service Fee: ₹5.00" />
+                    android:orientation="vertical"
+                    android:padding="@dimen/amp_space_m">
 
-                <TextView
-                    android:id="@+id/gatewayFeeText"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Payment Gateway Charge: ₹4.00" />
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/reserve_policy_title"
+                        android:textAppearance="@style/TextAppearance.Amperly.SectionTitle" />
 
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Note: Energy charge is based on verified meter readings after charging completes."
-                    android:textSize="12sp"
-                    android:textColor="#6C757D"
-                    android:layout_marginTop="8dp" />
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
+                    <TextView
+                        android:id="@+id/policyText"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/amp_space_xs"
+                        android:textAppearance="@style/TextAppearance.Amperly.Body" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
 
-        <Button
-            android:id="@+id/authorizePaymentBtn"
+            <TextView
+                android:id="@+id/meterWarningText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/amp_space_m"
+                android:background="@color/amp_tertiary_container"
+                android:padding="@dimen/amp_space_s"
+                android:textAppearance="@style/TextAppearance.Amperly.Body"
+                android:visibility="gone" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/authorizeButton"
+                style="@style/Widget.Amperly.Button"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/amp_space_l"
+                android:text="@string/action_pay" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/reserveStatusText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Authorize &amp; Confirm Reservation" />
+            android:layout_marginTop="@dimen/amp_space_m"
+            android:background="@color/amp_surface_variant"
+            android:padding="@dimen/amp_space_m"
+            android:textAppearance="@style/TextAppearance.Amperly.Body" />
 
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/amp_space_m"
+            android:text="@string/reserve_my_reservations"
+            android:textAppearance="@style/TextAppearance.Amperly.SectionTitle" />
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/reservationsRecyclerView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:nestedScrollingEnabled="false" />
     </LinearLayout>
 </ScrollView>

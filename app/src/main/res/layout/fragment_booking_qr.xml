@@ -1,44 +1,84 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:gravity="center"
-    android:padding="24dp">
+    android:fillViewport="true">
 
-    <TextView
-        android:layout_width="wrap_content"
+    <LinearLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Booking QR Check-In"
-        android:textSize="22sp"
-        android:textStyle="bold"
-        android:textColor="#212529"
-        android:layout_marginBottom="16dp" />
+        android:gravity="center_horizontal"
+        android:orientation="vertical"
+        android:padding="@dimen/amp_screen_padding">
 
-    <ImageView
-        android:id="@+id/bookingQrImageView"
-        android:layout_width="200dp"
-        android:layout_height="200dp"
-        android:contentDescription="Booking QR Code"
-        android:src="@android:drawable/ic_menu_gallery"
-        android:layout_marginBottom="16dp" />
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:drawablePadding="@dimen/amp_space_s"
+            android:text="@string/qr_title"
+            android:textAppearance="@style/TextAppearance.Amperly.ScreenTitle" />
 
-    <TextView
-        android:id="@+id/bookingCodeTitle"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Booking ID: AMP-8921"
-        android:textSize="18sp"
-        android:textStyle="bold"
-        android:textColor="#212529"
-        android:layout_marginBottom="8dp" />
+        <com.google.android.material.card.MaterialCardView
+            style="@style/Widget.Amperly.Card"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/amp_space_m">
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Show this QR code at the station or scan host terminal to initiate session."
-        android:textSize="13sp"
-        android:textColor="#6C757D"
-        android:gravity="center" />
+            <ImageView
+                android:id="@+id/qrImageView"
+                android:layout_width="240dp"
+                android:layout_height="240dp"
+                android:contentDescription="@string/qr_title"
+                android:padding="@dimen/amp_space_s" />
+        </com.google.android.material.card.MaterialCardView>
 
-</LinearLayout>
+        <TextView
+            android:id="@+id/bookingCodeText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/amp_space_m"
+            android:textAppearance="@style/TextAppearance.Amperly.Mono"
+            android:textSize="22sp" />
+
+        <TextView
+            android:id="@+id/qrStationText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/amp_space_s"
+            android:gravity="center"
+            android:textAppearance="@style/TextAppearance.Amperly.Body" />
+
+        <TextView
+            android:id="@+id/qrSlotText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:textAppearance="@style/TextAppearance.Amperly.Body" />
+
+        <TextView
+            android:id="@+id/qrHintText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/amp_space_m"
+            android:gravity="center"
+            android:text="@string/qr_hint"
+            android:textAppearance="@style/TextAppearance.Amperly.Body" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/goToSessionButton"
+            style="@style/Widget.Amperly.Button"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/amp_space_l"
+            android:text="@string/session_check_in" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/closeButton"
+            style="@style/Widget.Amperly.Button.Outlined"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/amp_space_s"
+            android:text="@string/action_close" />
+    </LinearLayout>
+</ScrollView>

@@ -4,6 +4,10 @@ import androidx.annotation.NonNull;
 import androidx.room.Entity;
 import androidx.room.PrimaryKey;
 
+/**
+ * Consumer vehicle profile. Battery health and efficiency values are planning inputs only and
+ * are never presented as a certified measurement of battery degradation.
+ */
 @Entity(tableName = "vehicles")
 public class Vehicle {
     @PrimaryKey
@@ -19,7 +23,8 @@ public class Vehicle {
     private double maxAcKw;
     private double maxDcKw;
     private double typicalEfficiencyKmPerKwh;
-    private double degradationFactorPercent;
+    private double batteryHealthPercent;      // 100 = as new
+    private double efficiencyCorrectionPercent; // learned correction from reported trips
     private int minArrivalSocPercent;
     private int maxChargeSocPercent;
     private String licensePlate;
@@ -27,8 +32,8 @@ public class Vehicle {
     public Vehicle(@NonNull String id, String userId, String make, String model, String variant,
                    int purchaseYear, double batteryCapacityKwh, String connectorType,
                    double maxAcKw, double maxDcKw, double typicalEfficiencyKmPerKwh,
-                   double degradationFactorPercent, int minArrivalSocPercent,
-                   int maxChargeSocPercent, String licensePlate) {
+                   double batteryHealthPercent, double efficiencyCorrectionPercent,
+                   int minArrivalSocPercent, int maxChargeSocPercent, String licensePlate) {
         this.id = id;
         this.userId = userId;
         this.make = make;
@@ -40,7 +45,8 @@ public class Vehicle {
         this.maxAcKw = maxAcKw;
         this.maxDcKw = maxDcKw;
         this.typicalEfficiencyKmPerKwh = typicalEfficiencyKmPerKwh;
-        this.degradationFactorPercent = degradationFactorPercent;
+        this.batteryHealthPercent = batteryHealthPercent;
+        this.efficiencyCorrectionPercent = efficiencyCorrectionPercent;
         this.minArrivalSocPercent = minArrivalSocPercent;
         this.maxChargeSocPercent = maxChargeSocPercent;
         this.licensePlate = licensePlate;
@@ -80,8 +86,11 @@ public class Vehicle {
     public double getTypicalEfficiencyKmPerKwh() { return typicalEfficiencyKmPerKwh; }
     public void setTypicalEfficiencyKmPerKwh(double typicalEfficiencyKmPerKwh) { this.typicalEfficiencyKmPerKwh = typicalEfficiencyKmPerKwh; }
 
-    public double getDegradationFactorPercent() { return degradationFactorPercent; }
-    public void setDegradationFactorPercent(double degradationFactorPercent) { this.degradationFactorPercent = degradationFactorPercent; }
+    public double getBatteryHealthPercent() { return batteryHealthPercent; }
+    public void setBatteryHealthPercent(double batteryHealthPercent) { this.batteryHealthPercent = batteryHealthPercent; }
+
+    public double getEfficiencyCorrectionPercent() { return efficiencyCorrectionPercent; }
+    public void setEfficiencyCorrectionPercent(double efficiencyCorrectionPercent) { this.efficiencyCorrectionPercent = efficiencyCorrectionPercent; }
 
     public int getMinArrivalSocPercent() { return minArrivalSocPercent; }
     public void setMinArrivalSocPercent(int minArrivalSocPercent) { this.minArrivalSocPercent = minArrivalSocPercent; }
@@ -91,4 +100,23 @@ public class Vehicle {
 
     public String getLicensePlate() { return licensePlate; }
     public void setLicensePlate(String licensePlate) { this.licensePlate = licensePlate; }
+
+    /** Planning-only capacity after the user-provided health adjustment. */
+    public double effectiveCapacityKwh() {
+        double health = batteryHealthPercent > 0 ? Math.min(100.0, batteryHealthPercent) : 100.0;
+        return Math.max(1.0, batteryCapacityKwh * (health / 100.0));
+    }
+
+    /** Planning-only efficiency in km/kWh after the learned correction. */
+    public double effectiveEfficiencyKmPerKwh() {
+        double base = typicalEfficiencyKmPerKwh > 0 ? typicalEfficiencyKmPerKwh : 6.5;
+        double corrected = base * (1.0 + (efficiencyCorrectionPercent / 100.0));
+        return Math.max(1.0, corrected);
+    }
+
+    /** Model without a user-supplied health figure: assume a conservative 2% loss per year after 2020. */
+    public static double defaultHealthForYear(int purchaseYear) {
+        int age = Math.max(0, java.util.Calendar.getInstance().get(java.util.Calendar.YEAR) - purchaseYear);
+        return Math.max(70.0, 100.0 - (age * 2.0));
+    }
 }

@@ -22,9 +22,21 @@ public interface DisputeDao {
     @Query("SELECT * FROM disputes ORDER BY createdAtMs DESC")
     LiveData<List<Dispute>> getAllDisputes();
 
-    @Query("SELECT * FROM disputes WHERE consumerId = :consumerId")
+    @Query("SELECT * FROM disputes ORDER BY createdAtMs DESC")
+    List<Dispute> getAllDisputesSync();
+
+    @Query("SELECT * FROM disputes WHERE consumerId = :consumerId ORDER BY createdAtMs DESC")
     LiveData<List<Dispute>> getDisputesForConsumer(String consumerId);
+
+    @Query("SELECT * FROM disputes WHERE hostId = :hostId ORDER BY createdAtMs DESC")
+    List<Dispute> getDisputesForHostSync(String hostId);
+
+    @Query("SELECT * FROM disputes WHERE status IN ('OPEN','AWAITING_HOST') ORDER BY createdAtMs DESC")
+    List<Dispute> getOpenDisputesSync();
 
     @Query("SELECT * FROM disputes WHERE id = :id LIMIT 1")
     Dispute getDisputeByIdSync(String id);
+
+    @Query("SELECT COUNT(*) FROM disputes WHERE hostId = :hostId AND enforcementAction NOT IN ('NONE','')")
+    int countProvenIncidentsForHost(String hostId);
 }

@@ -1,118 +1,155 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:padding="16dp">
+    android:fillViewport="true">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical">
+        android:orientation="vertical"
+        android:padding="@dimen/amp_screen_padding">
 
         <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Active Session &amp; Check-In"
-            android:textSize="20sp"
-            android:textStyle="bold"
-            android:textColor="#212529"
-            android:layout_marginBottom="12dp" />
-
-        <!-- Booking QR Code Card -->
-        <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp">
+            android:text="@string/session_title"
+            android:textAppearance="@style/TextAppearance.Amperly.ScreenTitle" />
+
+        <TextView
+            android:id="@+id/sessionStateText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/amp_space_xs"
+            android:textAppearance="@style/TextAppearance.Amperly.Body" />
+
+        <TextView
+            android:id="@+id/sessionStepsText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/amp_space_s"
+            android:background="@color/amp_surface_variant"
+            android:padding="@dimen/amp_space_s"
+            android:textAppearance="@style/TextAppearance.Amperly.Label" />
+
+        <TextView
+            android:id="@+id/sessionInfoText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/amp_space_m"
+            android:textAppearance="@style/TextAppearance.Amperly.Body" />
+
+        <com.google.android.material.card.MaterialCardView
+            style="@style/Widget.Amperly.Card"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/amp_space_m">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:gravity="center"
-                android:padding="16dp">
-
-                <ImageView
-                    android:id="@+id/qrCodeImageView"
-                    android:layout_width="160dp"
-                    android:layout_height="160dp"
-                    android:contentDescription="Booking QR Code"
-                    android:src="@android:drawable/ic_menu_gallery" />
+                android:padding="@dimen/amp_space_m">
 
                 <TextView
-                    android:id="@+id/bookingCodeText"
-                    android:layout_width="wrap_content"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Booking ID: AMP-8921"
-                    android:textStyle="bold"
-                    android:textSize="16sp"
-                    android:layout_marginTop="8dp" />
+                    android:text="@string/host_meter_evidence"
+                    android:textAppearance="@style/TextAppearance.Amperly.SectionTitle" />
 
-                <Button
-                    android:id="@+id/checkInBtn"
-                    android:layout_width="wrap_content"
+                <com.google.android.material.textfield.TextInputLayout
+                    style="@style/Widget.Amperly.TextInput"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Check In at Charger"
-                    android:layout_marginTop="8dp" />
+                    android:layout_marginTop="@dimen/amp_space_s"
+                    android:hint="@string/session_start_meter">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/startMeterEdit"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="numberDecimal" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <com.google.android.material.textfield.TextInputLayout
+                    style="@style/Widget.Amperly.TextInput"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/amp_space_s"
+                    android:hint="@string/session_end_meter">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/endMeterEdit"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="numberDecimal" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/amp_space_s"
+                    android:orientation="horizontal">
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/captureStartButton"
+                        style="@style/Widget.Amperly.Button.Tonal"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/session_check_in" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/simulateButton"
+                        style="@style/Widget.Amperly.Button.Outlined"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="@dimen/amp_space_s"
+                        android:layout_weight="1"
+                        android:text="@string/session_simulate" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/simulateResultText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/amp_space_s"
+                    android:textAppearance="@style/TextAppearance.Amperly.Body" />
+
+                <TextView
+                    android:id="@+id/demoMeterNotice"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/amp_space_s"
+                    android:background="@color/amp_tertiary_container"
+                    android:padding="@dimen/amp_space_s"
+                    android:text="@string/session_demo_meter"
+                    android:textAppearance="@style/TextAppearance.Amperly.Label" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- Meter Evidence Input Card -->
-        <com.google.android.material.card.MaterialCardView
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/completeSessionButton"
+            style="@style/Widget.Amperly.Button"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp">
+            android:layout_marginTop="@dimen/amp_space_l"
+            android:text="@string/session_complete" />
 
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp">
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/startChargingButton"
+            style="@style/Widget.Amperly.Button.Tonal"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/amp_space_s"
+            android:text="@string/nav_session" />
 
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Meter Evidence Verification (Level 1)"
-                    android:textStyle="bold"
-                    android:textSize="15sp"
-                    android:layout_marginBottom="8dp" />
-
-                <EditText
-                    android:id="@+id/startMeterEdit"
-                    android:layout_width="match_parent"
-                    android:layout_height="48dp"
-                    android:hint="Starting Meter Reading (kWh) e.g. 120.5"
-                    android:inputType="numberDecimal"
-                    android:background="@android:drawable/editbox_background"
-                    android:paddingHorizontal="12dp"
-                    android:layout_marginBottom="8dp" />
-
-                <EditText
-                    android:id="@+id/endMeterEdit"
-                    android:layout_width="match_parent"
-                    android:layout_height="48dp"
-                    android:hint="Ending Meter Reading (kWh) e.g. 132.8"
-                    android:inputType="numberDecimal"
-                    android:background="@android:drawable/editbox_background"
-                    android:paddingHorizontal="12dp"
-                    android:layout_marginBottom="8dp" />
-
-                <Button
-                    android:id="@+id/completeSessionBtn"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="Complete &amp; Calculate Invoice" />
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-        <!-- Itemized Receipt Card -->
         <TextView
-            android:id="@+id/receiptText"
+            android:id="@+id/sessionSummaryText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textSize="14sp"
-            android:textColor="#212529"
-            android:background="#E9ECEF"
-            android:padding="12dp" />
-
+            android:layout_marginTop="@dimen/amp_space_m"
+            android:textAppearance="@style/TextAppearance.Amperly.Body" />
     </LinearLayout>
 </ScrollView>

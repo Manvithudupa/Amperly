@@ -1,57 +1,135 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="16dp">
+    android:padding="@dimen/amp_screen_padding">
 
     <TextView
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Masked Host-Consumer Chat"
-        android:textSize="20sp"
-        android:textStyle="bold"
-        android:textColor="#212529"
-        android:layout_marginBottom="4dp" />
+        android:text="@string/chat_title"
+        android:textAppearance="@style/TextAppearance.Amperly.ScreenTitle" />
 
     <TextView
-        android:layout_width="wrap_content"
+        android:id="@+id/maskedDisclaimerText"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Phone numbers are masked for privacy. Messages expire post-session."
-        android:textSize="12sp"
-        android:textColor="#6C757D"
-        android:layout_marginBottom="12dp" />
+        android:text="@string/chat_masked_disclaimer"
+        android:textAppearance="@style/TextAppearance.Amperly.Label" />
+
+    <HorizontalScrollView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/amp_space_s"
+        android:scrollbars="none">
+
+        <com.google.android.material.chip.ChipGroup
+            android:id="@+id/threadsChipGroup"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:singleLine="true"
+            app:singleSelection="true" />
+    </HorizontalScrollView>
 
     <TextView
-        android:id="@+id/chatHistoryText"
+        android:id="@+id/threadTitleText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/amp_space_s"
+        android:textAppearance="@style/TextAppearance.Amperly.SectionTitle" />
+
+    <TextView
+        android:id="@+id/threadExpiryText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textAppearance="@style/TextAppearance.Amperly.Label" />
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/messagesRecyclerView"
         android:layout_width="match_parent"
         android:layout_height="0dp"
+        android:layout_marginTop="@dimen/amp_space_s"
         android:layout_weight="1"
-        android:background="#E9ECEF"
-        android:padding="12dp"
-        android:text="Consumer: Hi Host, where is the charger entrance?\nHost: Entrance is gate 2 near campus building B." />
+        android:clipToPadding="false" />
+
+    <TextView
+        android:id="@+id/chatEmptyText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/empty_state"
+        android:textAppearance="@style/TextAppearance.Amperly.Body"
+        android:visibility="gone" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/amp_space_s"
+        android:text="@string/chat_quick_question"
+        android:textAppearance="@style/TextAppearance.Amperly.Label" />
+
+    <HorizontalScrollView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:scrollbars="none">
+
+        <com.google.android.material.chip.ChipGroup
+            android:id="@+id/quickQuestionsChipGroup"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:singleLine="true" />
+    </HorizontalScrollView>
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:layout_marginTop="8dp">
+        android:layout_marginTop="@dimen/amp_space_s"
+        android:orientation="horizontal">
 
-        <EditText
-            android:id="@+id/chatInputEdit"
+        <com.google.android.material.textfield.TextInputLayout
+            style="@style/Widget.Amperly.TextInput"
             android:layout_width="0dp"
-            android:layout_height="48dp"
+            android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:hint="Type quick message..."
-            android:background="@android:drawable/editbox_background"
-            android:paddingHorizontal="12dp" />
+            android:hint="@string/chat_input_hint">
 
-        <Button
-            android:id="@+id/sendChatBtn"
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/chatInputEdit"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="textCapSentences" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/sendChatButton"
+            style="@style/Widget.Amperly.Button"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:text="Send" />
+            android:layout_marginStart="@dimen/amp_space_s"
+            android:text="@string/chat_send" />
     </LinearLayout>
 
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/reportThreadButton"
+            style="@style/Widget.Amperly.Button.Outlined"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/chat_report_thread" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/blockThreadButton"
+            style="@style/Widget.Amperly.Button.Danger"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="@dimen/amp_space_s"
+            android:layout_weight="1"
+            android:text="@string/chat_block_thread" />
+    </LinearLayout>
 </LinearLayout>

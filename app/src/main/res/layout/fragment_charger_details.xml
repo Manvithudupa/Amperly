@@ -1,65 +1,257 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:padding="16dp">
+    android:fillViewport="true">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical">
+        android:orientation="vertical"
+        android:paddingBottom="@dimen/amp_space_xl">
 
         <TextView
-            android:id="@+id/detailStationTitle"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="ABC College Campus Charger"
-            android:textSize="22sp"
-            android:textStyle="bold"
-            android:textColor="#212529"
-            android:layout_marginBottom="4dp" />
-
-        <TextView
-            android:id="@+id/detailStationAddress"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Gate 2 Parking, ABC Campus, Mysore"
-            android:textSize="14sp"
-            android:textColor="#6C757D"
-            android:layout_marginBottom="16dp" />
-
-        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/detailsNameText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp">
+            android:paddingHorizontal="@dimen/amp_screen_padding"
+            android:paddingTop="@dimen/amp_space_m"
+            android:textAppearance="@style/TextAppearance.Amperly.ScreenTitle" />
+
+        <TextView
+            android:id="@+id/detailsAddressText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingHorizontal="@dimen/amp_screen_padding"
+            android:textAppearance="@style/TextAppearance.Amperly.Body" />
+
+        <com.google.android.material.card.MaterialCardView
+            style="@style/Widget.Amperly.Card"
+            android:layout_width="match_parent"
+            android:layout_height="@dimen/amp_map_panel_height"
+            android:layout_marginHorizontal="@dimen/amp_screen_padding"
+            android:layout_marginTop="@dimen/amp_space_m">
+
+            <FrameLayout
+                android:id="@+id/detailsMapContainer"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent" />
+        </com.google.android.material.card.MaterialCardView>
+
+        <com.google.android.material.card.MaterialCardView
+            style="@style/Widget.Amperly.Card"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="@dimen/amp_screen_padding"
+            android:layout_marginTop="@dimen/amp_space_m">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="16dp">
+                android:padding="@dimen/amp_space_m">
 
                 <TextView
-                    android:layout_width="wrap_content"
+                    android:id="@+id/availabilityText"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Station &amp; Port Specifications"
-                    android:textStyle="bold"
-                    android:textSize="16sp"
-                    android:layout_marginBottom="8dp" />
+                    android:textAppearance="@style/TextAppearance.Amperly.SectionTitle" />
 
                 <TextView
-                    android:layout_width="wrap_content"
+                    android:id="@+id/freshnessText"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="• Connector: Type 2 AC (7.2 kW) &amp; CCS2 DC (30 kW)\n• Operating Hours: 08:00 - 20:00\n• Verified Level: Level 1 (Verified Meter)\n• Rating: 4.9 ★ (Verified Campus Users)"
-                    android:lineSpacingExtra="4dp" />
+                    android:textAppearance="@style/TextAppearance.Amperly.Body" />
+
+                <TextView
+                    android:id="@+id/verificationText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/amp_space_s"
+                    android:textAppearance="@style/TextAppearance.Amperly.Body" />
+
+                <TextView
+                    android:id="@+id/meterGatingWarningText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/amp_space_s"
+                    android:background="@color/amp_tertiary_container"
+                    android:padding="@dimen/amp_space_s"
+                    android:text="@string/meter_gating_warning"
+                    android:textAppearance="@style/TextAppearance.Amperly.Body"
+                    android:visibility="gone" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
-        <Button
-            android:id="@+id/proceedReserveBtn"
+        <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Proceed to Reserve Port" />
+            android:layout_marginHorizontal="@dimen/amp_screen_padding"
+            android:layout_marginTop="@dimen/amp_space_m"
+            android:text="@string/details_ports"
+            android:textAppearance="@style/TextAppearance.Amperly.SectionTitle" />
 
+        <LinearLayout
+            android:id="@+id/portsContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingHorizontal="@dimen/amp_screen_padding" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="@dimen/amp_screen_padding"
+            android:layout_marginTop="@dimen/amp_space_m"
+            android:text="@string/details_pricing"
+            android:textAppearance="@style/TextAppearance.Amperly.SectionTitle" />
+
+        <com.google.android.material.card.MaterialCardView
+            style="@style/Widget.Amperly.Card"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="@dimen/amp_screen_padding"
+            android:layout_marginTop="@dimen/amp_space_s">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="@dimen/amp_space_m">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/line_energy_price"
+                        android:textAppearance="@style/TextAppearance.Amperly.Body" />
+
+                    <TextView
+                        android:id="@+id/energyPriceText"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textAppearance="@style/TextAppearance.Amperly.Body" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/line_service_fee"
+                        android:textAppearance="@style/TextAppearance.Amperly.Body" />
+
+                    <TextView
+                        android:id="@+id/serviceFeeText"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textAppearance="@style/TextAppearance.Amperly.Body" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/line_gateway_fee"
+                        android:textAppearance="@style/TextAppearance.Amperly.Body" />
+
+                    <TextView
+                        android:id="@+id/gatewayFeeText"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textAppearance="@style/TextAppearance.Amperly.Body" />
+                </LinearLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginVertical="@dimen/amp_space_s"
+                    android:background="@color/amp_outline" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/line_total_per_kwh"
+                        android:textAppearance="@style/TextAppearance.Amperly.SectionTitle" />
+
+                    <TextView
+                        android:id="@+id/totalPerKwhText"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textAppearance="@style/TextAppearance.Amperly.Metric" />
+                </LinearLayout>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="@dimen/amp_screen_padding"
+            android:layout_marginTop="@dimen/amp_space_m"
+            android:text="@string/details_access"
+            android:textAppearance="@style/TextAppearance.Amperly.SectionTitle" />
+
+        <TextView
+            android:id="@+id/accessText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingHorizontal="@dimen/amp_screen_padding"
+            android:textAppearance="@style/TextAppearance.Amperly.Body" />
+
+        <TextView
+            android:id="@+id/incidentText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/amp_space_m"
+            android:paddingHorizontal="@dimen/amp_screen_padding"
+            android:textAppearance="@style/TextAppearance.Amperly.Body" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/reserveButton"
+            style="@style/Widget.Amperly.Button"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="@dimen/amp_screen_padding"
+            android:layout_marginTop="@dimen/amp_space_l"
+            android:text="@string/action_reserve" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/navigateDetailsButton"
+            style="@style/Widget.Amperly.Button.Tonal"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="@dimen/amp_screen_padding"
+            android:layout_marginTop="@dimen/amp_space_s"
+            android:text="@string/action_navigate" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/reportButton"
+            style="@style/Widget.Amperly.Button.Outlined"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="@dimen/amp_screen_padding"
+            android:layout_marginTop="@dimen/amp_space_s"
+            android:text="@string/action_report" />
     </LinearLayout>
 </ScrollView>
