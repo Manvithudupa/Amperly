@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="16dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/detailStationTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="ABC College Campus Charger"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            android:textColor="#212529"
+            android:layout_marginBottom="4dp" />
+
+        <TextView
+            android:id="@+id/detailStationAddress"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Gate 2 Parking, ABC Campus, Mysore"
+            android:textSize="14sp"
+            android:textColor="#6C757D"
+            android:layout_marginBottom="16dp" />
+
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Station &amp; Port Specifications"
+                    android:textStyle="bold"
+                    android:textSize="16sp"
+                    android:layout_marginBottom="8dp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="• Connector: Type 2 AC (7.2 kW) &amp; CCS2 DC (30 kW)\n• Operating Hours: 08:00 - 20:00\n• Verified Level: Level 1 (Verified Meter)\n• Rating: 4.9 ★ (Verified Campus Users)"
+                    android:lineSpacingExtra="4dp" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <Button
+            android:id="@+id/proceedReserveBtn"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Proceed to Reserve Port" />
+
+    </LinearLayout>
+</ScrollView>
