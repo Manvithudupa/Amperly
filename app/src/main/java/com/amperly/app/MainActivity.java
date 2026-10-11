@@ -49,19 +49,6 @@ import com.google.android.material.color.MaterialColors;
 /**
  * The application shell: app bar, mode strip, one fragment container and the bottom
  * navigation.
- *
- * <p>It starts in one of two modes.
- *
- * <ul>
- *   <li><b>Signed in</b> — a Supabase project is configured and an account is available.
- *       The server decides the role, so the role switch is hidden and the navigation is
- *       built from the profile.</li>
- *   <li><b>Offline demo</b> — either no project is configured, or the user chose demo mode.
- *       Everything runs on the seeded pilot data, on this device only, and the role switch
- *       is shown so all three roles can be reviewed without an account.</li>
- * </ul>
- *
- * <p>Which one applies is decided by {@link #startBackend()} before any screen is loaded.
  */
 public class MainActivity extends AppCompatActivity {
 
@@ -80,8 +67,6 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        // targetSdk 35 enforces edge-to-edge on Android 15. Without this, content draws
-        // behind the system bars and the toolbar title collides with the status bar clock.
         WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
         setContentView(R.layout.activity_main);
         applyWindowInsets();
@@ -111,14 +96,26 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        handleDeepLink(getIntent());
         startBackend();
     }
 
-    /**
-     * Pads the app bar down past the status bar and the bottom navigation up past the
-     * gesture bar. Padding is applied to the views themselves so their backgrounds still
-     * fill the inset area, giving an unbroken surface rather than a gap.
-     */
+    @Override
+    protected void onNewIntent(android.content.Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        handleDeepLink(intent);
+    }
+
+    private void handleDeepLink(android.content.Intent intent) {
+        if (intent != null && intent.getData() != null) {
+            android.net.Uri data = intent.getData();
+            if ("amperly".equals(data.getScheme()) && "auth-callback".equals(data.getHost())) {
+                Ux.toast(this, "Email Confirmed Successfully! Welcome to Amperly.");
+            }
+        }
+    }
+
     private void applyWindowInsets() {
         View appBar = findViewById(R.id.appBarLayout);
         final int appBarStart = appBar.getPaddingStart();
@@ -141,14 +138,6 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    /**
-     * Puts the Amperly mark in the app bar.
-     *
-     * <p>Set here rather than as {@code app:logo} in the layout because the mark has to
-     * follow {@code colorOnPrimary}: the bar is a dark green in light mode and a light mint
-     * in dark mode, so a fixed-colour logo would vanish in one of the two. A vector logo
-     * also has no density variants to keep in step with the theme.
-     */
     private void applyBrandMark(Toolbar toolbar) {
         Drawable mark = AppCompatResources.getDrawable(this, R.drawable.ic_brand_mark);
         if (mark == null) {
@@ -161,19 +150,8 @@ public class MainActivity extends AppCompatActivity {
         toolbar.setLogoDescription(getString(R.string.app_name));
     }
 
-    // ------------------------------------------------------------------ modes
-
-    /**
-     * Picks the mode before anything is loaded: offline demo, or require a sign-in.
-     *
-     * <p>A configured project is not optional. The app cannot read the pilot data without a
-     * session, because Row Level Security is what authorises it, so showing the seeded data
-     * as if it were the account's own would be a lie. The demo mode is therefore an explicit
-     * choice, and while it is on nothing is ever sent to the server.
-     */
     private void startBackend() {
         if (!SupabaseConfig.isConfigured()) {
-            // Device only: no project to talk to at all.
             startOfflineDemo();
             return;
         }
@@ -192,7 +170,6 @@ public class MainActivity extends AppCompatActivity {
         restoreSession();
     }
 
-    /** Runs the whole app on the seeded pilot data, with the role switch available. */
     public void startOfflineDemo() {
         DemoMode.setOfflineDemo(this, true);
         PilotDataSeeder.seedPilotData(this);
@@ -202,7 +179,6 @@ public class MainActivity extends AppCompatActivity {
         invalidateOptionsMenu();
     }
 
-    /** Shows the sign-in page and hides everything that needs an account. */
     public void showSignIn() {
         DemoMode.setOfflineDemo(this, false);
         roleStrip.setVisibility(View.GONE);
@@ -216,15 +192,10 @@ public class MainActivity extends AppCompatActivity {
         invalidateOptionsMenu();
     }
 
-    /**
-     * A session exists. The sign-in page calls this once it has one; restoring a stored
-     * session goes through the same path so both behave identically.
-     */
     public void onSignedIn(User user) {
         boolean wasOfflineDemo = DemoMode.isOfflineDemo(this);
         DemoMode.setOfflineDemo(this, false);
         AuthManager.getInstance().setCurrentUser(user);
-        // The role belongs to the account on the server, so the switch is not offered here.
         roleStrip.setVisibility(View.GONE);
         bottomNavigationView.setVisibility(View.VISIBLE);
         applyRole(user.getRole() == null ? AppConstants.ROLE_CONSUMER : user.getRole());
@@ -233,17 +204,12 @@ public class MainActivity extends AppCompatActivity {
         syncAfterSignIn(wasOfflineDemo);
     }
 
-    /** Called by the account page once the session has been cleared. */
     public void onSignedOut() {
         AuthManager.getInstance().clearCurrentUser();
         AppStateStore.get().reset();
         showSignIn();
     }
 
-    /**
-     * Restores a stored session and, if there is one, the profile behind it. Both happen off
-     * the main thread and failure is not fatal: the sign-in page simply stays put.
-     */
     private void restoreSession() {
         repo.background(() -> SupabaseAuth.restoreSession(this), session -> {
             if (session == null) {
@@ -253,8 +219,6 @@ public class MainActivity extends AppCompatActivity {
                     () -> repo.resolveOrCreateAppUser(session.authUserId, session.email, null),
                     user -> {
                         if (user == null) {
-                            // The token is good but the profile could not be read — almost
-                            // always because the device is offline.
                             Ux.toast(this, getString(R.string.auth_profile_offline));
                             return;
                         }
@@ -263,13 +227,6 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    /**
-     * First sync after signing in.
-     *
-     * <p>If the device had been in offline demo mode, the local copy is the seeded demo data
-     * and must not reach the real project; demo writes cannot be pushed (there was no
-     * session), but they would be the moment a session existed. So they are dropped first.
-     */
     private void syncAfterSignIn(boolean discardDemoData) {
         repo.background(() -> {
             if (discardDemoData) {
@@ -283,8 +240,6 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    // ------------------------------------------------------------------ menu
-
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         getMenuInflater().inflate(R.menu.main_menu, menu);
@@ -293,7 +248,6 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     public boolean onPrepareOptionsMenu(Menu menu) {
-        // On the sign-in page there is no account, vehicle or session to act on yet.
         boolean inApp = bottomNavigationView.getVisibility() == View.VISIBLE;
         for (int i = 0; i < menu.size(); i++) {
             menu.getItem(i).setVisible(inApp);
@@ -319,9 +273,6 @@ public class MainActivity extends AppCompatActivity {
         return super.onOptionsItemSelected(item);
     }
 
-    // ------------------------------------------------------------------ role
-
-    /** Moves the chips to a role without the listener treating it as a user action. */
     private void selectRole(String role) {
         applyingRole = true;
         if (AppConstants.ROLE_HOST.equals(role)) {
