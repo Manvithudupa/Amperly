@@ -24,20 +24,59 @@
         android:padding="@dimen/amp_screen_padding"
         android:paddingBottom="@dimen/amp_space_xl">
 
-        <TextView
-            android:id="@+id/signInTitleText"
+        <!--
+          Brand lock-up.
+
+          This screen is the first thing anyone sees whenever a project is configured, and
+          it previously opened straight onto a form with no identity at all. The mark is
+          the same bolt as the launcher icon, so app and icon agree.
+        -->
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/auth_title"
-            android:textAppearance="@style/TextAppearance.Amperly.ScreenTitle" />
+            android:layout_marginTop="@dimen/amp_space_m"
+            android:layout_marginBottom="@dimen/amp_space_xl"
+            android:gravity="center_horizontal"
+            android:orientation="vertical">
+
+            <FrameLayout
+                android:layout_width="80dp"
+                android:layout_height="80dp"
+                android:background="@drawable/bg_brand_mark">
+
+                <ImageView
+                    android:layout_width="42dp"
+                    android:layout_height="42dp"
+                    android:layout_gravity="center"
+                    android:contentDescription="@null"
+                    android:src="@drawable/ic_brand_mark"
+                    app:tint="?attr/colorOnPrimaryContainer" />
+            </FrameLayout>
+
+            <TextView
+                android:id="@+id/signInTitleText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/amp_space_m"
+                android:text="@string/app_name"
+                android:textAppearance="@style/TextAppearance.Amperly.Wordmark" />
+
+            <TextView
+                android:id="@+id/signInTaglineText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/amp_space_xs"
+                android:gravity="center_horizontal"
+                android:text="@string/app_tagline"
+                android:textAppearance="@style/TextAppearance.Amperly.Body" />
+        </LinearLayout>
 
         <TextView
             android:id="@+id/signInIntroText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/amp_space_xs"
             android:text="@string/auth_intro"
-            android:textAppearance="@style/TextAppearance.Amperly.Body" />
+            android:textAppearance="@style/TextAppearance.Amperly.BodySmall" />
 
         <com.google.android.material.card.MaterialCardView
             style="@style/Widget.Amperly.Card"

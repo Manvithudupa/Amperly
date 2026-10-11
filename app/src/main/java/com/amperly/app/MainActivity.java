@@ -1,5 +1,6 @@
 package com.amperly.app;
 
+import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.Menu;
@@ -8,6 +9,7 @@ import android.view.View;
 import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.content.res.AppCompatResources;
 import androidx.appcompat.widget.Toolbar;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
@@ -42,6 +44,7 @@ import com.amperly.app.feature.host.RegisterStationFragment;
 import com.amperly.app.ui.Ux;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.chip.ChipGroup;
+import com.google.android.material.color.MaterialColors;
 
 /**
  * The application shell: app bar, mode strip, one fragment container and the bottom
@@ -87,6 +90,7 @@ public class MainActivity extends AppCompatActivity {
 
         Toolbar toolbar = findViewById(R.id.topToolbar);
         setSupportActionBar(toolbar);
+        applyBrandMark(toolbar);
 
         bottomNavigationView = findViewById(R.id.bottomNavigationView);
         currentUserText = findViewById(R.id.currentUserText);
@@ -135,6 +139,26 @@ public class MainActivity extends AppCompatActivity {
             view.setPadding(navStart, view.getPaddingTop(), navEnd, navBottom + bars.bottom);
             return windowInsets;
         });
+    }
+
+    /**
+     * Puts the Amperly mark in the app bar.
+     *
+     * <p>Set here rather than as {@code app:logo} in the layout because the mark has to
+     * follow {@code colorOnPrimary}: the bar is a dark green in light mode and a light mint
+     * in dark mode, so a fixed-colour logo would vanish in one of the two. A vector logo
+     * also has no density variants to keep in step with the theme.
+     */
+    private void applyBrandMark(Toolbar toolbar) {
+        Drawable mark = AppCompatResources.getDrawable(this, R.drawable.ic_brand_mark);
+        if (mark == null) {
+            return;
+        }
+        mark = mark.mutate();
+        mark.setTint(MaterialColors.getColor(toolbar,
+                com.google.android.material.R.attr.colorOnPrimary));
+        toolbar.setLogo(mark);
+        toolbar.setLogoDescription(getString(R.string.app_name));
     }
 
     // ------------------------------------------------------------------ modes

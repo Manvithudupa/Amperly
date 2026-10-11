@@ -37,6 +37,8 @@ public class AccountFragment extends Fragment {
 
     private AmperlyRepository repo;
     private LinearLayout detailContainer;
+    private View avatarBadge;
+    private TextView avatarText;
     private TextView subtitleText;
     private TextView syncStatusText;
     private TextView demoNoteText;
@@ -58,6 +60,8 @@ public class AccountFragment extends Fragment {
         repo = AmperlyRepository.getInstance(requireContext());
 
         detailContainer = view.findViewById(R.id.accountDetailContainer);
+        avatarBadge = view.findViewById(R.id.accountAvatarBadge);
+        avatarText = view.findViewById(R.id.accountAvatarText);
         subtitleText = view.findViewById(R.id.accountSubtitleText);
         syncStatusText = view.findViewById(R.id.accountSyncStatusText);
         demoNoteText = view.findViewById(R.id.accountDemoNoteText);
@@ -115,10 +119,14 @@ public class AccountFragment extends Fragment {
         detailContainer.removeAllViews();
 
         if (user == null) {
+            // No account, so no monogram to draw — an empty badge would just be a blank disc.
+            avatarBadge.setVisibility(View.GONE);
             subtitleText.setText(R.string.account_demo_mode);
             return;
         }
 
+        avatarBadge.setVisibility(View.VISIBLE);
+        avatarText.setText(initialsOf(user.getName()));
         subtitleText.setText(signedIn
                 ? getString(R.string.auth_signed_in_as) + " " + user.getName()
                 : getString(R.string.account_demo_mode));
@@ -158,6 +166,30 @@ public class AccountFragment extends Fragment {
         row.addView(valueView);
 
         detailContainer.addView(row);
+    }
+
+    /**
+     * Up to two initials from a display name, for the monogram badge.
+     *
+     * <p>Falls back to a single character for one-word names, and to a dot for a name that
+     * has no letters at all, so the badge is never blank.
+     */
+    private static String initialsOf(@Nullable String name) {
+        if (name == null || name.trim().isEmpty()) {
+            return "\u2022";
+        }
+        String[] words = name.trim().split("\\s+");
+        StringBuilder initials = new StringBuilder();
+        for (String word : words) {
+            if (word.isEmpty()) {
+                continue;
+            }
+            initials.append(Character.toUpperCase(word.charAt(0)));
+            if (initials.length() == 2) {
+                break;
+            }
+        }
+        return initials.length() == 0 ? "\u2022" : initials.toString();
     }
 
     // ------------------------------------------------------------------ actions

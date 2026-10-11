@@ -250,4 +250,32 @@
         <item name="boxCornerRadiusBottomStart">14dp</item>
         <item name="boxCornerRadiusBottomEnd">14dp</item>
     </style>
+
+    <!-- ================================================== Bottom navigation -->
+
+    <!--
+      The navigation bar is the one surface on every screen, so its states carry more of
+      the app's polish than any single screen does. Without an indicator the selected item
+      was distinguishable only by tint, which is easy to miss at a glance.
+    -->
+    <style name="ShapeAppearance.Amperly.NavIndicator" parent="">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">50%</item>
+    </style>
+
+    <style name="Widget.Amperly.NavIndicator"
+        parent="Widget.Material3.BottomNavigationView.ActiveIndicator">
+        <item name="shapeAppearance">@style/ShapeAppearance.Amperly.NavIndicator</item>
+        <item name="android:color">?attr/colorPrimaryContainer</item>
+    </style>
+
+    <!-- ================================================== Brand lock-up -->
+
+    <!-- The wordmark beside the mark on the sign-in page. Tightened tracking so it reads
+         as a logo rather than as a headline. -->
+    <style name="TextAppearance.Amperly.Wordmark" parent="TextAppearance.Material3.HeadlineMedium">
+        <item name="android:textColor">?attr/colorOnSurface</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:letterSpacing">-0.01</item>
+    </style>
 </resources>

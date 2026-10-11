@@ -109,6 +109,9 @@
         android:layout_height="wrap_content"
         android:background="?attr/colorSurfaceContainer"
         app:elevation="0dp"
+        app:itemActiveIndicatorStyle="@style/Widget.Amperly.NavIndicator"
+        app:itemIconTint="@color/nav_item_tint"
+        app:itemTextColor="@color/nav_item_tint"
         app:labelVisibilityMode="labeled" />
 
 </LinearLayout>

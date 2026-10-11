@@ -24,12 +24,44 @@
             android:text="@string/account_title"
             android:textAppearance="@style/TextAppearance.Amperly.ScreenTitle" />
 
-        <TextView
-            android:id="@+id/accountSubtitleText"
+        <!--
+          Identity header: a monogram in the brand circle beside who is signed in.
+
+          The badge is hidden while there is no account, so offline demo mode does not show
+          an empty circle. It is built from the name rather than shipping portrait images,
+          which the app has no source of.
+        -->
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/amp_space_xs"
-            android:textAppearance="@style/TextAppearance.Amperly.Body" />
+            android:layout_marginTop="@dimen/amp_space_m"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <FrameLayout
+                android:id="@+id/accountAvatarBadge"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:background="@drawable/bg_brand_mark">
+
+                <TextView
+                    android:id="@+id/accountAvatarText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center"
+                    android:textAppearance="@style/TextAppearance.Material3.TitleMedium"
+                    android:textColor="?attr/colorOnPrimaryContainer"
+                    android:textStyle="bold" />
+            </FrameLayout>
+
+            <TextView
+                android:id="@+id/accountSubtitleText"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="@dimen/amp_space_m"
+                android:layout_weight="1"
+                android:textAppearance="@style/TextAppearance.Amperly.Body" />
+        </LinearLayout>
 
         <com.google.android.material.card.MaterialCardView
             style="@style/Widget.Amperly.Card"
