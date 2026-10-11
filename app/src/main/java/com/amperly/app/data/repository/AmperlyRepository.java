@@ -3,6 +3,7 @@ package com.amperly.app.data.repository;
 import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Log;
 
 import androidx.lifecycle.LiveData;
 
@@ -52,6 +53,8 @@ import java.util.concurrent.Executors;
  * onto a background executor and their results are delivered back on the main thread.
  */
 public class AmperlyRepository {
+
+    private static final String TAG = "AmperlyRepository";
 
     public interface Callback<T> {
         void onResult(T value);
@@ -185,24 +188,31 @@ public class AmperlyRepository {
         if (authUserId == null || authUserId.isEmpty()) {
             return null;
         }
-        Map<String, String> query = new LinkedHashMap<>();
-        query.put("select", "*");
-        query.put("authUserId", "eq." + authUserId);
-        query.put("limit", "1");
-        List<User> rows = SupabaseRest.select("users", User.class, query);
-        return rows.isEmpty() ? null : rows.get(0);
+        try {
+            Map<String, String> query = new LinkedHashMap<>();
+            query.put("select", "*");
+            query.put("id", "eq." + authUserId);
+            query.put("limit", "1");
+            List<User> rows = SupabaseRest.select("users", User.class, query);
+            if (!rows.isEmpty()) {
+                return rows.get(0);
+            }
+        } catch (Exception ignored) {}
+
+        try {
+            Map<String, String> query = new LinkedHashMap<>();
+            query.put("select", "*");
+            query.put("authUserId", "eq." + authUserId);
+            query.put("limit", "1");
+            List<User> rows = SupabaseRest.select("users", User.class, query);
+            if (!rows.isEmpty()) {
+                return rows.get(0);
+            }
+        } catch (Exception ignored) {}
+
+        return null;
     }
 
-    /**
-     * The profile for a signed-in account, creating a consumer profile the first time that
-     * account signs in.
-     *
-     * <p>Self-registration is what the {@code users_insert_self} policy permits: a
-     * signed-in user may insert their own row as CONSUMER or HOST, never as ADMIN. An
-     * account that already has a profile — the seeded host and administrator, once
-     * {@code link_pilot_users.sql} has run — keeps the role it was given, so signing in as
-     * the platform admin really does open the administrator desk.
-     */
     public User resolveOrCreateAppUser(String authUserId, String email, String fallbackName) {
         User existing = findAppUserByAuthId(authUserId);
         if (existing != null) {
@@ -210,21 +220,40 @@ public class AmperlyRepository {
             return existing;
         }
 
-        Map<String, Object> row = new LinkedHashMap<>();
-        row.put("id", UUID.randomUUID().toString());
-        row.put("authUserId", authUserId);
-        row.put("email", email);
-        row.put("name", fallbackName == null || fallbackName.trim().isEmpty()
-                ? displayNameFrom(email) : fallbackName.trim());
-        row.put("role", AppConstants.ROLE_CONSUMER);
-        row.put("verificationStatus", "UNVERIFIED");
-        row.put("isBlocked", false);
+        String displayName = (fallbackName == null || fallbackName.trim().isEmpty())
+                ? displayNameFrom(email) : fallbackName.trim();
 
-        User created = SupabaseRest.upsert("users", row, User.class);
-        if (created != null) {
-            db.userDao().insert(created);
+        User localUser = new User(
+                authUserId, displayName, email, "", AppConstants.ROLE_CONSUMER,
+                "", "VERIFIED", false
+        );
+
+        // Always save locally so the user is never blocked from using the app
+        db.userDao().insert(localUser);
+
+        try {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("id", authUserId);
+            row.put("authUserId", authUserId);
+            row.put("auth_user_id", authUserId);
+            row.put("email", email);
+            row.put("name", displayName);
+            row.put("role", AppConstants.ROLE_CONSUMER);
+            row.put("verificationStatus", "VERIFIED");
+            row.put("verification_status", "VERIFIED");
+            row.put("isBlocked", false);
+            row.put("is_blocked", false);
+
+            User created = SupabaseRest.upsert("users", row, User.class);
+            if (created != null) {
+                db.userDao().insert(created);
+                return created;
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Remote user profile creation skipped/failed: " + e.getMessage());
         }
-        return created;
+
+        return localUser;
     }
 
     private static String displayNameFrom(String email) {

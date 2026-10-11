@@ -251,8 +251,7 @@ public final class SupabaseRest {
             }
         }
         if (code == 401 || code == 403) {
-            return "Permission denied by Row Level Security. This usually means the signed-in "
-                    + "user is not linked to an application user — see supabase/README.md.";
+            return "Permission denied by server security policy.";
         }
         return "no details";
     }

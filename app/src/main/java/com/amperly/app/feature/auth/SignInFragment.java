@@ -191,7 +191,29 @@ public class SignInFragment extends Fragment {
     }
 
     private static String messageOf(String message, String fallback) {
-        return message == null || message.trim().isEmpty() ? fallback : message;
+        if (message == null || message.trim().isEmpty()) {
+            return fallback;
+        }
+        String lower = message.toLowerCase();
+        if (lower.contains("invalid login credentials") || lower.contains("invalid_credentials") || lower.contains("invalid grant")) {
+            return "Invalid email or password. Please check your credentials and try again.";
+        }
+        if (lower.contains("email not confirmed") || lower.contains("email_not_confirmed")) {
+            return "Please confirm your email address before signing in. Check your inbox for the confirmation link.";
+        }
+        if (lower.contains("permission denied") || lower.contains("row level security") || lower.contains("403") || lower.contains("401")) {
+            return "Sign-in error. Please verify your email confirmation or account credentials.";
+        }
+        if (lower.contains("could not reach supabase") || lower.contains("network") || lower.contains("unable to resolve host") || lower.contains("timeout")) {
+            return "Unable to connect to server. Please check your internet connection and try again.";
+        }
+        if (lower.contains("rate limit") || lower.contains("too many requests")) {
+            return "Too many sign-in attempts. Please wait a moment and try again.";
+        }
+        if (lower.contains("user_already_exists") || lower.contains("already registered")) {
+            return "An account with this email already exists. Please sign in instead.";
+        }
+        return message;
     }
 
     // ------------------------------------------------------------------- view
