@@ -151,27 +151,32 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void startBackend() {
-        if (!SupabaseConfig.isConfigured()) {
+        try {
+            if (!SupabaseConfig.isConfigured()) {
+                startOfflineDemo();
+                return;
+            }
+            if (SupabaseConfig.looksLikeSecretKey()) {
+                Log.e(TAG, "SUPABASE_PUBLISHABLE_KEY is a secret key. Sync is disabled; replace it "
+                        + "with the publishable key in local.properties.");
+                Ux.toast(this, getString(R.string.auth_secret_key));
+                startOfflineDemo();
+                return;
+            }
+            if (DemoMode.isOfflineDemo(this)) {
+                startOfflineDemo();
+                return;
+            }
+            if (SupabaseAuth.hasStoredSession(this)) {
+                roleStrip.setVisibility(View.GONE);
+                bottomNavigationView.setVisibility(View.GONE);
+                restoreSession();
+            } else {
+                showSignIn();
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error starting backend, falling back to offline demo: " + e.getMessage());
             startOfflineDemo();
-            return;
-        }
-        if (SupabaseConfig.looksLikeSecretKey()) {
-            Log.e(TAG, "SUPABASE_PUBLISHABLE_KEY is a secret key. Sync is disabled; replace it "
-                    + "with the publishable key in local.properties.");
-            Ux.toast(this, getString(R.string.auth_secret_key));
-            startOfflineDemo();
-            return;
-        }
-        if (DemoMode.isOfflineDemo(this)) {
-            startOfflineDemo();
-            return;
-        }
-        if (SupabaseAuth.hasStoredSession(this)) {
-            roleStrip.setVisibility(View.GONE);
-            bottomNavigationView.setVisibility(View.GONE);
-            restoreSession();
-        } else {
-            showSignIn();
         }
     }
 
