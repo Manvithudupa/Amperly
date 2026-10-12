@@ -219,8 +219,9 @@ OSM_USER_AGENT=my-fleet-app/1.0 (ops@example.org)
 `OSM_USER_AGENT` is optional and defaults to the application id and version. OpenStreetMap's tile
 usage policy requires a User-Agent that identifies the application, so do not blank it.
 
-Tiles are cached in memory and under `cache/osm-tiles` (64 MB cap, pruned at startup), so a station
-list that has been opened once keeps working without a connection. Turn-by-turn navigation is still
+Tiles are cached in memory and under `cache/osm-tiles` (64 MB cap, trimmed on a background thread
+the first time a map panel is created), so a station list that has been opened once keeps working
+without a connection. Turn-by-turn navigation is still
 handed off to the phone's own maps application through a `geo:` intent.
 
 ---
