@@ -26,7 +26,8 @@
 
 
 -- ---------------------------------------------------------------------------
--- 0. Helper functions
+-- 0. Helper functions that depend on nothing
+--    (functions that read a table live in section 1b, after those tables exist)
 -- ---------------------------------------------------------------------------
 
 -- True when the caller is a direct SQL session (the dashboard SQL editor, the
@@ -42,49 +43,6 @@ as $$
     select current_user not in ('anon', 'authenticated')
 $$;
 
--- The application user id (e.g. 'user_student_1') behind the current JWT.
--- SECURITY DEFINER so it can read public.users while RLS is active, which
--- avoids infinite policy recursion. search_path is pinned for safety.
-create or replace function public.current_app_user_id()
-returns text
-language sql
-stable
-security definer
-set search_path = public
-as $$
-    select u.id
-    from public.users u
-    where u."authUserId" = auth.uid()
-    limit 1
-$$;
-
-create or replace function public.current_app_user_role()
-returns text
-language sql
-stable
-security definer
-set search_path = public
-as $$
-    select u.role
-    from public.users u
-    where u."authUserId" = auth.uid()
-    limit 1
-$$;
-
-create or replace function public.is_platform_admin()
-returns boolean
-language sql
-stable
-security definer
-set search_path = public
-as $$
-    select coalesce(
-        (select u.role = 'ADMIN'
-         from public.users u
-         where u."authUserId" = auth.uid()
-         limit 1),
-        false)
-$$;
 
 -- Stamps serverUpdatedAt on every UPDATE. The sync engine pulls rows where
 -- serverUpdatedAt > last successful pull, so this is what makes incremental
@@ -99,129 +57,8 @@ begin
 end;
 $$;
 
--- Blocks a signed-in user from promoting themselves to ADMIN or from clearing
--- their own block flag. Without this, a user could PATCH their own users row
--- and take over the platform — the users UPDATE policy alone cannot express
--- "but you may not change this column".
---
--- SECURITY INVOKER on purpose: is_trusted_sql_context() inspects current_user,
--- and inside a SECURITY DEFINER function current_user becomes the function
--- owner, which would make every request look trusted and defeat the check.
-create or replace function public.prevent_privilege_escalation()
-returns trigger
-language plpgsql
-set search_path = public
-as $$
-begin
-    if public.is_trusted_sql_context() or public.is_platform_admin() then
-        return new;
-    end if;
-    if new.role is distinct from old.role then
-        raise exception 'Changing the role of a user is an administrator action.';
-    end if;
-    if new."isBlocked" is distinct from old."isBlocked" then
-        raise exception 'Changing the blocked state of a user is an administrator action.';
-    end if;
-    if new."verificationStatus" is distinct from old."verificationStatus" then
-        raise exception 'Changing a verification status is an administrator action.';
-    end if;
-    return new;
-end;
-$$;
 
 
--- ---------------------------------------------------------------------------
--- 0b. Every Auth account gets its application profile
---
---  The app identifies the caller with current_app_user_id(), which resolves
---  users."authUserId" against auth.uid(). An Auth account with no public.users
---  row therefore resolves to NULL, and NULL matches no policy on any table: the
---  signed-in user sees an empty app and every single write is refused. That is
---  the failure this section removes.
---
---  Relying on the app to insert the row right after sign-in is not enough. A
---  project with "Confirm email" enabled returns no session from sign-up until the
---  address is confirmed, and a single rejected request left the account anonymous
---  forever, because nothing retried it. Making the profile a database guarantee
---  means an Auth account is visible to every policy from the moment it exists.
--- ---------------------------------------------------------------------------
-
--- Links, or creates, the application profile behind one Auth account.
--- SECURITY DEFINER so it can touch public.users and so the guard triggers treat it
--- as the trusted table owner rather than as an API caller.
-create or replace function public.ensure_app_user(
-    p_auth_user_id uuid,
-    p_email        text,
-    p_metadata     jsonb
-)
-returns void
-language plpgsql
-security definer
-set search_path = public
-as $$
-declare
-    v_name text;
-begin
-    -- 1. An account that pilot_seed.sql described before it had an Auth account is
-    --    linked in place. This is checked first so a seeded row keeps its role and
-    --    its demo history instead of being duplicated.
-    if p_email is not null then
-        if (select count(*) from public.users u
-             where u."authUserId" is null
-               and lower(u.email) = lower(p_email)) = 1 then
-            update public.users u
-               set "authUserId" = p_auth_user_id
-             where u."authUserId" is null
-               and lower(u.email) = lower(p_email);
-            return;
-        end if;
-    end if;
-
-    -- 2. Nothing seeded matches, so create the profile.
-    --    The role is always CONSUMER: raw_user_meta_data is supplied by the client
-    --    at sign-up, so trusting it would let anyone register as HOST or ADMIN.
-    --    Promotion is an administrator action on public.users.
-    v_name := nullif(btrim(coalesce(p_metadata ->> 'name', '')), '');
-    if v_name is null then
-        v_name := nullif(split_part(coalesce(p_email, ''), '@', 1), '');
-    end if;
-    if v_name is null then
-        v_name := 'Amperly user';
-    end if;
-
-    insert into public.users (id, "authUserId", name, email, phone, role,
-                              "organizationName", "verificationStatus", "isBlocked")
-    values (p_auth_user_id::text, p_auth_user_id, v_name, p_email, '', 'CONSUMER',
-            '', 'VERIFIED', false)
-    on conflict (id) do nothing;
-end;
-$$;
-
--- The trigger itself. Kept separate from the work above so the backfill at the end
--- of this file can run exactly the same logic for accounts that already exist.
-create or replace function public.handle_new_auth_user()
-returns trigger
-language plpgsql
-security definer
-set search_path = public
-as $$
-begin
-    perform public.ensure_app_user(new.id, new.email, new.raw_user_meta_data);
-    return new;
-end;
-$$;
-
-drop trigger if exists on_auth_user_created on auth.users;
-create trigger on_auth_user_created
-    after insert on auth.users
-    for each row execute function public.handle_new_auth_user();
-
--- Neither function is API surface — the trigger calls one and the backfill calls
--- the other. PostgreSQL grants EXECUTE on a new function to PUBLIC by default,
--- which would let any signed-in caller mint a profile row for an arbitrary Auth
--- account. A trigger still fires after this revoke.
-revoke all on function public.ensure_app_user(uuid, text, jsonb) from public;
-revoke all on function public.handle_new_auth_user() from public;
 
 
 -- ---------------------------------------------------------------------------
@@ -635,6 +472,187 @@ create table if not exists public.android_auto_sessions (
     "disconnectedAtMs"    bigint,
     "serverUpdatedAt"     timestamptz not null default now()
 );
+
+
+-- ---------------------------------------------------------------------------
+-- 1b. Identity: the caller behind the JWT, and one profile per Auth account
+--
+--     Everything here reads public.users, so it is created AFTER the tables
+--     above. The order is not cosmetic: PostgreSQL parses and analyses the body
+--     of a LANGUAGE SQL function when it is created, so a function that selects
+--     from a table which does not exist yet fails the whole script with
+--     "relation public.users does not exist". Keeping these below section 1 is
+--     what makes this file runnable from an empty database in one pass.
+-- ---------------------------------------------------------------------------
+
+-- The application user id (e.g. 'user_student_1') behind the current JWT.
+-- SECURITY DEFINER so it can read public.users while RLS is active, which
+-- avoids infinite policy recursion. search_path is pinned for safety.
+create or replace function public.current_app_user_id()
+returns text
+language sql
+stable
+security definer
+set search_path = public
+as $$
+    select u.id
+    from public.users u
+    where u."authUserId" = auth.uid()
+    limit 1
+$$;
+
+create or replace function public.current_app_user_role()
+returns text
+language sql
+stable
+security definer
+set search_path = public
+as $$
+    select u.role
+    from public.users u
+    where u."authUserId" = auth.uid()
+    limit 1
+$$;
+
+create or replace function public.is_platform_admin()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+    select coalesce(
+        (select u.role = 'ADMIN'
+         from public.users u
+         where u."authUserId" = auth.uid()
+         limit 1),
+        false)
+$$;
+
+
+-- Blocks a signed-in user from promoting themselves to ADMIN or from clearing
+-- their own block flag. Without this, a user could PATCH their own users row
+-- and take over the platform — the users UPDATE policy alone cannot express
+-- "but you may not change this column".
+--
+-- SECURITY INVOKER on purpose: is_trusted_sql_context() inspects current_user,
+-- and inside a SECURITY DEFINER function current_user becomes the function
+-- owner, which would make every request look trusted and defeat the check.
+create or replace function public.prevent_privilege_escalation()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+    if public.is_trusted_sql_context() or public.is_platform_admin() then
+        return new;
+    end if;
+    if new.role is distinct from old.role then
+        raise exception 'Changing the role of a user is an administrator action.';
+    end if;
+    if new."isBlocked" is distinct from old."isBlocked" then
+        raise exception 'Changing the blocked state of a user is an administrator action.';
+    end if;
+    if new."verificationStatus" is distinct from old."verificationStatus" then
+        raise exception 'Changing a verification status is an administrator action.';
+    end if;
+    return new;
+end;
+$$;
+
+
+-- ---------------------------------------------------------------------------
+-- 1c. One profile per Auth account, created together with the account
+--
+--  The app identifies the caller with current_app_user_id(), which resolves
+--  users."authUserId" against auth.uid(). An Auth account with no public.users
+--  row therefore resolves to NULL, and NULL matches no policy on any table: the
+--  signed-in user sees an empty app and every single write is refused. That is
+--  the failure this section removes.
+--
+--  Relying on the app to insert the row right after sign-in is not enough. A
+--  project with "Confirm email" enabled returns no session from sign-up until the
+--  address is confirmed, and a single rejected request left the account anonymous
+--  forever, because nothing retried it. Making the profile a database guarantee
+--  means an Auth account is visible to every policy from the moment it exists.
+-- ---------------------------------------------------------------------------
+
+-- Links, or creates, the application profile behind one Auth account.
+-- SECURITY DEFINER so it can touch public.users and so the guard triggers treat it
+-- as the trusted table owner rather than as an API caller.
+create or replace function public.ensure_app_user(
+    p_auth_user_id uuid,
+    p_email        text,
+    p_metadata     jsonb
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+    v_name text;
+begin
+    -- 1. An account that pilot_seed.sql described before it had an Auth account is
+    --    linked in place. This is checked first so a seeded row keeps its role and
+    --    its demo history instead of being duplicated.
+    if p_email is not null then
+        if (select count(*) from public.users u
+             where u."authUserId" is null
+               and lower(u.email) = lower(p_email)) = 1 then
+            update public.users u
+               set "authUserId" = p_auth_user_id
+             where u."authUserId" is null
+               and lower(u.email) = lower(p_email);
+            return;
+        end if;
+    end if;
+
+    -- 2. Nothing seeded matches, so create the profile.
+    --    The role is always CONSUMER: raw_user_meta_data is supplied by the client
+    --    at sign-up, so trusting it would let anyone register as HOST or ADMIN.
+    --    Promotion is an administrator action on public.users.
+    v_name := nullif(btrim(coalesce(p_metadata ->> 'name', '')), '');
+    if v_name is null then
+        v_name := nullif(split_part(coalesce(p_email, ''), '@', 1), '');
+    end if;
+    if v_name is null then
+        v_name := 'Amperly user';
+    end if;
+
+    insert into public.users (id, "authUserId", name, email, phone, role,
+                              "organizationName", "verificationStatus", "isBlocked")
+    values (p_auth_user_id::text, p_auth_user_id, v_name, p_email, '', 'CONSUMER',
+            '', 'VERIFIED', false)
+    on conflict (id) do nothing;
+end;
+$$;
+
+-- The trigger itself. Kept separate from the work above so the backfill at the end
+-- of this file can run exactly the same logic for accounts that already exist.
+create or replace function public.handle_new_auth_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+    perform public.ensure_app_user(new.id, new.email, new.raw_user_meta_data);
+    return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+    after insert on auth.users
+    for each row execute function public.handle_new_auth_user();
+
+-- Neither function is API surface — the trigger calls one and the backfill calls
+-- the other. PostgreSQL grants EXECUTE on a new function to PUBLIC by default,
+-- which would let any signed-in caller mint a profile row for an arbitrary Auth
+-- account. A trigger still fires after this revoke.
+revoke all on function public.ensure_app_user(uuid, text, jsonb) from public;
+revoke all on function public.handle_new_auth_user() from public;
 
 
 -- ---------------------------------------------------------------------------
@@ -1144,7 +1162,576 @@ create policy auto_sessions_own on public.android_auto_sessions
 
 
 -- ---------------------------------------------------------------------------
--- 5. Grants
+-- 5. Settlement: the money transitions are performed by the server
+--
+--    `payments` and `invoices` deliberately have no client write policy, and the
+--    billing columns of `charging_sessions` are pinned by the trigger below. So
+--    these functions are the only route by which money can be written at all —
+--    without them the app's authorization, capture, refund, cancellation and
+--    enforcement calls have nothing to reach, and those rows never exist.
+--
+--    Each one re-checks who is calling before it writes, and each is SECURITY
+--    DEFINER: inside it current_user is the table owner, which is what makes
+--    is_trusted_sql_context() true and lets the guard triggers stand aside.
+--
+--    The app computes the same figures locally so the UI works offline, but the
+--    server's numbers are the ones that count and replace the local ones on the
+--    next pull. The argument names match what
+--    AmperlyRepository passes, because PostgREST resolves a function by them.
+-- ---------------------------------------------------------------------------
+
+-- Rupees to two decimals. round(x, 2) has no double precision overload, so the
+-- cast is required. Mirrors BillingEngine.round2().
+create or replace function public.round2(p_value double precision)
+returns double precision
+language sql
+immutable
+as $$ select round(coalesce(p_value, 0)::numeric, 2)::double precision $$;
+
+
+-- Creates the authorization — a hold, not a charge. Idempotent on the key the
+-- app generated, so a retried request cannot put two holds on one booking.
+create or replace function public.authorize_payment(
+    p_id               text,
+    p_reservation_id   text,
+    p_station_id       text,
+    p_amount           double precision,
+    p_idempotency_key  text
+)
+returns text
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+    v_consumer text;
+    v_host     text;
+    v_existing text;
+    v_now      bigint;
+begin
+    select r."consumerId" into v_consumer
+      from public.reservations r
+     where r.id = p_reservation_id;
+
+    if v_consumer is null then
+        raise exception 'No reservation % to authorize a payment for.', p_reservation_id;
+    end if;
+
+    if not (v_consumer = public.current_app_user_id() or public.is_platform_admin()) then
+        raise exception 'Only the consumer who made the booking may authorize its payment.';
+    end if;
+
+    select s."hostId" into v_host
+      from public.charger_stations s
+     where s.id = p_station_id;
+
+    select p.id into v_existing
+      from public.payments p
+     where p."idempotencyKey" = p_idempotency_key;
+
+    if v_existing is not null then
+        return v_existing;
+    end if;
+
+    v_now := (extract(epoch from now()) * 1000)::bigint;
+
+    insert into public.payments (id, "reservationId", "sessionId", "consumerId", "hostId",
+        "idempotencyKey", gateway, "gatewayReference", "authorizedAmount", "capturedAmount",
+        "refundedAmount", "lateCancellationFee", status, "failureReason",
+        "createdAtMs", "updatedAtMs")
+    values (p_id, p_reservation_id, null, v_consumer, v_host,
+        p_idempotency_key, 'SANDBOX', 'auth_' || p_id, public.round2(p_amount), 0.0,
+        0.0, 0.0, 'AUTHORIZED', null, v_now, v_now)
+    on conflict (id) do update
+        set "authorizedAmount" = excluded."authorizedAmount",
+            "updatedAtMs"      = excluded."updatedAtMs";
+
+    return p_id;
+end;
+$$;
+
+
+-- Completes a session: recomputes the bill from the meter readings and the
+-- station's tariff, then writes the session, the reading, the receipt and the
+-- capture in one transaction, closes the reservation and frees the port.
+create or replace function public.finalize_charging_session(
+    p_session_id        text,
+    p_reservation_id    text,
+    p_start_meter_kwh   double precision,
+    p_end_meter_kwh     double precision,
+    p_is_simulated      boolean,
+    p_meter_reading_id  text,
+    p_invoice_id        text
+)
+returns text
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+    v_consumer     text;
+    v_host         text;
+    v_station      text;
+    v_station_name text;
+    v_port         text;
+    v_level        text;
+    v_tariff       double precision;
+    v_service      double precision;
+    v_gateway      double precision;
+    v_start        double precision;
+    v_end          double precision;
+    v_kwh          double precision;
+    v_energy       double precision;
+    v_total        double precision;
+    v_payment      text;
+    v_now          bigint;
+begin
+    select r."consumerId", r."stationId", r."stationName", r."portId"
+      into v_consumer, v_station, v_station_name, v_port
+      from public.reservations r
+     where r.id = p_reservation_id;
+
+    if v_consumer is null then
+        raise exception 'No reservation % to finalize.', p_reservation_id;
+    end if;
+
+    -- The defaults are AppConstants.DEFAULT_TARIFF_INR_PER_KWH, DEFAULT_SERVICE_FEE_INR
+    -- and DEFAULT_GATEWAY_FEE_INR, so a row with a missing tariff settles for the same
+    -- figure the app showed the consumer rather than a different one.
+    select s."hostId", s."verificationLevel", coalesce(s."pricePerKwh", 18.0),
+           coalesce(s."serviceFee", 5.0), coalesce(s."gatewayFee", 4.0)
+      into v_host, v_level, v_tariff, v_service, v_gateway
+      from public.charger_stations s
+     where s.id = v_station;
+
+    if not (v_consumer = public.current_app_user_id()
+            or v_host = public.current_app_user_id()
+            or public.is_platform_admin()) then
+        raise exception 'Only the consumer or the station host may complete this session.';
+    end if;
+
+    -- Meter-first billing: a station with no verified meter cannot take an
+    -- energy charge, so it cannot be settled through this function at all.
+    if v_level is null or v_level not in ('LEVEL_1', 'LEVEL_2') then
+        raise exception 'Station % has no verified meter, so it cannot be billed.', v_station;
+    end if;
+
+    if p_start_meter_kwh is null or p_end_meter_kwh is null then
+        raise exception 'Both meter readings are required to bill a session.';
+    end if;
+    if p_end_meter_kwh < p_start_meter_kwh then
+        raise exception 'The ending meter reading (%) is below the starting reading (%).',
+            p_end_meter_kwh, p_start_meter_kwh;
+    end if;
+
+    v_start  := public.round2(p_start_meter_kwh);
+    v_end    := public.round2(p_end_meter_kwh);
+    v_kwh    := public.round2(v_end - v_start);
+    v_energy := public.round2(v_kwh * v_tariff);
+    if v_kwh <= 0 then
+        -- Published rule: no energy charge when no energy was consumed.
+        v_service := 0.0;
+        v_gateway := 0.0;
+    end if;
+    v_total := public.round2(v_energy + v_service + v_gateway);
+    v_now   := (extract(epoch from now()) * 1000)::bigint;
+
+    -- The authorization taken when the slot was booked becomes the capture.
+    select p.id into v_payment
+      from public.payments p
+     where p."reservationId" = p_reservation_id
+     order by p."createdAtMs" desc
+     limit 1;
+
+    insert into public.charging_sessions (id, "reservationId", "consumerId", "hostId",
+        "stationId", "stationName", "portId", "startTimeMs", "endTimeMs",
+        "startingMeterKwh", "endingMeterKwh", "verifiedKwhConsumed", "energyCharge",
+        "serviceFee", "gatewayFee", "totalPaid", status, "meterReadingId", "invoiceId",
+        "isMeterSimulated", "verificationLevel")
+    values (p_session_id, p_reservation_id, v_consumer, v_host,
+        v_station, v_station_name, v_port, v_now, v_now,
+        v_start, v_end, v_kwh, v_energy,
+        v_service, v_gateway, v_total, 'COMPLETED', p_meter_reading_id, p_invoice_id,
+        coalesce(p_is_simulated, false), v_level)
+    on conflict (id) do update
+        set "startingMeterKwh"    = excluded."startingMeterKwh",
+            "endingMeterKwh"      = excluded."endingMeterKwh",
+            "verifiedKwhConsumed" = excluded."verifiedKwhConsumed",
+            "energyCharge"        = excluded."energyCharge",
+            "serviceFee"          = excluded."serviceFee",
+            "gatewayFee"          = excluded."gatewayFee",
+            "totalPaid"           = excluded."totalPaid",
+            status                = excluded.status,
+            "meterReadingId"      = excluded."meterReadingId",
+            "invoiceId"           = excluded."invoiceId",
+            "verificationLevel"   = excluded."verificationLevel";
+
+    if p_meter_reading_id is not null then
+        insert into public.meter_readings (id, "sessionId", "stationId", "startMeterKwh",
+            "endMeterKwh", "verificationLevel", "timestampMs", "isSimulated")
+        values (p_meter_reading_id, p_session_id, v_station, v_start,
+            v_end, v_level, v_now, coalesce(p_is_simulated, false))
+        on conflict (id) do update
+            set "startMeterKwh"     = excluded."startMeterKwh",
+                "endMeterKwh"       = excluded."endMeterKwh",
+                "verificationLevel" = excluded."verificationLevel",
+                "timestampMs"       = excluded."timestampMs",
+                "isSimulated"       = excluded."isSimulated";
+    end if;
+
+    if p_invoice_id is not null then
+        insert into public.invoices (id, "sessionId", "consumerId", "hostId", "stationName",
+            "verifiedKwh", "energyCharge", "serviceFee", "gatewayFee", adjustment,
+            "adjustmentNote", "finalTotal", "paymentId", status, "issuedAtMs")
+        values (p_invoice_id, p_session_id, v_consumer, v_host, v_station_name,
+            v_kwh, v_energy, v_service, v_gateway, 0.0,
+            '', v_total, v_payment, 'PAID', v_now)
+        on conflict (id) do update
+            set "verifiedKwh"  = excluded."verifiedKwh",
+                "energyCharge" = excluded."energyCharge",
+                "serviceFee"   = excluded."serviceFee",
+                "gatewayFee"   = excluded."gatewayFee",
+                "finalTotal"   = excluded."finalTotal",
+                "paymentId"    = excluded."paymentId",
+                status         = excluded.status;
+    end if;
+
+    if v_payment is not null then
+        update public.payments
+           set "sessionId"     = p_session_id,
+               status          = 'CAPTURED',
+               "capturedAmount" = v_total,
+               "updatedAtMs"    = v_now
+         where id = v_payment;
+    end if;
+
+    update public.reservations
+       set status = 'COMPLETED', "isPaid" = true, "paymentId" = v_payment
+     where id = p_reservation_id;
+
+    if v_port is not null then
+        update public.charger_ports set status = 'AVAILABLE' where id = v_port;
+    end if;
+
+    return p_session_id;
+end;
+$$;
+
+
+-- Applies the published cancellation policy on the server and releases the hold.
+-- Free until 60 minutes before the slot, then the disclosed reservation-protection
+-- fee. Mirrors BillingEngine.calculateCancellation() and PaymentManager.release().
+create or replace function public.cancel_reservation(p_reservation_id text)
+returns text
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+    v_consumer text;
+    v_host     text;
+    v_station  text;
+    v_port     text;
+    v_start    bigint;
+    v_now      bigint;
+    v_fee      double precision := 0.0;
+begin
+    select r."consumerId", r."stationId", r."portId", r."startTimeMs"
+      into v_consumer, v_station, v_port, v_start
+      from public.reservations r
+     where r.id = p_reservation_id;
+
+    if v_consumer is null then
+        raise exception 'No reservation % to cancel.', p_reservation_id;
+    end if;
+
+    select s."hostId" into v_host
+      from public.charger_stations s
+     where s.id = v_station;
+
+    if not (v_consumer = public.current_app_user_id()
+            or v_host = public.current_app_user_id()
+            or public.is_platform_admin()) then
+        raise exception 'Only the consumer or the station host may cancel this reservation.';
+    end if;
+
+    v_now := (extract(epoch from now()) * 1000)::bigint;
+
+    -- AppConstants.LATE_CANCELLATION_FEE_INR is the same 20.00 the app shows.
+    if v_start is not null and v_now > (v_start - (60::bigint * 60 * 1000)) then
+        v_fee := 20.0;
+    end if;
+
+    update public.reservations
+       set status            = 'CANCELLED',
+           "cancelledAtMs"   = v_now,
+           "cancellationFee" = v_fee
+     where id = p_reservation_id;
+
+    update public.payments
+       set status                = case when v_fee > 0 then 'CAPTURED' else 'RELEASED' end,
+           "capturedAmount"      = case when v_fee > 0 then v_fee else 0.0 end,
+           "lateCancellationFee" = v_fee,
+           "updatedAtMs"         = v_now
+     where "reservationId" = p_reservation_id
+       and status = 'AUTHORIZED';
+
+    if v_port is not null then
+        update public.charger_ports set status = 'AVAILABLE' where id = v_port;
+    end if;
+
+    return p_reservation_id;
+end;
+$$;
+
+
+-- Approves or rejects a listing, and tells the host.
+create or replace function public.decide_station_approval(
+    p_station_id text,
+    p_approve    boolean
+)
+returns text
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+    v_host  text;
+    v_name  text;
+    v_level text;
+    v_note  text;
+    v_now   bigint;
+begin
+    if not public.is_platform_admin() then
+        raise exception 'Only a platform administrator may approve a listing.';
+    end if;
+
+    select s."hostId", s.name, s."verificationLevel"
+      into v_host, v_name, v_level
+      from public.charger_stations s
+     where s.id = p_station_id;
+
+    if v_host is null then
+        raise exception 'Unknown station %.', p_station_id;
+    end if;
+
+    v_note := case when coalesce(p_approve, false)
+                   then 'Approved. The station is live in discovery.'
+                   else 'Rejected. Correct the listing and resubmit it for review.'
+              end;
+    v_now  := (extract(epoch from now()) * 1000)::bigint;
+
+    update public.charger_stations
+       set "approvalStatus" = case when coalesce(p_approve, false)
+                                   then 'APPROVED' else 'REJECTED' end,
+           "reviewNote"     = v_note,
+           -- An approved station with no verified meter stays discovery-only.
+           "isVerified"     = coalesce(p_approve, false)
+                              and v_level in ('LEVEL_1', 'LEVEL_2'),
+           "lastUpdatedMs"  = v_now
+     where id = p_station_id;
+
+    insert into public.notifications (id, "userId", title, message, "isRead", "createdAtMs")
+    values (gen_random_uuid()::text, v_host,
+            case when coalesce(p_approve, false) then 'Listing approved'
+                 else 'Listing rejected' end,
+            v_name || ': ' || v_note,
+            false, v_now);
+
+    return p_station_id;
+end;
+$$;
+
+
+-- Refunds the invoice's energy charge and the payment's capture, and resolves the
+-- dispute. The service and gateway fees are not refunded: that work was done.
+create or replace function public.resolve_dispute_refund(p_dispute_id text)
+returns text
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+    v_session  text;
+    v_invoice  text;
+    v_payment  text;
+    v_energy   double precision;
+    v_now      bigint;
+begin
+    if not public.is_platform_admin() then
+        raise exception 'Only a platform administrator may refund a dispute.';
+    end if;
+
+    select d."sessionId" into v_session
+      from public.disputes d
+     where d.id = p_dispute_id;
+
+    select i.id, i."paymentId", coalesce(i."energyCharge", 0)
+      into v_invoice, v_payment, v_energy
+      from public.invoices i
+     where i."sessionId" = v_session
+     limit 1;
+
+    if v_invoice is null then
+        raise exception 'Dispute % has no invoice to refund.', p_dispute_id;
+    end if;
+
+    v_now := (extract(epoch from now()) * 1000)::bigint;
+
+    update public.invoices i
+       set adjustment       = public.round2(coalesce(i.adjustment, 0) + v_energy),
+           "adjustmentNote" = 'Dispute resolved: the energy charge was refunded.',
+           "finalTotal"     = public.round2(greatest(0,
+                                coalesce(i."energyCharge", 0) + coalesce(i."serviceFee", 0)
+                                + coalesce(i."gatewayFee", 0)
+                                - (coalesce(i.adjustment, 0) + v_energy))),
+           status           = case
+                                when coalesce(i.adjustment, 0) + v_energy
+                                     >= coalesce(i."energyCharge", 0) + coalesce(i."serviceFee", 0)
+                                        + coalesce(i."gatewayFee", 0)
+                                then 'REFUNDED'
+                                when coalesce(i.adjustment, 0) + v_energy > 0
+                                then 'PARTIALLY_REFUNDED'
+                                else i.status
+                              end
+     where i.id = v_invoice;
+
+    if v_payment is not null then
+        update public.payments
+           set status           = 'REFUNDED',
+               "refundedAmount" = v_energy,
+               "updatedAtMs"    = v_now
+         where id = v_payment;
+    end if;
+
+    update public.disputes
+       set status           = 'RESOLVED',
+           "refundAmount"   = v_energy,
+           "resolutionNote" = 'The energy charge was refunded in full.',
+           "resolvedAtMs"   = v_now
+     where id = p_dispute_id;
+
+    return p_dispute_id;
+end;
+$$;
+
+
+-- Holds a host's payout while a dispute is under review.
+create or replace function public.freeze_dispute_payout(p_dispute_id text)
+returns text
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+    if not public.is_platform_admin() then
+        raise exception 'Only a platform administrator may hold a payout.';
+    end if;
+
+    update public.disputes set "isPayoutFrozen" = true where id = p_dispute_id;
+
+    return p_dispute_id;
+end;
+$$;
+
+
+-- Records the enforcement action, resolves the dispute with it, and takes a
+-- suspended or banned host's station off the platform with them.
+create or replace function public.apply_host_enforcement(
+    p_dispute_id  text,
+    p_action      text,
+    p_fine_amount double precision,
+    p_note        text
+)
+returns text
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+    v_host    text;
+    v_station text;
+    v_now     bigint;
+begin
+    if not public.is_platform_admin() then
+        raise exception 'Only a platform administrator may take enforcement action.';
+    end if;
+
+    select d."hostId", d."stationId"
+      into v_host, v_station
+      from public.disputes d
+     where d.id = p_dispute_id;
+
+    if v_host is null then
+        raise exception 'Unknown dispute %.', p_dispute_id;
+    end if;
+
+    v_now := (extract(epoch from now()) * 1000)::bigint;
+
+    insert into public.host_enforcements (id, "hostId", "stationId", "actionType", reason,
+        "fineAmount", "createdAtMs")
+    values (gen_random_uuid()::text, v_host, v_station, p_action, p_note,
+        coalesce(p_fine_amount, 0.0), v_now);
+
+    update public.disputes
+       set "enforcementAction" = p_action,
+           status              = 'RESOLVED',
+           "resolutionNote"    = p_note,
+           "resolvedAtMs"      = v_now
+     where id = p_dispute_id;
+
+    if p_action in ('SUSPENSION', 'BAN') and v_station is not null then
+        update public.charger_stations
+           set "isPaused" = true, "lastUpdatedMs" = v_now
+         where id = v_station;
+    end if;
+
+    return p_dispute_id;
+end;
+$$;
+
+
+-- A consumer legitimately updates their own session row — check-in and the
+-- charging transition need it — but the amount they are charged is written only
+-- by finalize_charging_session() above. A policy cannot express "but not this
+-- column", so this trigger does. Recompute-then-write is what makes it safe:
+-- tampering before settlement is overwritten, so only a settled row is pinned.
+create or replace function public.prevent_billing_tampering()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+    if public.is_trusted_sql_context() then
+        return new;
+    end if;
+
+    if new."verifiedKwhConsumed" is distinct from old."verifiedKwhConsumed"
+       or new."energyCharge"     is distinct from old."energyCharge"
+       or new."serviceFee"       is distinct from old."serviceFee"
+       or new."gatewayFee"       is distinct from old."gatewayFee"
+       or new."totalPaid"        is distinct from old."totalPaid"
+       or new."invoiceId"        is distinct from old."invoiceId" then
+        raise exception 'The billed amount is written by finalize_charging_session(), not by the app.';
+    end if;
+
+    return new;
+end;
+$$;
+
+drop trigger if exists prevent_billing_tampering on public.charging_sessions;
+create trigger prevent_billing_tampering
+    before update on public.charging_sessions
+    for each row execute function public.prevent_billing_tampering();
+
+
+-- Neither of these is API surface: one is called by the trigger above, the other
+-- is a scoring helper. Strip the default PUBLIC execute grant.
+revoke all on function public.prevent_billing_tampering() from public;
+revoke all on function public.round2(double precision) from public;
+
+-- ---------------------------------------------------------------------------
+-- 6. Grants
 --    RLS filters rows; grants decide which verbs are reachable at all. Both are
 --    required. The service_role bypasses RLS entirely — never ship that key.
 -- ---------------------------------------------------------------------------
@@ -1163,8 +1750,28 @@ grant execute on function public.current_app_user_role()    to authenticated;
 grant execute on function public.is_platform_admin()        to authenticated;
 grant execute on function public.is_trusted_sql_context()   to anon, authenticated;
 
+-- The settlement transitions. PostgreSQL grants EXECUTE on a new function to
+-- PUBLIC, so each is revoked and then granted to signed-in callers only: an
+-- anonymous visitor must not be able to reach money at all. The function itself
+-- is what actually decides who may call it.
+revoke all on function public.authorize_payment(text, text, text, double precision, text) from public;
+revoke all on function public.finalize_charging_session(text, text, double precision, double precision, boolean, text, text) from public;
+revoke all on function public.cancel_reservation(text) from public;
+revoke all on function public.decide_station_approval(text, boolean) from public;
+revoke all on function public.resolve_dispute_refund(text) from public;
+revoke all on function public.freeze_dispute_payout(text) from public;
+revoke all on function public.apply_host_enforcement(text, text, double precision, text) from public;
+
+grant execute on function public.authorize_payment(text, text, text, double precision, text) to authenticated;
+grant execute on function public.finalize_charging_session(text, text, double precision, double precision, boolean, text, text) to authenticated;
+grant execute on function public.cancel_reservation(text) to authenticated;
+grant execute on function public.decide_station_approval(text, boolean) to authenticated;
+grant execute on function public.resolve_dispute_refund(text) to authenticated;
+grant execute on function public.freeze_dispute_payout(text) to authenticated;
+grant execute on function public.apply_host_enforcement(text, text, double precision, text) to authenticated;
+
 -- ---------------------------------------------------------------------------
--- 6. Backfill: reconcile Auth accounts with application profiles
+-- 7. Backfill: reconcile Auth accounts with application profiles
 --    This is what repairs the accounts that are already broken. Re-running this
 --    file links, or creates, the public.users row for every existing Auth account,
 --    including accounts created in the Dashboard and accounts whose sign-up never

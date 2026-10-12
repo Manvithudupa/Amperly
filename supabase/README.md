@@ -5,7 +5,7 @@ code, config or hidden SQL in this repository.
 
 | File | What it is |
 |---|---|
-| `schema.sql` | All 23 tables, Row Level Security, policies, helper functions, indexes, grants, the `auth.users` trigger that gives every account its profile, and the backfill that repairs accounts created before it. **This is the file you were looking for.** |
+| `schema.sql` | All 23 tables, Row Level Security, policies, helper functions, indexes, grants, the settlement functions money is written through, the `auth.users` trigger that gives every account its profile, and the backfill that repairs accounts created before it. **This is the file you were looking for.** |
 | `pilot_seed.sql` | Optional demo data (6 stations, 12 ports, 84 schedules, and the records the demo script needs). |
 | `link_pilot_users.sql` | Connects the seeded users to real Supabase Auth accounts. |
 
@@ -220,17 +220,24 @@ are ignored by the app's JSON parser:
 - **`"serverUpdatedAt"`** — stamped by a trigger on every UPDATE, and what makes
   incremental sync possible. Do not remove it, and do not edit it from the app.
 
-`"authUserId"` is why section 0b exists. The column has no counterpart on the Room
-entity, so a row queued from the entity alone would arrive without it and
+`"authUserId"` is why sections 1b and 1c exist. The column has no counterpart on
+the Room entity, so a row queued from the entity alone would arrive without it and
 `users_insert_self` would refuse the insert. The app still creates its own profile
-row on first sign-in, as a fallback for a project where section 0b has not been
-applied yet, and it sends that row through `SyncEngine.enqueuePayload` — a queued
-payload is pushed to PostgREST byte for byte, so the server-only column survives
-and a refused insert is retried instead of dropped.
+row on first sign-in, as a fallback for a project where those sections have not
+been applied yet, and it sends that row through `SyncEngine.enqueuePayload` — a
+queued payload is pushed to PostgREST byte for byte, so the server-only column
+survives and a refused insert is retried instead of dropped.
 
 ---
 
 ## Troubleshooting
+
+**`relation "public.users" does not exist` while running the file** — the copy you
+pasted creates a function that reads `public.users` above the statement that
+creates it. PostgreSQL parses and analyses the body of a `LANGUAGE SQL` function
+when it is created, so the file has to be ordered tables-first. Sections 1b and 1c
+are placed after section 1 for exactly that reason. The error quotes a line inside
+the function, and nothing before it in the file was applied.
 
 **"new row violates row-level security policy"** — the signed-in user has no
 `public.users` row, so `current_app_user_id()` returned null. Re-run `schema.sql`:
