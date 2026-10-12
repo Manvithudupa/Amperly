@@ -13,6 +13,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentManager;
 
 import com.amperly.app.BuildConfig;
 import com.amperly.app.R;
@@ -39,9 +40,24 @@ public final class MapHelper {
         void onReady(GoogleMap map);
     }
 
+    /** One map panel per container. Every later attach on the same screen finds this one. */
+    private static final String MAP_TAG_PREFIX = "amperly_map_";
+
     private MapHelper() {
     }
 
+    /**
+     * Shows a map inside {@code container}, reusing the panel already there.
+     *
+     * <p>The container itself is the fragment's view group, so the transaction targets a
+     * real resource id that stays attached for as long as the screen does. An earlier
+     * version hosted the map in a view with a generated id and cleared the container on
+     * every call; a screen that asks for its map twice (discovery loads once when the view
+     * is created and again in {@code onResume}) then took the first panel's view away
+     * while its fragment transaction was still queued, and the queued transaction threw
+     * {@code IllegalArgumentException: No view found for id ...} on the main thread — which
+     * closes the app. Reusing the panel keeps one {@link GoogleMap} per screen as well.
+     */
     public static void attach(@NonNull Fragment parent, @Nullable ViewGroup container, @NonNull MapReady callback) {
         if (container == null) {
             return;
@@ -51,18 +67,24 @@ public final class MapHelper {
             container.addView(keyMissingView(parent));
             return;
         }
+
+        if (container.getId() == View.NO_ID) {
+            container.setId(ViewGroup.generateViewId());
+        }
+        String tag = MAP_TAG_PREFIX + container.getId();
+        FragmentManager fragments = parent.getChildFragmentManager();
+
+        Fragment existing = fragments.findFragmentByTag(tag);
+        if (existing instanceof SupportMapFragment) {
+            ((SupportMapFragment) existing).getMapAsync(callback::onReady);
+            return;
+        }
+
         try {
             container.removeAllViews();
-            LinearLayout host = new LinearLayout(parent.requireContext());
-            host.setOrientation(LinearLayout.VERTICAL);
-            host.setId(ViewGroup.generateViewId());
-            container.addView(host, new ViewGroup.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-
             SupportMapFragment mapFragment = SupportMapFragment.newInstance();
-            parent.getChildFragmentManager()
-                    .beginTransaction()
-                    .replace(host.getId(), mapFragment, "amperly_map_" + container.getId())
+            fragments.beginTransaction()
+                    .replace(container.getId(), mapFragment, tag)
                     .commitAllowingStateLoss();
             mapFragment.getMapAsync(callback::onReady);
         } catch (Exception e) {
