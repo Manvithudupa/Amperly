@@ -5,7 +5,7 @@ code, config or hidden SQL in this repository.
 
 | File | What it is |
 |---|---|
-| `schema.sql` | All 23 tables, Row Level Security, policies, helper functions, indexes, grants. **This is the file you were looking for.** |
+| `schema.sql` | All 23 tables, Row Level Security, policies, helper functions, indexes, grants, the `auth.users` trigger that gives every account its profile, and the backfill that repairs accounts created before it. **This is the file you were looking for.** |
 | `pilot_seed.sql` | Optional demo data (6 stations, 12 ports, 84 schedules, and the records the demo script needs). |
 | `link_pilot_users.sql` | Connects the seeded users to real Supabase Auth accounts. |
 
@@ -22,6 +22,10 @@ Supabase Dashboard → **SQL Editor** → **New query** → paste the whole of
 
 You should end with 23 tables in the `public` schema, all with a red
 "RLS enabled" marker in Table Editor.
+
+The last statement in the file prints every Auth account next to the application
+profile it resolves to. Every row must show an `app_user_id`: a blank one is the
+single cause of an app that signs in and then shows nothing at all.
 
 ### 2. (Optional) Add the pilot data
 
@@ -77,9 +81,12 @@ plus the local seeder, no networking. Nothing breaks.
 > **Never** put a `sb_secret_...` key (the old `service_role` key) in
 > `local.properties` or anywhere in the app. It bypasses RLS completely.
 
-### 4. Create the Auth accounts and link them
+### 4. Create the Auth accounts
 
-The seeded users only become *real* users once they have an Auth account.
+`schema.sql` installs a trigger on `auth.users`, so an Auth account and its
+`public.users` profile are created together and cannot drift apart. Creating the
+Auth account is now the only step needed — no UUIDs are copied by hand and there
+is no separate linking run.
 
 Dashboard → **Authentication** → **Users** → **Add user** → **Create new user**.
 Create one per pilot user, using the same email as the seed, with a password you
@@ -92,8 +99,35 @@ choose, and tick **Auto Confirm User**:
 | `president@greenpark.org` | Host — GreenPark |
 | `admin@amperly.app` | Platform administrator |
 
-Then run `link_pilot_users.sql`. It matches on email, so you do not need to copy
-any UUIDs by hand.
+When a seeded profile already exists for that email, the trigger links it in
+place, so the seeded row keeps its role and owns the demo history. Anything the
+app signs up on its own is created as a **Consumer**: `raw_user_meta_data` comes
+from the client at sign-up, so it is never trusted to grant HOST or ADMIN. Promote
+the platform administrator afterwards:
+
+```sql
+update public.users set role = 'ADMIN' where email = 'admin@amperly.app';
+```
+
+`link_pilot_users.sql` performs the same linking by hand. It is kept for projects
+where the accounts already existed before the trigger was installed; you do not
+need it if you created the accounts after running `schema.sql`.
+
+#### Signing up from the app needs a working email sender
+
+Sign-up returns a session immediately only when the project does not require
+confirmation. With **Confirm email** on, GoTrue creates the account and then waits
+for the link to be opened — and until it is, the app cannot sign in at all. The
+account shows up in Authentication with no profile and no data anywhere, which
+looks exactly like a broken backend.
+
+Check **Authentication → Providers → Email**. Either turn **Confirm email** off
+for the pilot, or configure **SMTP**. Supabase's built-in sender only delivers to
+the project's own team members, so with the defaults no pilot user will ever
+receive the link.
+
+The profile row is created either way, at the moment the account is created, so
+the app works as soon as the user is able to sign in.
 
 ---
 
@@ -186,13 +220,27 @@ are ignored by the app's JSON parser:
 - **`"serverUpdatedAt"`** — stamped by a trigger on every UPDATE, and what makes
   incremental sync possible. Do not remove it, and do not edit it from the app.
 
+`"authUserId"` is why section 0b exists. The column has no counterpart on the Room
+entity, so a row queued from the entity alone would arrive without it and
+`users_insert_self` would refuse the insert. The app still creates its own profile
+row on first sign-in, as a fallback for a project where section 0b has not been
+applied yet, and it sends that row through `SyncEngine.enqueuePayload` — a queued
+payload is pushed to PostgREST byte for byte, so the server-only column survives
+and a refused insert is retried instead of dropped.
+
 ---
 
 ## Troubleshooting
 
-**"new row violates row-level security policy"** — the signed-in user is not
-linked, so `current_app_user_id()` returned null. Run step 4 and confirm the
-`linked` column came back `true`.
+**"new row violates row-level security policy"** — the signed-in user has no
+`public.users` row, so `current_app_user_id()` returned null. Re-run `schema.sql`:
+the backfill at the end creates the missing profile for every existing Auth
+account, and the `on_auth_user_created` trigger stops it happening again.
+
+**The account is in Authentication but not in `public.users`** — this is the state
+that makes the whole app look empty, because every policy resolves the caller
+through `users."authUserId"`. Re-run `schema.sql` and read the table it prints at
+the end: every Auth account must show an `app_user_id`.
 
 **Queries return an empty list instead of an error** — that is RLS working
 correctly: you are seeing zero rows because no policy grants you any. Same fix

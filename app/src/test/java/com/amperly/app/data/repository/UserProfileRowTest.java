@@ -28,6 +28,13 @@ import java.util.Set;
  *
  * <p>The first test pins the exact column set; the second checks it against the schema file in the
  * repository, so a rename in {@code schema.sql} fails here instead of in production.
+ *
+ * <p>The remaining tests cover the other half of the same guarantee. The app is no longer the only
+ * thing that can create a profile: {@code schema.sql} puts a trigger on {@code auth.users} so an
+ * Auth account and its application row are created together, and a backfill repairs accounts that
+ * existed before the trigger. Both are asserted here, because an account with no
+ * {@code public.users} row is anonymous to every Row Level Security policy — the app signs in and
+ * then shows nothing, and no write of any kind is ever stored.
  */
 public class UserProfileRowTest {
 
@@ -67,6 +74,39 @@ public class UserProfileRowTest {
     }
 
     @Test
+    public void anAuthAccountAlwaysGetsAProfileRow() throws Exception {
+        File schema = findSchemaFile();
+        assumeTrue("supabase/schema.sql is not present in this checkout", schema != null);
+        String sql = readFile(schema);
+
+        assertTrue("schema.sql must install a trigger on auth.users: without it an Auth account "
+                        + "can exist with no public.users row and be invisible to every policy",
+                sql.contains("create trigger on_auth_user_created"));
+        assertTrue("that trigger must fire for every new Auth account",
+                sql.contains("after insert on auth.users"));
+        assertTrue("the trigger must call the profile function",
+                sql.contains("execute function public.handle_new_auth_user()"));
+        assertTrue("schema.sql must also backfill existing Auth accounts, which is what repairs an "
+                        + "app that signs in and then shows nothing",
+                sql.contains("select id, email, raw_user_meta_data from auth.users"));
+    }
+
+    @Test
+    public void theTriggerWritesTheSameColumnsTheAppDoes() throws Exception {
+        File schema = findSchemaFile();
+        assumeTrue("supabase/schema.sql is not present in this checkout", schema != null);
+
+        Set<String> triggerColumns = profileInsertColumns(readFile(schema));
+        assertFalse("could not find the profile insert in schema.sql", triggerColumns.isEmpty());
+
+        // users_insert_self checks authUserId, and the two writers must agree on the rest or one
+        // of them is refused by the policy the other depends on.
+        assertEquals("the profile written by the auth.users trigger must use the same columns as "
+                        + "AmperlyRepository.newUserProfileRow()",
+                new HashSet<>(EXPECTED_COLUMNS), new HashSet<>(triggerColumns));
+    }
+
+    @Test
     public void everyColumnExistsInTheCommittedSchema() throws Exception {
         File schema = findSchemaFile();
         assumeTrue("supabase/schema.sql is not present in this checkout", schema != null);
@@ -80,6 +120,39 @@ public class UserProfileRowTest {
                             + " (schema has: " + columns + ")",
                     columns.contains(column));
         }
+    }
+
+    /** The column list of the first {@code insert into public.users (...)} in the schema. */
+    private static Set<String> profileInsertColumns(String sql) {
+        Set<String> columns = new LinkedHashSet<>();
+        String marker = "insert into public.users (";
+        int start = sql.indexOf(marker);
+        if (start < 0) {
+            return columns;
+        }
+        int open = start + marker.length() - 1;
+        int close = sql.indexOf(')', open);
+        if (close < 0) {
+            return columns;
+        }
+        for (String raw : sql.substring(open + 1, close).split(",")) {
+            String name = raw.trim().replace("\"", "");
+            if (!name.isEmpty()) {
+                columns.add(name);
+            }
+        }
+        return columns;
+    }
+
+    private static String readFile(File file) throws Exception {
+        StringBuilder builder = new StringBuilder();
+        try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                builder.append(line).append('\n');
+            }
+        }
+        return builder.toString();
     }
 
     /** Reads the {@code create table ... public.users (...)} block and lists its columns. */

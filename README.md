@@ -22,7 +22,7 @@ The MVP is a **single-process Android application**. There is no live backend an
 | Payments | `PaymentManager` sandbox: authorize → capture/refund/release, idempotency keys, offline failure path |
 | Charger telemetry | None. Availability is schedule-, reservation- and host-update-based, and is labelled with a freshness timestamp |
 | Meter data | `MeterSimulator` / manual entry, always labelled **Demo meter** or **manually entered** |
-| Cloud | Optional Supabase/Postgres backend (`supabase/`). When `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` are set it becomes the source of truth; when they are absent the app runs fully on-device |
+| Cloud | Optional Supabase/Postgres backend (`supabase/`). When `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` are set it becomes the source of truth; when they are absent the app runs fully on-device. A trigger on `auth.users` gives every account its `public.users` profile — the row Row Level Security resolves the caller through |
 | Sync | Room stays the read cache and the offline write queue: a `sync_outbox` table plus `SyncEngine` push local changes and pull everything changed on the server |
 
 `AmperlyDatabase` uses `fallbackToDestructiveMigration()`, so a schema change resets local demo data instead of migrating it.
@@ -283,7 +283,7 @@ Run the whole value chain, not just a map:
 | `ChatManagerTest` | Number masking, sanitising, off-platform detection, thread open/expiry rules, quick questions, audit fields |
 | `RoleGuardTest` | Consumer / Host / Admin permission boundaries, including the dual-role account that is both |
 | `MercatorTest` | Web Mercator projection used by the OpenStreetMap tile view: round-trips, scale, zoom clamping, tile maths |
-| `UserProfileRowTest` | The `user_profiles` payload written to Supabase, so profile creation cannot silently regress |
+| `UserProfileRowTest` | The `public.users` profile row and the `auth.users` trigger that creates it, checked against `supabase/schema.sql`, so profile creation cannot silently regress |
 
 ---
 

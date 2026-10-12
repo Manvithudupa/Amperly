@@ -131,6 +131,100 @@ $$;
 
 
 -- ---------------------------------------------------------------------------
+-- 0b. Every Auth account gets its application profile
+--
+--  The app identifies the caller with current_app_user_id(), which resolves
+--  users."authUserId" against auth.uid(). An Auth account with no public.users
+--  row therefore resolves to NULL, and NULL matches no policy on any table: the
+--  signed-in user sees an empty app and every single write is refused. That is
+--  the failure this section removes.
+--
+--  Relying on the app to insert the row right after sign-in is not enough. A
+--  project with "Confirm email" enabled returns no session from sign-up until the
+--  address is confirmed, and a single rejected request left the account anonymous
+--  forever, because nothing retried it. Making the profile a database guarantee
+--  means an Auth account is visible to every policy from the moment it exists.
+-- ---------------------------------------------------------------------------
+
+-- Links, or creates, the application profile behind one Auth account.
+-- SECURITY DEFINER so it can touch public.users and so the guard triggers treat it
+-- as the trusted table owner rather than as an API caller.
+create or replace function public.ensure_app_user(
+    p_auth_user_id uuid,
+    p_email        text,
+    p_metadata     jsonb
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+    v_name text;
+begin
+    -- 1. An account that pilot_seed.sql described before it had an Auth account is
+    --    linked in place. This is checked first so a seeded row keeps its role and
+    --    its demo history instead of being duplicated.
+    if p_email is not null then
+        if (select count(*) from public.users u
+             where u."authUserId" is null
+               and lower(u.email) = lower(p_email)) = 1 then
+            update public.users u
+               set "authUserId" = p_auth_user_id
+             where u."authUserId" is null
+               and lower(u.email) = lower(p_email);
+            return;
+        end if;
+    end if;
+
+    -- 2. Nothing seeded matches, so create the profile.
+    --    The role is always CONSUMER: raw_user_meta_data is supplied by the client
+    --    at sign-up, so trusting it would let anyone register as HOST or ADMIN.
+    --    Promotion is an administrator action on public.users.
+    v_name := nullif(btrim(coalesce(p_metadata ->> 'name', '')), '');
+    if v_name is null then
+        v_name := nullif(split_part(coalesce(p_email, ''), '@', 1), '');
+    end if;
+    if v_name is null then
+        v_name := 'Amperly user';
+    end if;
+
+    insert into public.users (id, "authUserId", name, email, phone, role,
+                              "organizationName", "verificationStatus", "isBlocked")
+    values (p_auth_user_id::text, p_auth_user_id, v_name, p_email, '', 'CONSUMER',
+            '', 'VERIFIED', false)
+    on conflict (id) do nothing;
+end;
+$$;
+
+-- The trigger itself. Kept separate from the work above so the backfill at the end
+-- of this file can run exactly the same logic for accounts that already exist.
+create or replace function public.handle_new_auth_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+    perform public.ensure_app_user(new.id, new.email, new.raw_user_meta_data);
+    return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+    after insert on auth.users
+    for each row execute function public.handle_new_auth_user();
+
+-- Neither function is API surface — the trigger calls one and the backfill calls
+-- the other. PostgreSQL grants EXECUTE on a new function to PUBLIC by default,
+-- which would let any signed-in caller mint a profile row for an arbitrary Auth
+-- account. A trigger still fires after this revoke.
+revoke all on function public.ensure_app_user(uuid, text, jsonb) from public;
+revoke all on function public.handle_new_auth_user() from public;
+
+
+-- ---------------------------------------------------------------------------
 -- 1. Tables
 --    23 tables, one per Room entity.
 -- ---------------------------------------------------------------------------
@@ -1068,6 +1162,36 @@ grant execute on function public.current_app_user_id()      to anon, authenticat
 grant execute on function public.current_app_user_role()    to authenticated;
 grant execute on function public.is_platform_admin()        to authenticated;
 grant execute on function public.is_trusted_sql_context()   to anon, authenticated;
+
+-- ---------------------------------------------------------------------------
+-- 6. Backfill: reconcile Auth accounts with application profiles
+--    This is what repairs the accounts that are already broken. Re-running this
+--    file links, or creates, the public.users row for every existing Auth account,
+--    including accounts created in the Dashboard and accounts whose sign-up never
+--    reached the app. No manual UUID copying is required.
+-- ---------------------------------------------------------------------------
+
+do $$
+declare
+    account record;
+begin
+    for account in select id, email, raw_user_meta_data from auth.users loop
+        perform public.ensure_app_user(account.id, account.email, account.raw_user_meta_data);
+    end loop;
+end $$;
+
+-- The state of both sides, side by side. Every Auth account should come back with
+-- an app_user_id. A NULL there is the one thing that makes the whole app appear
+-- empty, and re-running this file is the fix.
+select a.id                             as auth_user_id,
+       a.email,
+       a.email_confirmed_at is not null as email_confirmed,
+       u.id                             as app_user_id,
+       u.role                           as app_role
+from auth.users a
+left join public.users u on u."authUserId" = a.id
+order by a.created_at;
+
 
 -- ============================================================================
 --  Done. Next: supabase/pilot_seed.sql (optional demo data), then

@@ -141,6 +141,33 @@ public final class SyncEngine {
         db.syncOutboxDao().dropOtherEntriesFor(tableName, rowId, entryId);
     }
 
+    /**
+     * Queues a row whose stored shape is not the entity the app keeps locally.
+     *
+     * <p>The account profile is the case that needs this. {@code public.users} carries
+     * {@code "authUserId"} — a server-only column with no field on the Room {@code User} —
+     * and {@code users_insert_self} refuses an insert where it is not {@code auth.uid()}.
+     * Queueing the entity would queue a row the server is guaranteed to reject, which is how
+     * a freshly signed-in account ended up with no profile at all and, with it, no write of
+     * any kind being accepted anywhere in the app.
+     */
+    public static void enqueuePayload(AmperlyDatabase db, String tableName, String rowId,
+                                      Object payload) {
+        if (!isEnabled() || payload == null || rowId == null || rowId.isEmpty()) {
+            return;
+        }
+        if (SyncTables.byName(tableName) == null) {
+            return;
+        }
+        String entryId = UUID.randomUUID().toString();
+        SyncOutboxEntry entry = new SyncOutboxEntry(entryId, tableName, rowId,
+                SyncOutboxEntry.OP_UPSERT, GSON.toJson(payload), System.currentTimeMillis(),
+                0, null);
+        db.syncOutboxDao().insert(entry);
+        // Collapse earlier pending writes for the same row down to this one.
+        db.syncOutboxDao().dropOtherEntriesFor(tableName, rowId, entryId);
+    }
+
     @Nullable
     private static String extractId(@Nullable String payloadJson) {
         if (payloadJson == null) {
@@ -224,10 +251,20 @@ public final class SyncEngine {
                 if (entry.isDelete()) {
                     SupabaseRest.deleteById(table.name, entry.getRowId());
                 } else {
-                    Object entity = GSON.fromJson(entry.getPayloadJson(), table.type);
-                    if (entity != null) {
-                        SupabaseRest.upsert(table.name, entity, table.type);
+                    String payload = entry.getPayloadJson();
+                    if (payload == null || payload.isEmpty()) {
+                        // Nothing was queued to send. Record it rather than dropping the entry,
+                        // so a change can never disappear without a trace.
+                        db.syncOutboxDao().recordFailure(entry.getId(),
+                                "Queued row had no payload and was not sent.");
+                        failed++;
+                        continue;
                     }
+                    // Send the payload exactly as it was queued. Decoding it back into the
+                    // entity and re-encoding would silently drop every column the Room entity
+                    // does not model, and users."authUserId" — required by users_insert_self —
+                    // is one of them.
+                    SupabaseRest.upsertJson(table.name, payload);
                 }
                 db.syncOutboxDao().deleteById(entry.getId());
                 pushed++;

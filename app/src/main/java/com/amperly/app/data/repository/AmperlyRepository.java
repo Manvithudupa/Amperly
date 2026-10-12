@@ -266,6 +266,12 @@ public class AmperlyRepository {
         } catch (Exception e) {
             profileWriteFailed = true;
             Log.w(TAG, "Remote user profile creation failed: " + e.getMessage());
+            // Do not give up. An account with no public.users row is anonymous to every Row
+            // Level Security policy, so nothing the user does is stored anywhere — which is
+            // exactly the symptom this queue exists to fix. The payload carries authUserId,
+            // so the next sync can retry the insert until the server accepts it.
+            SyncEngine.enqueuePayload(db, "users", authUserId,
+                    newUserProfileRow(authUserId, email, displayName));
         }
 
         return localUser;

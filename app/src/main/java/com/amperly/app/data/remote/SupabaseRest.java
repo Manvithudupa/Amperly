@@ -174,6 +174,24 @@ public final class SupabaseRest {
     }
 
     /**
+     * Upserts a row from JSON that was built earlier and stored in the outbox.
+     *
+     * <p>Used by {@code SyncEngine} so the queued payload reaches the server unchanged.
+     * Decoding it back into the entity class and re-encoding would drop every column the
+     * Room entity does not model, and {@code users."authUserId"} is exactly one of those —
+     * the row is refused without it.
+     */
+    public static void upsertJson(String table, String payloadJson) {
+        Response<ResponseBody> response = call(() ->
+                SupabaseClient.postgrest()
+                        .upsert(table, RequestBody.create(payloadJson, JSON),
+                                SupabaseClient.authHeader())
+                        .execute());
+        String body = read(response);
+        requireSuccess(response, body, "Saving to " + table);
+    }
+
+    /**
      * Calls a Postgres function exposed at {@code /rest/v1/rpc/<function>} and returns
      * whatever JSON it produced.
      *
