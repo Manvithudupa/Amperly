@@ -4,6 +4,8 @@ import androidx.annotation.NonNull;
 import androidx.room.Entity;
 import androidx.room.PrimaryKey;
 
+import com.amperly.app.core.common.AppConstants;
+
 @Entity(tableName = "users")
 public class User {
     @PrimaryKey
@@ -53,4 +55,32 @@ public class User {
 
     public boolean isBlocked() { return isBlocked; }
     public void setBlocked(boolean blocked) { isBlocked = blocked; }
+
+    // ------------------------------------------------------------- authority
+
+    /**
+     * Amperly accounts are dual-role: the same person books charging as a Consumer and lists
+     * their own charger as a Host. {@link #role} is therefore the account's administrative
+     * standing (ADMIN for platform ops, CONSUMER for everyone else), not a capability gate.
+     *
+     * <p>This matches the backend, where every host policy is written as
+     * {@code "hostId" = current_app_user_id()} — ownership, not the role column, is what
+     * grants the right to manage a station.
+     */
+    public boolean canActAsConsumer() {
+        return !isBlocked;
+    }
+
+    /** Any account may list chargers it owns. A blocked account may not. */
+    public boolean canActAsHost() {
+        return !isBlocked;
+    }
+
+    /**
+     * The admin desk is platform operations and is controlled by the server, so this is read
+     * from the synced role column and never from the acting role the user picked in the UI.
+     */
+    public boolean isPlatformAdmin() {
+        return AppConstants.ROLE_ADMIN.equalsIgnoreCase(role);
+    }
 }

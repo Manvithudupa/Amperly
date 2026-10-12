@@ -1,207 +1,269 @@
 package com.amperly.app.core.map;
 
-import android.content.Intent;
-import android.graphics.Color;
-import android.net.Uri;
-import android.view.Gravity;
-import android.view.View;
+import android.content.Context;
+import android.net.ConnectivityManager;
+import android.net.Network;
+import android.net.NetworkCapabilities;
 import android.view.ViewGroup;
-import android.widget.LinearLayout;
-import android.widget.TextView;
+
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
-import androidx.fragment.app.FragmentManager;
 
-import com.amperly.app.BuildConfig;
 import com.amperly.app.R;
 import com.amperly.app.data.local.entity.ChargerStation;
-import com.google.android.gms.maps.CameraUpdateFactory;
-import com.google.android.gms.maps.GoogleMap;
-import com.google.android.gms.maps.SupportMapFragment;
-import com.google.android.gms.maps.model.BitmapDescriptorFactory;
-import com.google.android.gms.maps.model.LatLng;
-import com.google.android.gms.maps.model.LatLngBounds;
-import com.google.android.gms.maps.model.MarkerOptions;
-import com.google.android.gms.maps.model.PolylineOptions;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.WeakHashMap;
 
 /**
- * Adds a Google Maps panel when a MAPS_API_KEY is configured, and otherwise provides
- * a clean fallback card with a direct Google Maps launcher.
+ * Puts a map inside a screen and draws amperly's own content on it.
+ *
+ * <p>The map is {@link OsmTileMapView}: OpenStreetMap raster tiles drawn directly, so there is no
+ * API key, no Play Services and no third-party map SDK to configure. Host-registered chargers show
+ * up here the moment they are approved, because this class plots whatever
+ * {@code repo.getApprovedStationsSync()} returns.
+ *
+ * <p>The view is a plain child of the screen's own container, so asking for the map twice — as the
+ * discovery screen does, once when the view is created and again in {@code onResume} — reuses the
+ * same panel instead of tearing it down and rebuilding it.
  */
 public final class MapHelper {
 
+    /** A ready-to-use map. */
     public interface MapReady {
-        void onReady(GoogleMap map);
+        void onReady(@NonNull OsmTileMapView map);
     }
 
-    /** One map panel per container. Every later attach on the same screen finds this one. */
-    private static final String MAP_TAG_PREFIX = "amperly_map_";
+    /** Reports a charger location the host picked on the map. */
+    public interface LocationPick {
+        void onPicked(double latitude, double longitude);
+    }
+
+    /** One panel per container, so asking twice reuses the same view. */
+    private static final Map<ViewGroup, OsmTileMapView> PANELS = new WeakHashMap<>();
 
     private MapHelper() {
     }
 
+    // --------------------------------------------------------------- attaching
+
     /**
-     * Shows a map inside {@code container}, reusing the panel already there.
+     * Shows a map inside {@code container}.
      *
-     * <p>The container itself is the fragment's view group, so the transaction targets a
-     * real resource id that stays attached for as long as the screen does. An earlier
-     * version hosted the map in a view with a generated id and cleared the container on
-     * every call; a screen that asks for its map twice (discovery loads once when the view
-     * is created and again in {@code onResume}) then took the first panel's view away
-     * while its fragment transaction was still queued, and the queued transaction threw
-     * {@code IllegalArgumentException: No view found for id ...} on the main thread — which
-     * closes the app. Reusing the panel keeps one {@link GoogleMap} per screen as well.
+     * <p>Building the view is deferred to the container's first layout: creating a map is not free
+     * and it must not delay the rest of the screen from painting.
      */
-    public static void attach(@NonNull Fragment parent, @Nullable ViewGroup container, @NonNull MapReady callback) {
+    public static void attach(@NonNull Fragment parent, @Nullable ViewGroup container,
+                              @NonNull MapReady callback) {
         if (container == null) {
             return;
         }
-        if (!BuildConfig.MAPS_ENABLED) {
-            container.removeAllViews();
-            container.addView(keyMissingView(parent));
-            return;
-        }
-
-        if (container.getId() == View.NO_ID) {
-            container.setId(ViewGroup.generateViewId());
-        }
-        String tag = MAP_TAG_PREFIX + container.getId();
-        FragmentManager fragments = parent.getChildFragmentManager();
-
-        Fragment existing = fragments.findFragmentByTag(tag);
-        if (existing instanceof SupportMapFragment) {
-            ((SupportMapFragment) existing).getMapAsync(callback::onReady);
-            return;
-        }
-
-        try {
-            container.removeAllViews();
-            SupportMapFragment mapFragment = SupportMapFragment.newInstance();
-            fragments.beginTransaction()
-                    .replace(container.getId(), mapFragment, tag)
-                    .commitAllowingStateLoss();
-            mapFragment.getMapAsync(callback::onReady);
-        } catch (Exception e) {
-            container.removeAllViews();
-            container.addView(keyMissingView(parent));
-        }
-    }
-
-    private static View keyMissingView(Fragment parent) {
-        LinearLayout layout = new LinearLayout(parent.requireContext());
-        layout.setOrientation(LinearLayout.VERTICAL);
-        layout.setGravity(Gravity.CENTER);
-        layout.setPadding(32, 24, 32, 24);
-        layout.setBackgroundColor(ContextCompat.getColor(parent.requireContext(), R.color.amp_surface_variant));
-
-        TextView text = new TextView(parent.requireContext());
-        text.setText("Map View\nAdd MAPS_API_KEY to local.properties to display embedded map.");
-        text.setGravity(Gravity.CENTER);
-        text.setTextSize(13f);
-        text.setTextColor(ContextCompat.getColor(parent.requireContext(), R.color.amp_on_surface_variant));
-        layout.addView(text);
-
-        com.google.android.material.button.MaterialButton openMapsBtn =
-                new com.google.android.material.button.MaterialButton(parent.requireContext());
-        openMapsBtn.setText(R.string.map_open_external);
-        openMapsBtn.setTextSize(12f);
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        params.topMargin = 12;
-        openMapsBtn.setLayoutParams(params);
-
-        openMapsBtn.setOnClickListener(v -> {
-            try {
-                Uri gmmIntentUri = Uri.parse("geo:12.2958,76.6394?q=EV+Charger+Station");
-                Intent mapIntent = new Intent(Intent.ACTION_VIEW, gmmIntentUri);
-                mapIntent.setPackage("com.google.android.apps.maps");
-                if (mapIntent.resolveActivity(parent.requireContext().getPackageManager()) != null) {
-                    parent.startActivity(mapIntent);
-                } else {
-                    Intent genericMapIntent = new Intent(Intent.ACTION_VIEW, gmmIntentUri);
-                    parent.startActivity(genericMapIntent);
-                }
-            } catch (Exception ignored) {}
+        container.post(() -> {
+            OsmTileMapView map = panelFor(parent, container);
+            if (map != null) {
+                callback.onReady(map);
+            }
         });
-
-        layout.addView(openMapsBtn);
-        return layout;
     }
 
-    public static void plotStations(@Nullable GoogleMap map, @Nullable List<ChargerStation> stations,
+    /**
+     * A map the host can touch to place a charger, with a pin at the current coordinates.
+     * Tapping anywhere moves the pin and reports the new point.
+     */
+    public static void attachPicker(@NonNull Fragment parent, @Nullable ViewGroup container,
+                                    double latitude, double longitude, @NonNull String label,
+                                    @NonNull LocationPick picker) {
+        if (container == null) {
+            return;
+        }
+        container.post(() -> {
+            OsmTileMapView map = panelFor(parent, container);
+            if (map == null) {
+                return;
+            }
+            final double[] pin = {latitude, longitude};
+            map.setPins(java.util.Collections.singletonList(pinAt(map, pin[0], pin[1], label)));
+            map.setMapTapListener((lat, lng) -> {
+                pin[0] = lat;
+                pin[1] = lng;
+                map.setPins(java.util.Collections.singletonList(pinAt(map, lat, lng, label)));
+                picker.onPicked(lat, lng);
+            });
+            map.setCamera(pin[0], pin[1], 16f);
+        });
+    }
+
+    /** Moves an already attached map, used when the host types coordinates by hand. */
+    public static void moveTo(@Nullable ViewGroup container, double latitude, double longitude,
+                              float zoom) {
+        OsmTileMapView map = PANELS.get(container);
+        if (map == null) {
+            return;
+        }
+        map.setCamera(latitude, longitude, zoom);
+        if (map.isEmpty()) {
+            map.setPins(java.util.Collections.singletonList(
+                    pinAt(map, latitude, longitude, null)));
+        }
+    }
+
+    @Nullable
+    private static OsmTileMapView panelFor(@NonNull Fragment parent, @Nullable ViewGroup container) {
+        if (container == null) {
+            return null;
+        }
+        Context context;
+        try {
+            context = parent.requireContext();
+        } catch (IllegalStateException e) {
+            return null;
+        }
+
+        OsmTileMapView map = PANELS.get(container);
+        if (map == null) {
+            map = new OsmTileMapView(context);
+            container.removeAllViews();
+            container.addView(map, new ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+            PANELS.put(container, map);
+            pruneCache(context);
+        }
+        return map;
+    }
+
+    private static void pruneCache(@NonNull Context context) {
+        final Context appContext = context.getApplicationContext();
+        new Thread(() -> OsmTileMapView.pruneDiskCache(appContext), "osm-cache-prune").start();
+    }
+
+    // --------------------------------------------------------------- plotting
+
+    public static void plotStations(@Nullable OsmTileMapView map,
+                                    @Nullable List<ChargerStation> stations,
                                     @Nullable String highlightStationId) {
         if (map == null || stations == null || stations.isEmpty()) {
             return;
         }
-        try {
-            map.clear();
-            LatLngBounds.Builder bounds = new LatLngBounds.Builder();
-            boolean hasPoint = false;
-            for (ChargerStation station : stations) {
-                LatLng position = new LatLng(station.getLatitude(), station.getLongitude());
-                boolean highlight = station.getId().equals(highlightStationId);
-                map.addMarker(new MarkerOptions()
-                        .position(position)
-                        .title(station.getName())
-                        .snippet(station.getAddress())
-                        .icon(BitmapDescriptorFactory.defaultMarker(highlight
-                                ? BitmapDescriptorFactory.HUE_AZURE
-                                : station.supportsPaidEnergyBilling()
-                                ? BitmapDescriptorFactory.HUE_GREEN
-                                : BitmapDescriptorFactory.HUE_ORANGE)));
-                bounds.include(position);
-                hasPoint = true;
-            }
-            if (hasPoint) {
-                try {
-                    map.moveCamera(CameraUpdateFactory.newLatLngBounds(bounds.build(), 120));
-                } catch (IllegalStateException ignored) {
-                    map.moveCamera(CameraUpdateFactory.newLatLngZoom(
-                            new LatLng(stations.get(0).getLatitude(), stations.get(0).getLongitude()), 11f));
-                }
-            }
-        } catch (Exception ignored) {}
+        List<OsmTileMapView.Pin> pins = new ArrayList<>();
+        double north = -90, south = 90, east = -180, west = 180;
+        for (ChargerStation station : stations) {
+            boolean highlight = station.getId().equals(highlightStationId);
+            int fill = highlight
+                    ? R.color.amp_secondary
+                    : station.supportsPaidEnergyBilling() ? R.color.amp_primary : R.color.amp_warning;
+            pins.add(pinAt(map, station.getLatitude(), station.getLongitude(), station.getName(),
+                    fill));
+            north = Math.max(north, station.getLatitude());
+            south = Math.min(south, station.getLatitude());
+            east = Math.max(east, station.getLongitude());
+            west = Math.min(west, station.getLongitude());
+        }
+        map.setPins(pins);
+        map.fitTo(north, south, east, west, 11f);
     }
 
-    public static void plotRoute(@Nullable GoogleMap map, double originLat, double originLng,
+    /**
+     * Draws the corridor: the route line itself, the two endpoints, and every compatible charger
+     * along it. The recommended stop is the one drawn in the accent colour.
+     */
+    public static void plotRoute(@Nullable OsmTileMapView map, double originLat, double originLng,
                                  double destLat, double destLng,
                                  @Nullable List<ChargerStation> corridorStations,
                                  @Nullable String highlightStationId) {
         if (map == null) {
             return;
         }
-        try {
-            map.clear();
-            LatLng origin = new LatLng(originLat, originLng);
-            LatLng destination = new LatLng(destLat, destLng);
-            map.addPolyline(new PolylineOptions()
-                    .add(origin, destination)
-                    .width(10f)
-                    .color(Color.parseColor("#1B6FE3")));
+        List<double[]> line = new ArrayList<>();
+        for (int i = 0; i <= 24; i++) {
+            line.add(geodesicPoint(originLat, originLng, destLat, destLng, i / 24d));
+        }
+        map.setRoute(line);
 
-            List<ChargerStation> markers = corridorStations == null
-                    ? new ArrayList<>() : new ArrayList<>(corridorStations);
-            if (!markers.isEmpty()) {
-                plotStations(map, markers, highlightStationId);
-            }
+        List<OsmTileMapView.Pin> pins = new ArrayList<>();
+        pins.add(pinAt(map, originLat, originLng, "Start", R.color.amp_on_surface_variant));
+        pins.add(pinAt(map, destLat, destLng, "Destination", R.color.amp_on_surface_variant));
 
-            LatLngBounds.Builder bounds = new LatLngBounds.Builder()
-                    .include(origin)
-                    .include(destination);
-            for (ChargerStation station : markers) {
-                bounds.include(new LatLng(station.getLatitude(), station.getLongitude()));
+        double north = Math.max(originLat, destLat);
+        double south = Math.min(originLat, destLat);
+        double east = Math.max(originLng, destLng);
+        double west = Math.min(originLng, destLng);
+
+        if (corridorStations != null) {
+            for (ChargerStation station : corridorStations) {
+                boolean highlight = station.getId().equals(highlightStationId);
+                pins.add(pinAt(map, station.getLatitude(), station.getLongitude(), station.getName(),
+                        highlight ? R.color.amp_secondary : R.color.amp_primary));
+                north = Math.max(north, station.getLatitude());
+                south = Math.min(south, station.getLatitude());
+                east = Math.max(east, station.getLongitude());
+                west = Math.min(west, station.getLongitude());
             }
-            try {
-                map.moveCamera(CameraUpdateFactory.newLatLngBounds(bounds.build(), 140));
-            } catch (IllegalStateException ignored) {
-                map.moveCamera(CameraUpdateFactory.newLatLngZoom(origin, 9f));
-            }
-        } catch (Exception ignored) {}
+        }
+        map.setPins(pins);
+        map.fitTo(north, south, east, west, 8f);
     }
+
+    private static OsmTileMapView.Pin pinAt(@NonNull OsmTileMapView map, double latitude,
+                                            double longitude, @Nullable String title) {
+        return pinAt(map, latitude, longitude, title, R.color.amp_primary);
+    }
+
+    private static OsmTileMapView.Pin pinAt(@NonNull OsmTileMapView map, double latitude,
+                                            double longitude, @Nullable String title, int fillRes) {
+        return new OsmTileMapView.Pin(latitude, longitude, title,
+                ContextCompat.getColor(map.getContext(), fillRes),
+                ContextCompat.getColor(map.getContext(), R.color.white));
+    }
+
+    /** A great-circle point, so the drawn route bends the way a real path does. */
+    private static double[] geodesicPoint(double lat1, double lon1, double lat2, double lon2,
+                                          double fraction) {
+        double phi1 = Math.toRadians(lat1);
+        double lambda1 = Math.toRadians(lon1);
+        double phi2 = Math.toRadians(lat2);
+        double lambda2 = Math.toRadians(lon2);
+
+        double d = 2 * Math.asin(Math.sqrt(Math.pow(Math.sin((phi2 - phi1) / 2), 2)
+                + Math.cos(phi1) * Math.cos(phi2) * Math.pow(Math.sin((lambda2 - lambda1) / 2), 2)));
+        if (d == 0 || Double.isNaN(d)) {
+            return new double[]{lat1, lon1};
+        }
+        double a = Math.sin((1 - fraction) * d) / Math.sin(d);
+        double b = Math.sin(fraction * d) / Math.sin(d);
+        double x = a * Math.cos(phi1) * Math.cos(lambda1) + b * Math.cos(phi2) * Math.cos(lambda2);
+        double y = a * Math.cos(phi1) * Math.sin(lambda1) + b * Math.cos(phi2) * Math.sin(lambda2);
+        double z = a * Math.sin(phi1) + b * Math.sin(phi2);
+        return new double[]{
+                Math.toDegrees(Math.atan2(z, Math.sqrt(x * x + y * y))),
+                Math.toDegrees(Math.atan2(y, x))};
+    }
+
+    /** True when the device currently has a usable network, checked the modern way. */
+    public static boolean hasNetwork(@Nullable Context context) {
+        if (context == null) {
+            return false;
+        }
+        try {
+            ConnectivityManager manager = (ConnectivityManager)
+                    context.getSystemService(Context.CONNECTIVITY_SERVICE);
+            if (manager == null) {
+                return false;
+            }
+            Network network = manager.getActiveNetwork();
+            if (network == null) {
+                return false;
+            }
+            NetworkCapabilities capabilities = manager.getNetworkCapabilities(network);
+            return capabilities != null
+                    && capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
 }

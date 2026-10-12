@@ -5,6 +5,8 @@ import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.lifecycle.LiveData;
 
 import com.amperly.app.core.common.AppConstants;
@@ -67,6 +69,13 @@ public class AmperlyRepository {
     private final ExecutorService executor = Executors.newFixedThreadPool(4);
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
+    /**
+     * Set when the server refused to create the signed-in account's profile row. The account then
+     * exists on the device but not in {@code public.users}, which makes it anonymous to every RLS
+     * policy, so the UI has to say so instead of showing a silently empty app.
+     */
+    private volatile boolean profileWriteFailed;
+
     private AmperlyRepository(Context context) {
         db = AmperlyDatabase.getInstance(context);
         appContext = context.getApplicationContext();
@@ -87,6 +96,13 @@ public class AmperlyRepository {
         return db;
     }
 
+    /**
+     * Runs background work and delivers the result on the main thread.
+     *
+     * <p>A failure delivers {@code null}, but it is also logged. Swallowing it silently is how a
+     * screen ends up looking like it works while showing nothing at all, which is exactly the
+     * kind of bug that is hardest to report and hardest to find.
+     */
     public <T> void background(Callable<T> work, Callback<T> callback) {
         executor.execute(() -> {
             try {
@@ -95,6 +111,7 @@ public class AmperlyRepository {
                     mainHandler.post(() -> callback.onResult(value));
                 }
             } catch (Exception e) {
+                Log.e(TAG, "Background work failed: " + e, e);
                 if (callback != null) {
                     mainHandler.post(() -> callback.onResult(null));
                 }
@@ -103,7 +120,13 @@ public class AmperlyRepository {
     }
 
     public void run(Runnable work) {
-        executor.execute(work);
+        executor.execute(() -> {
+            try {
+                work.run();
+            } catch (Exception e) {
+                Log.e(TAG, "Background task failed: " + e, e);
+            }
+        });
     }
 
     // ------------------------------------------------------------------- sync
@@ -232,28 +255,56 @@ public class AmperlyRepository {
         db.userDao().insert(localUser);
 
         try {
-            Map<String, Object> row = new LinkedHashMap<>();
-            row.put("id", authUserId);
-            row.put("authUserId", authUserId);
-            row.put("auth_user_id", authUserId);
-            row.put("email", email);
-            row.put("name", displayName);
-            row.put("role", AppConstants.ROLE_CONSUMER);
-            row.put("verificationStatus", "VERIFIED");
-            row.put("verification_status", "VERIFIED");
-            row.put("isBlocked", false);
-            row.put("is_blocked", false);
-
-            User created = SupabaseRest.upsert("users", row, User.class);
+            User created = SupabaseRest.upsert("users",
+                    newUserProfileRow(authUserId, email, displayName), User.class);
             if (created != null) {
+                profileWriteFailed = false;
                 db.userDao().insert(created);
                 return created;
             }
+            profileWriteFailed = true;
         } catch (Exception e) {
-            Log.w(TAG, "Remote user profile creation skipped/failed: " + e.getMessage());
+            profileWriteFailed = true;
+            Log.w(TAG, "Remote user profile creation failed: " + e.getMessage());
         }
 
         return localUser;
+    }
+
+    /** True when the last profile creation reached the device but not the server. */
+    public boolean didProfileWriteFail() {
+        return profileWriteFailed;
+    }
+
+    /**
+     * The exact row a self-registered account inserts into {@code public.users}.
+     *
+     * <p>Column names have to match the table exactly. An earlier version also sent
+     * {@code auth_user_id}, {@code verification_status} and {@code is_blocked} — columns that do
+     * not exist — and PostgREST rejects the WHOLE insert when one column is unknown. No profile
+     * row was ever created, so a brand-new account was anonymous to every policy that resolves the
+     * caller through {@code current_app_user_id()}: the app looked empty and every write failed.
+     *
+     * <p>The role sent here must also satisfy the {@code users_insert_self} policy, which allows
+     * insert only as CONSUMER or HOST. That is the same rule that makes one account able to be both:
+     * host authority comes from station ownership, not from the role column.
+     *
+     * <p>Package-private so it can be asserted against {@code supabase/schema.sql} in a unit test.
+     */
+    @NonNull
+    static Map<String, Object> newUserProfileRow(@NonNull String id, @Nullable String email,
+                                                @NonNull String displayName) {
+        Map<String, Object> row = new LinkedHashMap<>();
+        row.put("id", id);
+        row.put("authUserId", id);
+        row.put("email", email);
+        row.put("name", displayName);
+        row.put("phone", "");
+        row.put("role", AppConstants.ROLE_CONSUMER);
+        row.put("organizationName", "");
+        row.put("verificationStatus", "VERIFIED");
+        row.put("isBlocked", false);
+        return row;
     }
 
     private static String displayNameFrom(String email) {

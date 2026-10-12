@@ -160,7 +160,7 @@ public class HostDashboardFragment extends Fragment {
         ((TextView) view.findViewById(R.id.statsEnergyText)).setText(
                 String.format(Locale.US, "%.1f", analytics.getEnergyDeliveredKwh()));
         ((TextView) view.findViewById(R.id.statsUtilizationText)).setText(
-                String.format(Locale.US, "%.0f%%", analytics.getUtilizationPercent()));
+                Formatters.percent(analytics.getUtilizationPercent()));
         ((TextView) view.findViewById(R.id.statsRevenueText)).setText(
                 Formatters.moneyShort(analytics.getRevenue()));
     }
@@ -168,7 +168,7 @@ public class HostDashboardFragment extends Fragment {
     private void bindAnalytics(HostAnalyticsEngine.HostAnalytics analytics) {
         analyticsContainer.removeAllViews();
         addRow("Repeat consumers", String.valueOf(analytics.getRepeatConsumers()));
-        addRow("Cancellation rate", String.format(Locale.US, "%.0f%%", analytics.getCancellationRatePercent()));
+        addRow("Cancellation rate", Formatters.percent(analytics.getCancellationRatePercent()));
         addRow("Average session size", Formatters.kwh(analytics.getAverageSessionKwh()));
         addRow("Disputes", analytics.getDisputes() + " (" + analytics.getOpenDisputes() + " open)");
         addRow("Refunds and adjustments", Formatters.money(analytics.getRefundsAndAdjustments()));

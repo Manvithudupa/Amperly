@@ -1,22 +1,30 @@
 package com.amperly.app.feature.host;
 
+import android.Manifest;
+import android.content.pm.PackageManager;
 import android.os.Bundle;
+import android.text.Editable;
 import android.text.TextUtils;
+import android.text.TextWatcher;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.CheckBox;
 import android.widget.EditText;
+import android.widget.FrameLayout;
 import android.widget.Spinner;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 
 import com.amperly.app.R;
 import com.amperly.app.core.common.AppConstants;
+import com.amperly.app.core.location.LocationProvider;
+import com.amperly.app.core.map.MapHelper;
 import com.amperly.app.core.nav.Navigator;
 import com.amperly.app.core.security.AuthManager;
 import com.amperly.app.data.local.entity.AvailabilitySchedule;
@@ -31,6 +39,7 @@ import com.amperly.app.ui.Ux;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 
 /**
@@ -50,7 +59,14 @@ public class RegisterStationFragment extends Fragment {
             "Level 3 — no verified meter (discovery only)"};
     private static final String[] CONNECTORS = {"TYPE_2_AC", "CCS_2_DC", "GB_T", "CHADEMO"};
 
+    private static final int REQUEST_LOCATION = 1001;
+
     private AmperlyRepository repo;
+    private EditText latitudeEdit;
+    private EditText longitudeEdit;
+    private FrameLayout stationMapContainer;
+    /** Set while the map, rather than the host, is writing the coordinate fields. */
+    private boolean applyingPickedLocation;
 
     @Nullable
     @Override
@@ -71,7 +87,96 @@ public class RegisterStationFragment extends Fragment {
         ((Spinner) view.findViewById(R.id.portConnectorSpinner)).setAdapter(new ArrayAdapter<>(
                 requireContext(), android.R.layout.simple_spinner_dropdown_item, CONNECTORS));
 
+        setUpLocationPicker(view);
+
         view.findViewById(R.id.saveStationButton).setOnClickListener(v -> save(view));
+    }
+
+    /**
+     * Puts the charger on a map the host can just tap. The coordinates stay editable by hand and
+     * the pin follows whatever is typed, so the two never disagree about where the station is.
+     */
+    private void setUpLocationPicker(View view) {
+        latitudeEdit = view.findViewById(R.id.latitudeEdit);
+        longitudeEdit = view.findViewById(R.id.longitudeEdit);
+        stationMapContainer = view.findViewById(R.id.stationMapContainer);
+        if (stationMapContainer == null) {
+            return;
+        }
+
+        if (TextUtils.isEmpty(latitudeEdit.getText())) {
+            applyPicked(AppConstants.PILOT_CENTER_LAT, AppConstants.PILOT_CENTER_LNG);
+        }
+
+        TextWatcher followTypedCoordinates = new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+            }
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+            }
+
+            @Override
+            public void afterTextChanged(Editable s) {
+                if (applyingPickedLocation) {
+                    return;
+                }
+                MapHelper.moveTo(stationMapContainer,
+                        parse(latitudeEdit.getText().toString(), AppConstants.PILOT_CENTER_LAT),
+                        parse(longitudeEdit.getText().toString(), AppConstants.PILOT_CENTER_LNG), 16f);
+            }
+        };
+        latitudeEdit.addTextChangedListener(followTypedCoordinates);
+        longitudeEdit.addTextChangedListener(followTypedCoordinates);
+
+        MapHelper.attachPicker(this, stationMapContainer,
+                parse(latitudeEdit.getText().toString(), AppConstants.PILOT_CENTER_LAT),
+                parse(longitudeEdit.getText().toString(), AppConstants.PILOT_CENTER_LNG),
+                getString(R.string.map_pick_header),
+                this::applyPicked);
+
+        View gpsButton = view.findViewById(R.id.useGpsButton);
+        if (gpsButton != null) {
+            gpsButton.setOnClickListener(v -> useCurrentLocation());
+        }
+    }
+
+    private void useCurrentLocation() {
+        if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_FINE_LOCATION)
+                != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION}, REQUEST_LOCATION);
+            return;
+        }
+        Ux.toast(this, "Finding your location…");
+        LocationProvider.getCurrentLocation(requireContext(), this::applyPicked);
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
+                                           @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode != REQUEST_LOCATION) {
+            return;
+        }
+        if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            useCurrentLocation();
+        } else {
+            Ux.toast(this, getString(R.string.map_no_location_permission));
+        }
+    }
+
+    /** Writes a latitude/longitude pair into the form and moves the pin to match. */
+    private void applyPicked(double latitude, double longitude) {
+        if (!isAdded() || latitudeEdit == null) {
+            return;
+        }
+        applyingPickedLocation = true;
+        latitudeEdit.setText(String.format(Locale.US, "%.5f", latitude));
+        longitudeEdit.setText(String.format(Locale.US, "%.5f", longitude));
+        applyingPickedLocation = false;
+        MapHelper.moveTo(stationMapContainer, latitude, longitude, 16f);
     }
 
     private void save(View view) {

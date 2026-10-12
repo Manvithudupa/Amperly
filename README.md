@@ -106,13 +106,14 @@ com.amperly.app/
 ├── core/
 │   ├── common/     AppConstants, Formatters, GeoUtils, PilotPlaces, ValidationUtils
 │   ├── location/   LocationProvider
-│   ├── map/        MapHelper            (keyed map panel or graceful fallback)
+│   ├── map/        MapHelper, OsmTileMapView, Mercator, MapTiles
+│   │                                    (OpenStreetMap tiles, no API key, no map SDK)
 │   ├── nav/        Navigator            (fragment nav + geo:/tel: handoff)
 │   ├── security/   AuthManager, RoleGuard
 │   └── state/      AppStateStore        (shared phone ↔ car trip + SoC state)
 │
 ├── data/
-│   ├── local/      AmperlyDatabase (v2), PilotDataSeeder
+│   ├── local/      AmperlyDatabase (v3), PilotDataSeeder
 │   │   ├── dao/    23 DAOs
 │   │   ├── entity/ 23 entities (User, Vehicle, ChargerStation, ChargerPort,
 │   │               AvailabilitySchedule, Reservation, ChargingSession,
@@ -163,12 +164,35 @@ com.amperly.app/
 ### Commands
 
 ```bash
-# Unit tests (55 tests across 7 classes)
+# Unit tests (67 tests across 9 classes)
 ./gradlew :app:testDebugUnitTest
 
 # Debug APK → app/build/outputs/apk/debug/app-debug.apk
 ./gradlew :app:assembleDebug
+
+# Release APK → app/build/outputs/apk/release/app-release.apk
+./gradlew :app:assembleRelease
 ```
+
+### Release builds and signing
+
+`assembleRelease` needs a keystore to produce an APK that anyone can install. Point Gradle at one
+through `local.properties` (gitignored — the keystore and its passwords never enter the repository):
+
+```properties
+KEYSTORE_FILE=keystore/amperly-release.jks
+KEYSTORE_PASSWORD=…
+KEY_ALIAS=amperly
+KEY_PASSWORD=…
+```
+
+The same four keys work as environment variables. With no keystore configured the release build still
+succeeds, but it emits `app-release-unsigned.apk`, which no device will install — Gradle prints a
+warning that says so.
+
+Keep the keystore (and its passwords) somewhere you control and reuse it for every future release:
+Android will only accept an update signed with the same key, so losing it means the only way forward
+is a new application id.
 
 On Windows, if `JAVA_HOME` is not set globally:
 
@@ -177,21 +201,27 @@ export JAVA_HOME="/c/Program Files/Android/Android Studio/jbr"
 ./gradlew :app:testDebugUnitTest --console=plain
 ```
 
-### Google Maps (optional)
+### Maps — OpenStreetMap, no key of any kind
 
-The embedded map panel needs an API key. Add it to `local.properties` (or export `MAPS_API_KEY`):
+The embedded map is `core/map/OsmTileMapView`: OpenStreetMap raster tiles fetched with the app's
+own OkHttp client, projected with Web Mercator (`core/map/Mercator`) and drawn on a `Canvas`. There
+is no maps SDK, no API key, no Cloud project and no billing account to set up, and host-registered
+chargers appear on it as soon as they are approved.
+
+Tiles default to the public OpenStreetMap server. To use your own (recommended for anything beyond
+a pilot), set an OSM-style URL template in `local.properties` or the environment:
 
 ```properties
-sdk.dir=C\:\\Users\\<you>\\AppData\\Local\\Android\\Sdk
-MAPS_API_KEY=your_google_maps_android_key_here
+OSM_TILE_URL=https://tiles.example.org/{z}/{x}/{y}.png
+OSM_USER_AGENT=my-fleet-app/1.0 (ops@example.org)
 ```
 
-`app/build.gradle.kts` reads the key into `manifestPlaceholders` plus `BuildConfig.MAPS_ENABLED`.
+`OSM_USER_AGENT` is optional and defaults to the application id and version. OpenStreetMap's tile
+usage policy requires a User-Agent that identifies the application, so do not blank it.
 
-**Without a key the app still works.** `MapHelper` renders a "map key not configured" card, and every station still offers a `geo:` intent handoff so turn-by-turn navigation opens in the phone's own maps application.
-
-### Enabling the key on a Google Maps API key
-Restrict it to Android apps with package `com.amperly.app` and your debug signing SHA-1, and enable **Maps SDK for Android**.
+Tiles are cached in memory and under `cache/osm-tiles` (64 MB cap, pruned at startup), so a station
+list that has been opened once keeps working without a connection. Turn-by-turn navigation is still
+handed off to the phone's own maps application through a `geo:` intent.
 
 ---
 
@@ -239,7 +269,7 @@ Run the whole value chain, not just a map:
 ## 9. Tests
 
 ```bash
-./gradlew :app:testDebugUnitTest    # 55 tests, all green
+./gradlew :app:testDebugUnitTest    # 67 tests, all green
 ```
 
 | Class | Covers |
@@ -250,7 +280,9 @@ Run the whole value chain, not just a map:
 | `EnforcementPolicyTest` | Warning → fine → suspension → ban escalation, and no action on unverified accusations |
 | `PaymentManagerTest` | Authorization, idempotency, capture, refund, release, gateway-offline failure |
 | `ChatManagerTest` | Number masking, sanitising, off-platform detection, thread open/expiry rules, quick questions, audit fields |
-| `RoleGuardTest` | Consumer / Host / Admin permission boundaries |
+| `RoleGuardTest` | Consumer / Host / Admin permission boundaries, including the dual-role account that is both |
+| `MercatorTest` | Web Mercator projection used by the OpenStreetMap tile view: round-trips, scale, zoom clamping, tile maths |
+| `UserProfileRowTest` | The `user_profiles` payload written to Supabase, so profile creation cannot silently regress |
 
 ---
 
@@ -264,7 +296,7 @@ Run the whole value chain, not just a map:
 | Car UI | Android for Cars App Library (`androidx.car.app:app:1.4.0`), Charging + Navigation categories |
 | Persistence | Room (`room-runtime 2.6.1`) — 23 entities, 24 DAOs (incl. the sync outbox) |
 | Backend (optional) | Supabase — Postgres with Row Level Security, PostgREST data API and GoTrue auth, over Retrofit/OkHttp. See [`supabase/README.md`](supabase/README.md) |
-| Maps & location | `play-services-maps`, `play-services-location` |
+| Maps & location | OpenStreetMap raster tiles drawn in-app (`core/map`, no SDK and no API key) + `play-services-location` for the position fix |
 | QR codes | ZXing `core` (bitmap generated in-app) |
 | Payments | In-repo sandbox `PaymentManager` (no card data is ever stored) |
 | Tests | JUnit 4 (unit tests, no device required) |

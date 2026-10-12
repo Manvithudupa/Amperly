@@ -8,6 +8,11 @@
 /.idea/navEditor.xml
 /.idea/assetWizardSettings.xml
 .DS_Store
+
+# Signing material. Generate once, back it up, never commit it. See README §6.
+/keystore
+*.jks
+*.keystore
 /build
 /captures
 .externalNativeBuild

@@ -37,6 +37,10 @@
     <string name="action_reserve">Reserve slot</string>
     <string name="action_pay">Authorize payment</string>
     <string name="empty_state">Nothing here yet</string>
+    <string name="discovery_empty">No charger matches this filter right now.</string>
+    <string name="discovery_empty_action">Show all chargers</string>
+    <string name="discovery_empty_none">No approved chargers are published yet. Hosts can add one from the Host view.</string>
+    <string name="discovery_shown">%1$d charger(s) · %2$s</string>
 
     <!-- Discovery -->
     <string name="discovery_title">Chargers near you</string>
@@ -322,13 +326,14 @@
     <string name="auth_signed_in_as">Signed in as</string>
     <string name="auth_secret_key">Invalid configuration detected. Please check app configuration.</string>
     <string name="auth_profile_offline">Unable to load profile. Please check your connection and try again.</string>
+    <string name="auth_profile_local_only">Signed in, but the server refused your profile. Charging data will not sync until that is fixed.</string>
 
     <!-- Account -->
     <string name="account_title">Account</string>
     <string name="account_profile">Profile</string>
     <string name="account_name">Name</string>
     <string name="account_email">Email</string>
-    <string name="account_role">Role</string>
+    <string name="account_role">Can act as</string>
     <string name="account_organization">Organization</string>
     <string name="account_verification">Verification</string>
     <string name="account_id">Account ID</string>
@@ -338,11 +343,16 @@
     <string name="account_sign_out_confirm">Sign out of Amperly?</string>
     <string name="account_demo_mode">Offline demo mode</string>
     <string name="account_demo_note">Running on local demo data.</string>
-    <string name="account_role_note">Your role is managed on the server.</string>
+    <string name="account_role_note">Every Amperly account can charge and host. Switch between Consumer and Host from the strip at the top of any screen.</string>
     <string name="account_synced">Sync finished: %1$s</string>
 
-    <!-- Map -->
+    <!-- Map (OpenStreetMap tiles drawn by osmdroid; no API key anywhere in the app) -->
     <string name="map_title">Map</string>
-    <string name="map_key_missing">Map View\nAdd MAPS_API_KEY to local.properties to enable embedded map.</string>
-    <string name="map_open_external">Open in Maps App</string>
+    <string name="map_attribution">© OpenStreetMap contributors</string>
+    <string name="map_open_external">Open in maps app</string>
+    <string name="map_offline_note">Offline — showing the last tiles this device downloaded.</string>
+    <string name="map_pick_hint">Drag the map and tap the charger&#8217;s exact spot to set its coordinates.</string>
+    <string name="map_pick_header">Charger location</string>
+    <string name="map_pick_use_gps">Use my current location</string>
+    <string name="map_no_location_permission">Location permission is needed to use your current position.</string>
 </resources>

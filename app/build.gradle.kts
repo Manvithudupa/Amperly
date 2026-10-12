@@ -7,9 +7,13 @@ plugins {
 // Keys are read from local.properties (which is gitignored) or from environment
 // variables of the same name. Nothing here is committed.
 //
-//   MAPS_API_KEY               - Google Maps Android SDK key. Optional: without it the
-//                                map panel shows an explanatory card and navigation is
-//                                handed off to the phone's maps app through an intent.
+//   OSM_TILE_URL               - optional. An OpenStreetMap-compatible raster tile URL
+//                                template, e.g. https://tiles.example.org/{z}/{x}/{y}.png.
+//                                Leave it empty to use the public OpenStreetMap tiles,
+//                                which need no account and no key of any kind.
+//   OSM_USER_AGENT             - optional. Identifies the app to the tile server, as
+//                                OpenStreetMap's tile usage policy requires. Defaults to
+//                                the application id and version.
 //   SUPABASE_URL               - your project URL, https://<ref>.supabase.co
 //   SUPABASE_PUBLISHABLE_KEY   - the public sb_publishable_... (formerly "anon") key.
 //                                Safe to ship ONLY because every table has RLS enabled.
@@ -27,10 +31,29 @@ val localProperties = Properties().apply {
 fun secret(name: String): String =
     (localProperties.getProperty(name) ?: System.getenv(name) ?: "").trim()
 
-val mapsApiKey: String = secret("MAPS_API_KEY")
+val osmTileUrl: String = secret("OSM_TILE_URL")
+val osmUserAgent: String = secret("OSM_USER_AGENT")
 
 val supabaseUrl: String = secret("SUPABASE_URL")
 val supabasePublishableKey: String = secret("SUPABASE_PUBLISHABLE_KEY")
+
+// Release signing. Everything here is gitignored for the same reason the Supabase key is: a
+// keystore and its passwords must never enter version control. Without it the release build still
+// works, but it produces an unsigned APK that no device will install.
+val keystoreFilePath: String = secret("KEYSTORE_FILE")
+val keystorePassword: String = secret("KEYSTORE_PASSWORD")
+val keystoreAlias: String = secret("KEY_ALIAS")
+val keystoreKeyPassword: String = secret("KEY_PASSWORD")
+val releaseKeystore: File? = keystoreFilePath.takeIf { it.isNotEmpty() }
+    ?.let { rootProject.file(it) }
+    ?.takeIf { it.exists() }
+
+if (keystoreFilePath.isNotEmpty() && releaseKeystore == null) {
+    logger.warn(
+        "Amperly: KEYSTORE_FILE points at a file that does not exist (${rootProject.file(keystoreFilePath)}). " +
+            "The release APK will be unsigned and therefore not installable."
+    )
+}
 
 // Both halves are required. A URL with no key (or the reverse) is a half-finished
 // setup, and silently half-enabling sync would be worse than staying offline.
@@ -49,6 +72,14 @@ if (supabasePublishableKey.startsWith("sb_secret_") || supabasePublishableKey.co
     )
 }
 
+if (releaseKeystore == null) {
+    logger.warn(
+        "Amperly: no release keystore configured, so assembleRelease will emit an unsigned APK. " +
+            "Set KEYSTORE_FILE, KEYSTORE_PASSWORD, KEY_ALIAS and KEY_PASSWORD in local.properties. " +
+            "See README section 6."
+    )
+}
+
 android {
     namespace = "com.amperly.app"
     compileSdk = 35
@@ -57,18 +88,28 @@ android {
         applicationId = "com.amperly.app"
         minSdk = 24
         targetSdk = 35
-        versionCode = 2
-        versionName = "1.1"
+        versionCode = 3
+        versionName = "2.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        manifestPlaceholders["MAPS_API_KEY"] = mapsApiKey
-        buildConfigField("String", "MAPS_API_KEY", "\"$mapsApiKey\"")
-        buildConfigField("boolean", "MAPS_ENABLED", (mapsApiKey.isNotEmpty()).toString())
+        buildConfigField("String", "OSM_TILE_URL", "\"$osmTileUrl\"")
+        buildConfigField("String", "OSM_USER_AGENT", "\"$osmUserAgent\"")
 
         buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
         buildConfigField("String", "SUPABASE_PUBLISHABLE_KEY", "\"$supabasePublishableKey\"")
         buildConfigField("boolean", "SUPABASE_ENABLED", supabaseEnabled.toString())
+    }
+
+    signingConfigs {
+        if (releaseKeystore != null) {
+            create("release") {
+                storeFile = releaseKeystore
+                storePassword = keystorePassword
+                keyAlias = keystoreAlias
+                keyPassword = keystoreKeyPassword
+            }
+        }
     }
 
     buildTypes {
@@ -78,6 +119,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            signingConfigs.findByName("release")?.let { signingConfig = it }
         }
     }
     compileOptions {
@@ -115,9 +157,12 @@ dependencies {
     implementation(libs.okhttplogging)
     implementation(libs.gson)
 
-    // Location & Maps Services
+    // Location fixes. Play Services is still the cheapest, most battery-friendly way to
+    // get a position on the devices that ship it.
     implementation("com.google.android.gms:play-services-location:21.2.0")
-    implementation("com.google.android.gms:play-services-maps:18.2.0")
+
+    // Maps: the map is OpenStreetMap raster tiles drawn by core/map/OsmTileMapView on top of the
+    // OkHttp client above — no API key, no billing account, no proprietary map SDK.
 
     // Navigation & Lifecycle Components
     implementation("androidx.navigation:navigation-fragment:2.7.7")

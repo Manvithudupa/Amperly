@@ -108,6 +108,38 @@
                     </com.google.android.material.textfield.TextInputLayout>
                 </LinearLayout>
 
+                <!--
+                  The host can type the coordinates or simply tap the charger on the map.
+                  The pin is draggable and the fields follow it, which is how almost every
+                  host will actually place a station they are standing next to.
+                -->
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/amp_space_s"
+                    android:text="@string/map_pick_hint"
+                    android:textAppearance="@style/TextAppearance.Amperly.BodySmall" />
+
+                <com.google.android.material.card.MaterialCardView
+                    style="@style/Widget.Amperly.Card.Map"
+                    android:layout_width="match_parent"
+                    android:layout_height="@dimen/amp_map_panel_height"
+                    android:layout_marginTop="@dimen/amp_space_s">
+
+                    <FrameLayout
+                        android:id="@+id/stationMapContainer"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent" />
+                </com.google.android.material.card.MaterialCardView>
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/useGpsButton"
+                    style="@style/Widget.Amperly.Button.Outlined"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/amp_space_s"
+                    android:text="@string/map_pick_use_gps" />
+
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"

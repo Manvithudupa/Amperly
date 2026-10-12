@@ -2,6 +2,8 @@ package com.amperly.app.data.local;
 
 import android.content.Context;
 
+import androidx.annotation.Nullable;
+
 import com.amperly.app.communication.ChatManager;
 import com.amperly.app.core.common.AppConstants;
 import com.amperly.app.data.local.entity.AndroidAutoSession;
@@ -44,9 +46,16 @@ public class PilotDataSeeder {
     public static final String USER_STUDENT = "user_student_1";
     public static final String USER_APT_HOST = "user_apt_association";
     public static final String USER_PLATFORM_ADMIN = "user_platform_admin";
+    /**
+     * A second ordinary account, so the demo host has a real booking from someone else. Without
+     * it a host dashboard, however correct, has nothing in it to show.
+     */
+    public static final String USER_NEIGHBOUR = "user_neighbour_1";
     public static final String VEHICLE_STUDENT = "veh_101";
 
     public static final String STATION_CAMPUS = "st_campus_1";
+    /** Registered by {@link #USER_STUDENT}: the account that is both a Consumer and a Host. */
+    public static final String STATION_HOME = "st_home_1";
     public static final String STATION_APARTMENT = "st_apt_1";
     public static final String STATION_HIGHWAY = "st_highway_1";
     public static final String STATION_ROADSIDE = "st_roadside_1";
@@ -66,24 +75,40 @@ public class PilotDataSeeder {
     }
 
     public static void seedPilotData(Context context) {
+        seedPilotData(context, null);
+    }
+
+    /**
+     * Seeds the pilot data and reports back when the write has actually committed.
+     *
+     * <p>The callback matters. Seeding runs on the repository's background executor, and a screen
+     * built before it finishes queries tables that are still empty — which is how offline demo
+     * mode used to open on a "0 station(s) shown" Discover screen that never recovered.
+     */
+    public static void seedPilotData(Context context, @Nullable Runnable onComplete) {
         AmperlyRepository repo = AmperlyRepository.getInstance(context);
-        repo.run(() -> {
+        repo.background(() -> {
             AmperlyDatabase db = repo.database();
             if (db.userDao().countUsers() > 0) {
-                return; // already seeded
+                return Boolean.TRUE; // already seeded
             }
             long now = System.currentTimeMillis();
 
             // ---------------------------------------------------------------- users
+            // Note that "role" is administrative standing, not a capability gate: Aarav is a
+            // CONSUMER who also lists a charger, which is the normal Amperly arrangement. Only
+            // the platform ops desk holds ADMIN.
             db.userDao().insertAll(java.util.Arrays.asList(
                     new User(USER_CAMPUS_ADMIN, "ABC College Administration", "host@abccollege.edu",
-                            "+919876543210", AppConstants.ROLE_HOST, "ABC College of Engineering",
+                            "+919876543210", AppConstants.ROLE_CONSUMER, "ABC College of Engineering",
                             "VERIFIED", false),
                     new User(USER_STUDENT, "Aarav Student", "aarav@abccollege.edu",
                             "+919876543211", AppConstants.ROLE_CONSUMER, null, "VERIFIED", false),
                     new User(USER_APT_HOST, "GreenPark Association", "president@greenpark.org",
-                            "+919876543220", AppConstants.ROLE_HOST, "GreenPark Apartments",
+                            "+919876543220", AppConstants.ROLE_CONSUMER, "GreenPark Apartments",
                             "VERIFIED", false),
+                    new User(USER_NEIGHBOUR, "Meera (neighbour)", "meera@example.com",
+                            "+919876543222", AppConstants.ROLE_CONSUMER, null, "VERIFIED", false),
                     new User(USER_PLATFORM_ADMIN, "Amperly Ops", "admin@amperly.app",
                             "+919876543299", AppConstants.ROLE_ADMIN, "Amperly", "VERIFIED", false)
             ));
@@ -142,8 +167,18 @@ public class PilotDataSeeder {
             officePending.setApprovalStatus(AppConstants.APPROVAL_PENDING);
             officePending.setVerified(false);
 
+            // The demo account's own charger. This is what makes one account genuinely dual-role:
+            // Aarav reserves ports as a Consumer and manages this station as a Host.
+            ChargerStation home = ChargerStation.create(STATION_HOME, USER_STUDENT,
+                    "Aarav Student", "Aarav's Home Charger",
+                    "House 14, Vijayanagar 2nd Stage, Mysore", 12.3155, 76.6120,
+                    AppConstants.LOCATION_TYPE_APARTMENT, "06:00 - 23:00", 12.0, 3.0, 2.0,
+                    AppConstants.LEVEL_1_VERIFIED_MANUAL, "TYPE_2_AC", 7.2, 2,
+                    "Shared with neighbours and visitors who book through Amperly. "
+                            + "Ring the bell at the gate.", 4.6);
+
             db.chargerStationDao().insertAll(java.util.Arrays.asList(campus, apartment, highway,
-                    roadside, cafe, officePending));
+                    roadside, cafe, officePending, home));
 
             // --------------------------------------------------------------- ports
             List<ChargerPort> ports = new ArrayList<>();
@@ -171,6 +206,10 @@ public class PilotDataSeeder {
                     false, AppConstants.PORT_AVAILABLE));
             ports.add(new ChargerPort("port_office_2", STATION_OFFICE_PENDING, "2", "TYPE_2_AC", 11.0,
                     false, AppConstants.PORT_AVAILABLE));
+            ports.add(new ChargerPort("port_home_1", STATION_HOME, "1", "TYPE_2_AC", 7.2, false,
+                    AppConstants.PORT_AVAILABLE));
+            ports.add(new ChargerPort("port_home_2", STATION_HOME, "2", "TYPE_2_AC", 7.2, false,
+                    AppConstants.PORT_AVAILABLE));
             db.chargerPortDao().insertAll(ports);
 
             // ------------------------------------------------------- availability
@@ -190,6 +229,9 @@ public class PilotDataSeeder {
                 } else if (STATION_OFFICE_PENDING.equals(port.getStationId())) {
                     open = 540;
                     close = 1080;
+                } else if (STATION_HOME.equals(port.getStationId())) {
+                    open = 360;
+                    close = 1380;
                 }
                 for (int day = Calendar.SUNDAY; day <= Calendar.SATURDAY; day++) {
                     boolean blocked = AppConstants.PORT_MAINTENANCE.equals(port.getStatus());
@@ -260,6 +302,44 @@ public class PilotDataSeeder {
                     USER_STUDENT, USER_CAMPUS_ADMIN, "seed-demo-3", "SANDBOX", "auth_seed_demo_3",
                     226.80, 0.0, 0.0, 0.0, AppConstants.PAYMENT_AUTHORIZED, null, now, now));
 
+            // ------------------------------------------- the host side of the same account
+            // Aarav's own charger has one completed, meter-verified session and one upcoming
+            // booking from a second account, so the Host view is real data rather than zeros.
+            // The bill follows the published formula: 7.40 kWh x Rs 12 = Rs 88.80 energy,
+            // plus the Rs 3.00 service fee and the Rs 2.00 gateway charge.
+            long twoDaysAgo = now - (2L * 24L * 60L * 60L * 1000L);
+            db.reservationDao().insert(new Reservation("res_demo_done_3", USER_NEIGHBOUR,
+                    STATION_HOME, home.getName(), "port_home_1", "Port 1 · TYPE_2_AC · 7 kW AC",
+                    "AMP-1003", twoDaysAgo, twoDaysAgo + (2L * 60L * 60L * 1000L),
+                    AppConstants.STATUS_COMPLETED, 12.0, 3.0, 2.0, 0.0, true, "pay_demo_4",
+                    twoDaysAgo, 0, twoDaysAgo - (2L * 60L * 60L * 1000L)));
+            db.chargingSessionDao().insert(new ChargingSession("sess_demo_3", "res_demo_done_3",
+                    USER_NEIGHBOUR, USER_STUDENT, STATION_HOME, home.getName(), "port_home_1",
+                    twoDaysAgo, twoDaysAgo + (2L * 60L * 60L * 1000L), 312.60, 320.00, 7.40,
+                    88.80, 3.0, 2.0, 93.80, AppConstants.STATUS_COMPLETED, "mr_demo_3",
+                    "inv_demo_3", true, AppConstants.LEVEL_1_VERIFIED_MANUAL));
+            db.meterReadingDao().insert(new MeterReading("mr_demo_3", "sess_demo_3", STATION_HOME,
+                    312.60, 320.00, "content://amperly.demo/meter_photo_3.jpg",
+                    AppConstants.LEVEL_1_VERIFIED_MANUAL,
+                    twoDaysAgo + (2L * 60L * 60L * 1000L), true));
+            db.invoiceDao().insert(new Invoice("inv_demo_3", "sess_demo_3", USER_NEIGHBOUR,
+                    USER_STUDENT, home.getName(), 7.40, 88.80, 3.0, 2.0, 0.0, "", 93.80,
+                    "pay_demo_4", "PAID", twoDaysAgo + (2L * 60L * 60L * 1000L)));
+            db.paymentDao().insert(new Payment("pay_demo_4", "res_demo_done_3", "sess_demo_3",
+                    USER_NEIGHBOUR, USER_STUDENT, "seed-demo-4", "SANDBOX", "auth_seed_demo_4",
+                    108.00, 93.80, 0.0, 0.0, AppConstants.PAYMENT_CAPTURED, null, twoDaysAgo,
+                    twoDaysAgo));
+
+            long homeSlotStart = now + (4L * 60L * 60L * 1000L);
+            db.reservationDao().insert(new Reservation("res_demo_pending_2", USER_NEIGHBOUR,
+                    STATION_HOME, home.getName(), "port_home_2", "Port 2 · TYPE_2_AC · 7 kW AC",
+                    "AMP-3001", homeSlotStart, homeSlotStart + (2L * 60L * 60L * 1000L),
+                    AppConstants.STATUS_RESERVED, 12.0, 3.0, 2.0, 0.0, true, "pay_demo_5", 0, 0,
+                    now - (45L * 60L * 1000L)));
+            db.paymentDao().insert(new Payment("pay_demo_5", "res_demo_pending_2", null,
+                    USER_NEIGHBOUR, USER_STUDENT, "seed-demo-5", "SANDBOX", "auth_seed_demo_5",
+                    108.00, 0.0, 0.0, 0.0, AppConstants.PAYMENT_AUTHORIZED, null, now, now));
+
             // ------------------------------------------------------------- dispute
             db.disputeDao().insert(new Dispute(DISPUTE_DEMO, SESSION_DEMO_1, USER_STUDENT,
                     "Aarav Student", USER_CAMPUS_ADMIN, STATION_CAMPUS, campus.getName(),
@@ -315,7 +395,11 @@ public class PilotDataSeeder {
                             true, threeDaysAgo + (95L * 60L * 1000L)),
                     new Notification("ntf_demo_3", USER_CAMPUS_ADMIN, "New reservation",
                             "Aarav Student reserved Port 3 for a 90-minute slot.",
-                            false, now - (30L * 60L * 1000L))
+                            false, now - (30L * 60L * 1000L)),
+                    new Notification("ntf_demo_4", USER_STUDENT, "New booking at your charger",
+                            "Meera (neighbour) booked Port 2 at " + home.getName()
+                                    + ". Booking code AMP-3001.",
+                            false, now - (45L * 60L * 1000L))
             ));
 
             // ------------------------------------------------------------ route plan
@@ -349,6 +433,11 @@ public class PilotDataSeeder {
             db.batteryUpdateDao().insert(new com.amperly.app.data.local.entity.BatteryUpdate(
                     UUID.randomUUID().toString(), VEHICLE_STUDENT, PLAN_DEMO, 35, 25, 12.45, 76.05,
                     threeDaysAgo + (60L * 60L * 1000L)));
+            return Boolean.TRUE;
+        }, done -> {
+            if (onComplete != null) {
+                onComplete.run();
+            }
         });
     }
 }

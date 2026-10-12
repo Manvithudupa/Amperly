@@ -35,6 +35,10 @@
       Role switch. This was a large tinted card pinned above every screen, which consumed
       roughly 120dp of prime space on all 15 screens. It is now a slim, neutral strip that
       reads as a mode selector rather than a demo control.
+
+      The chips are built at runtime from the roles the account actually holds
+      (see MainActivity#buildRoleChips), because an Amperly account is dual-role: Consumer and
+      Host are always offered together and Admin only appears for platform operations.
     -->
     <LinearLayout
         android:id="@+id/roleStrip"
@@ -58,42 +62,24 @@
                 android:layout_height="wrap_content"
                 app:chipSpacingHorizontal="@dimen/amp_space_xs"
                 app:singleLine="true"
-                app:singleSelection="true">
-
-                <com.google.android.material.chip.Chip
-                    android:id="@+id/roleChipConsumer"
-                    style="@style/Widget.Amperly.Chip"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:checkable="true"
-                    android:text="@string/role_consumer" />
-
-                <com.google.android.material.chip.Chip
-                    android:id="@+id/roleChipHost"
-                    style="@style/Widget.Amperly.Chip"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:checkable="true"
-                    android:text="@string/role_host" />
-
-                <com.google.android.material.chip.Chip
-                    android:id="@+id/roleChipAdmin"
-                    style="@style/Widget.Amperly.Chip"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:checkable="true"
-                    android:text="@string/role_admin" />
-            </com.google.android.material.chip.ChipGroup>
+                app:singleSelection="true" />
         </HorizontalScrollView>
 
-        <TextView
-            android:id="@+id/currentUserText"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/amp_space_xs"
-            android:ellipsize="end"
-            android:maxLines="1"
-            android:textAppearance="@style/TextAppearance.Amperly.BodySmall" />
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/currentUserText"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:textAppearance="@style/TextAppearance.Amperly.BodySmall" />
+        </LinearLayout>
     </LinearLayout>
 
     <FrameLayout

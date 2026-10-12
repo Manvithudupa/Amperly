@@ -24,12 +24,15 @@
                 android:text="@string/discovery_title"
                 android:textAppearance="@style/TextAppearance.Amperly.ScreenTitle" />
 
+            <!--
+              This one line replaces the old static "Compatible with your vehicle" subtitle: it
+              names the actual vehicle being matched against, or says plainly that none is set.
+            -->
             <TextView
-                android:id="@+id/discoverySubtitleText"
+                android:id="@+id/discoveryContextText"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="@dimen/amp_space_xs"
-                android:text="@string/discovery_subtitle"
                 android:textAppearance="@style/TextAppearance.Amperly.Body" />
 
             <TextView
@@ -112,14 +115,35 @@
             </com.google.android.material.chip.ChipGroup>
         </HorizontalScrollView>
 
-        <TextView
-            android:id="@+id/emptyStateText"
+        <!--
+          Empty state. A bare "Nothing here yet" left the user with no next move, so when the
+          reason is a filter there is now a one-tap way back to the full list.
+        -->
+        <LinearLayout
+            android:id="@+id/emptyStateContainer"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_margin="@dimen/amp_screen_padding"
-            android:text="@string/empty_state"
-            android:textAppearance="@style/TextAppearance.Amperly.Body"
-            android:visibility="gone" />
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/emptyStateText"
+                style="@style/Widget.Amperly.Notice.Info"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/discovery_empty" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/emptyStateActionButton"
+                style="@style/Widget.Amperly.Button.Tonal"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="end"
+                android:layout_marginTop="@dimen/amp_space_s"
+                android:text="@string/discovery_empty_action"
+                android:visibility="gone" />
+        </LinearLayout>
 
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/stationsRecyclerView"

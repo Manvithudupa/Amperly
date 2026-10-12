@@ -133,7 +133,7 @@ public class AccountFragment extends Fragment {
 
         addRow(getString(R.string.account_name), user.getName());
         addRow(getString(R.string.account_email), user.getEmail());
-        addRow(getString(R.string.account_role), AuthManager.roleLabel(user.getRole()));
+        addRow(getString(R.string.account_role), AuthManager.authorityLabel(user));
         addRow(getString(R.string.account_organization), user.getOrganizationName());
         addRow(getString(R.string.account_verification), user.getVerificationStatus());
         addRow(getString(R.string.account_id), user.getId());

@@ -27,6 +27,23 @@ public final class Formatters {
         return value + "%";
     }
 
+    /**
+     * A rounded percentage that never claims zero when something did actually happen.
+     *
+     * <p>Utilization is a small number for a single-port host — two hours of charging across a
+     * month of bookable hours is under 1% — and {@code %.0f} reported that as "0%", which reads
+     * as broken rather than as tiny.
+     */
+    public static String percent(double value) {
+        if (value <= 0.0) {
+            return "0%";
+        }
+        if (value < 1.0) {
+            return "<1%";
+        }
+        return String.format(Locale.US, "%.0f%%", value);
+    }
+
     public static String minutes(int totalMinutes) {
         if (totalMinutes < 60) {
             return totalMinutes + " min";

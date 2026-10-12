@@ -3,6 +3,7 @@ package com.amperly.app;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -43,8 +44,11 @@ import com.amperly.app.feature.host.HostDashboardFragment;
 import com.amperly.app.feature.host.RegisterStationFragment;
 import com.amperly.app.ui.Ux;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
+import com.google.android.material.chip.Chip;
 import com.google.android.material.chip.ChipGroup;
 import com.google.android.material.color.MaterialColors;
+
+import java.util.List;
 
 /**
  * The application shell: app bar, mode strip, one fragment container and the bottom
@@ -63,6 +67,9 @@ public class MainActivity extends AppCompatActivity {
 
     /** Set while the code, rather than the user, changes the chip selection. */
     private boolean applyingRole;
+
+    /** The role list the chips were last built for, so they are only rebuilt when it changes. */
+    private String builtRoleSignature = "";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -88,14 +95,11 @@ public class MainActivity extends AppCompatActivity {
                     if (applyingRole || checkedIds.isEmpty()) {
                         return;
                     }
-                    int id = checkedIds.get(0);
-                    if (id == R.id.roleChipHost) {
-                        applyRole(AppConstants.ROLE_HOST);
-                    } else if (id == R.id.roleChipAdmin) {
-                        applyRole(AppConstants.ROLE_ADMIN);
-                    } else {
-                        applyRole(AppConstants.ROLE_CONSUMER);
+                    View chip = group.findViewById(checkedIds.get(0));
+                    if (chip == null || chip.getTag() == null) {
+                        return;
                     }
+                    applyRole(String.valueOf(chip.getTag()));
                 });
             }
 
@@ -196,11 +200,19 @@ public class MainActivity extends AppCompatActivity {
 
     public void startOfflineDemo() {
         DemoMode.setOfflineDemo(this, true);
-        PilotDataSeeder.seedPilotData(this);
+        AuthManager.getInstance().startDemoSession();
         if (roleStrip != null) roleStrip.setVisibility(View.VISIBLE);
-        if (bottomNavigationView != null) bottomNavigationView.setVisibility(View.VISIBLE);
-        selectRole(AppConstants.ROLE_CONSUMER);
-        invalidateOptionsMenu();
+        // The screens are built only once the seed has committed. Building them first gave an
+        // empty Discover screen that never refreshed.
+        if (bottomNavigationView != null) bottomNavigationView.setVisibility(View.GONE);
+        PilotDataSeeder.seedPilotData(this, () -> {
+            if (isFinishing() || isDestroyed()) {
+                return;
+            }
+            if (bottomNavigationView != null) bottomNavigationView.setVisibility(View.VISIBLE);
+            applyRole(AppConstants.ROLE_CONSUMER);
+            invalidateOptionsMenu();
+        });
     }
 
     public void showSignIn() {
@@ -220,11 +232,18 @@ public class MainActivity extends AppCompatActivity {
         boolean wasOfflineDemo = DemoMode.isOfflineDemo(this);
         DemoMode.setOfflineDemo(this, false);
         AuthManager.getInstance().setCurrentUser(user);
-        if (roleStrip != null) roleStrip.setVisibility(View.GONE);
+        // The role strip stays available to signed-in users: the same account is a Consumer and a
+        // Host, so switching capacity is a normal part of using the app, not a demo control.
+        if (roleStrip != null) roleStrip.setVisibility(View.VISIBLE);
         if (bottomNavigationView != null) bottomNavigationView.setVisibility(View.VISIBLE);
-        applyRole(user.getRole() == null ? AppConstants.ROLE_CONSUMER : user.getRole());
+        applyRole(AppConstants.ROLE_CONSUMER);
         invalidateOptionsMenu();
         Ux.toast(this, getString(R.string.auth_signed_in_as) + " " + user.getName());
+        if (repo.didProfileWriteFail()) {
+            // The account exists on the device but not in public.users, which makes it anonymous
+            // to every RLS policy. Say so instead of showing an app that looks broken.
+            Ux.toast(this, getString(R.string.auth_profile_local_only));
+        }
         syncAfterSignIn(wasOfflineDemo);
     }
 
@@ -306,27 +325,56 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void selectRole(String role) {
-        applyingRole = true;
-        if (roleChipGroup != null) {
-            if (AppConstants.ROLE_HOST.equals(role)) {
-                roleChipGroup.check(R.id.roleChipHost);
-            } else if (AppConstants.ROLE_ADMIN.equals(role)) {
-                roleChipGroup.check(R.id.roleChipAdmin);
-            } else {
-                roleChipGroup.check(R.id.roleChipConsumer);
-            }
-        }
-        applyingRole = false;
         applyRole(role);
     }
 
+    /**
+     * Switches capacity. The account never changes, only what it is currently acting as, so a
+     * Consumer booking a slot and a Host listing a charger are the same signed-in person.
+     */
     private void applyRole(String role) {
-        AuthManager.getInstance().setRole(role);
-        AppStateStore.get().setUserId(AuthManager.getInstance().getCurrentUserId());
-        if (currentUserText != null) {
-            currentUserText.setText(AuthManager.getInstance().describeCurrentUser());
+        AuthManager auth = AuthManager.getInstance();
+        String target = role;
+        if (!auth.setRole(target)) {
+            // No authority for that capacity; fall back rather than pretend otherwise.
+            target = AppConstants.ROLE_CONSUMER;
+            auth.setRole(target);
         }
-        buildNavigation(role);
+        buildRoleChips(target);
+        AppStateStore.get().setUserId(auth.getCurrentUserId());
+        if (currentUserText != null) {
+            currentUserText.setText(auth.describeCurrentUser());
+        }
+        buildNavigation(target);
+    }
+
+    /**
+     * Rebuilds the chips from the roles this account actually holds. Consumer and Host are always
+     * offered together; Admin appears only when the server says the account is platform ops.
+     */
+    private void buildRoleChips(String activeRole) {
+        if (roleChipGroup == null) {
+            return;
+        }
+        List<String> roles = AuthManager.getInstance().availableRoles();
+        String signature = roles + "|" + activeRole;
+        if (signature.equals(builtRoleSignature)) {
+            return;
+        }
+        builtRoleSignature = signature;
+
+        applyingRole = true;
+        roleChipGroup.removeAllViews();
+        LayoutInflater inflater = LayoutInflater.from(this);
+        for (String role : roles) {
+            Chip chip = (Chip) inflater.inflate(R.layout.item_role_chip, roleChipGroup, false);
+            chip.setId(View.generateViewId());
+            chip.setText(AuthManager.roleLabel(role));
+            chip.setTag(role);
+            chip.setChecked(role.equals(activeRole));
+            roleChipGroup.addView(chip);
+        }
+        applyingRole = false;
     }
 
     private void buildNavigation(String role) {

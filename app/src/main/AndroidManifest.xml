@@ -3,6 +3,7 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
@@ -29,9 +30,11 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Amperly">
 
-        <meta-data
-            android:name="com.google.android.geo.API_KEY"
-            android:value="${MAPS_API_KEY}" />
+        <!--
+          The map draws OpenStreetMap raster tiles itself (core/map/OsmTileMapView), so there is
+          no maps API key to declare and no map SDK to initialise. The only attribution
+          OpenStreetMap requires is drawn on the map itself.
+        -->
 
         <meta-data
             android:name="com.google.android.gms.car.application"
