@@ -43,16 +43,16 @@
             android:layout_marginHorizontal="@dimen/amp_screen_padding"
             android:layout_marginTop="@dimen/amp_space_m">
 
-            <FrameLayout
+            <com.amperly.app.core.map.MapContainerView
                 android:id="@+id/detailsMapContainer"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent" />
         </com.google.android.material.card.MaterialCardView>
 
         <!--
-          Directions. The map above draws the road route; these chips pick the travel mode and the
-          line underneath reports the distance and time OSRM returned. Voice turn-by-turn is still
-          handed to the phone's maps app from the Navigate button below.
+          Directions. The map above draws the Google road route; these chips pick the travel mode
+          and the line underneath reports the distance and the traffic-aware time Google returned.
+          Turn-by-turn stays inside Amperly: Navigate opens the in-app navigation screen.
         -->
         <com.google.android.material.chip.ChipGroup
             android:id="@+id/travelModeChipGroup"

@@ -34,6 +34,10 @@ public class RoutePlan {
     private String assumptions;
     private String confidence;          // HIGH, MEDIUM, LOW
     private String status;              // DRAFT, ACTIVE, COMPLETED, CANCELLED
+    /** Which provider calculated the route, e.g. "Google Maps Platform (Directions + Maps SDK)". */
+    private String routeProvider;
+    /** The Google Place ID of the destination when the consumer picked one, else null. */
+    private String googlePlaceId;
     private long createdAtMs;
     private long updatedAtMs;
 
@@ -136,6 +140,12 @@ public class RoutePlan {
 
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
+
+    public String getRouteProvider() { return routeProvider; }
+    public void setRouteProvider(String routeProvider) { this.routeProvider = routeProvider; }
+
+    public String getGooglePlaceId() { return googlePlaceId; }
+    public void setGooglePlaceId(String googlePlaceId) { this.googlePlaceId = googlePlaceId; }
 
     public long getCreatedAtMs() { return createdAtMs; }
     public void setCreatedAtMs(long createdAtMs) { this.createdAtMs = createdAtMs; }

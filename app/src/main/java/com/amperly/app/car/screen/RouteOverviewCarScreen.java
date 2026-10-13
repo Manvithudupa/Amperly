@@ -71,6 +71,13 @@ public class RouteOverviewCarScreen extends Screen {
             }
 
             list.addItem(new Row.Builder()
+                    .setTitle("Start navigation")
+                    .addText("Driver-safe navigation to the recommended stop and destination")
+                    .setOnClickListener(() -> getScreenManager().push(
+                            new NavigationCarScreen(getCarContext())))
+                    .build());
+
+            list.addItem(new Row.Builder()
                     .setTitle("Chargers along the route (" + snapshot.getReachableStations().size() + ")")
                     .addText("Safely reachable at your current battery level")
                     .setOnClickListener(() -> getScreenManager().push(new ChargerListCarScreen(getCarContext())))

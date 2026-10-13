@@ -23,9 +23,12 @@ import androidx.fragment.app.Fragment;
 
 import com.amperly.app.R;
 import com.amperly.app.core.common.AppConstants;
+import com.amperly.app.core.common.GoogleConfig;
 import com.amperly.app.core.location.LocationProvider;
-import com.amperly.app.core.map.MapHelper;
+import com.amperly.app.core.map.MapPanel;
 import com.amperly.app.core.nav.Navigator;
+import com.amperly.app.core.places.GoogleGeocoder;
+import com.amperly.app.core.places.PlacesAutocomplete;
 import com.amperly.app.core.security.AuthManager;
 import com.amperly.app.data.local.entity.AvailabilitySchedule;
 import com.amperly.app.data.local.entity.ChargerPort;
@@ -64,7 +67,10 @@ public class RegisterStationFragment extends Fragment {
     private AmperlyRepository repo;
     private EditText latitudeEdit;
     private EditText longitudeEdit;
+    private EditText addressEdit;
     private FrameLayout stationMapContainer;
+    @Nullable
+    private MapPanel mapPanel;
     /** Set while the map, rather than the host, is writing the coordinate fields. */
     private boolean applyingPickedLocation;
 
@@ -99,13 +105,10 @@ public class RegisterStationFragment extends Fragment {
     private void setUpLocationPicker(View view) {
         latitudeEdit = view.findViewById(R.id.latitudeEdit);
         longitudeEdit = view.findViewById(R.id.longitudeEdit);
+        addressEdit = view.findViewById(R.id.addressEdit);
         stationMapContainer = view.findViewById(R.id.stationMapContainer);
         if (stationMapContainer == null) {
             return;
-        }
-
-        if (TextUtils.isEmpty(latitudeEdit.getText())) {
-            applyPicked(AppConstants.PILOT_CENTER_LAT, AppConstants.PILOT_CENTER_LNG);
         }
 
         TextWatcher followTypedCoordinates = new TextWatcher() {
@@ -119,27 +122,69 @@ public class RegisterStationFragment extends Fragment {
 
             @Override
             public void afterTextChanged(Editable s) {
-                if (applyingPickedLocation) {
+                if (applyingPickedLocation || mapPanel == null) {
                     return;
                 }
-                MapHelper.moveTo(stationMapContainer,
-                        parse(latitudeEdit.getText().toString(), AppConstants.PILOT_CENTER_LAT),
-                        parse(longitudeEdit.getText().toString(), AppConstants.PILOT_CENTER_LNG), 16f);
+                mapPanel.movePickerTo(parse(latitudeEdit.getText().toString(), 0),
+                        parse(longitudeEdit.getText().toString(), 0));
             }
         };
         latitudeEdit.addTextChangedListener(followTypedCoordinates);
         longitudeEdit.addTextChangedListener(followTypedCoordinates);
 
-        MapHelper.attachPicker(this, stationMapContainer,
-                parse(latitudeEdit.getText().toString(), AppConstants.PILOT_CENTER_LAT),
-                parse(longitudeEdit.getText().toString(), AppConstants.PILOT_CENTER_LNG),
-                getString(R.string.map_pick_header),
-                this::applyPicked);
+        // The production map is Google Maps. Tapping it picks the charger's exact spot; the host
+        // can also search the address with Google Place autocomplete below.
+        MapPanel.attach(this, stationMapContainer, panel -> {
+            mapPanel = panel;
+            panel.setMapTapListener(this::onMapPointPicked);
+            if (!TextUtils.isEmpty(latitudeEdit.getText())) {
+                panel.plotPicker(parse(latitudeEdit.getText().toString(), 0),
+                        parse(longitudeEdit.getText().toString(), 0),
+                        getString(R.string.map_pick_header), true);
+            }
+        });
+
+        if (PlacesAutocomplete.isAvailable(requireContext()) && addressEdit != null) {
+            PlacesAutocomplete.bind(requireContext(),
+                    (com.google.android.material.textfield.MaterialAutoCompleteTextView) addressEdit,
+                    new PlacesAutocomplete.Listener() {
+                        @Override
+                        public void onPlaceSelected(@NonNull PlacesAutocomplete.Selection selection) {
+                            addressEdit.setText(selection.getAddress());
+                            applyPicked(selection.getLatitude(), selection.getLongitude());
+                        }
+
+                        @Override
+                        public void onSelectionCleared() {
+                        }
+                    });
+        }
 
         View gpsButton = view.findViewById(R.id.useGpsButton);
         if (gpsButton != null) {
             gpsButton.setOnClickListener(v -> useCurrentLocation());
         }
+    }
+
+    /** A map tap places the charger and fills the address from Google reverse geocoding. */
+    private void onMapPointPicked(double latitude, double longitude) {
+        applyPicked(latitude, longitude);
+        GoogleGeocoder.reverseGeocode(latitude, longitude, new GoogleGeocoder.Callback() {
+            @Override
+            public void onAddress(@NonNull String formattedAddress) {
+                if (isAdded() && addressEdit != null) {
+                    addressEdit.setText(formattedAddress);
+                }
+            }
+
+            @Override
+            public void onError(@NonNull String message) {
+                if (isAdded()) {
+                    Ux.toast(RegisterStationFragment.this,
+                            "Coordinates set. Enter the address by hand: " + message);
+                }
+            }
+        });
     }
 
     private void useCurrentLocation() {
@@ -150,7 +195,19 @@ public class RegisterStationFragment extends Fragment {
             return;
         }
         Ux.toast(this, "Finding your location…");
-        LocationProvider.getCurrentLocation(requireContext(), this::applyPicked);
+        LocationProvider.requestCurrentLocation(requireContext(),
+                new LocationProvider.LocationCallback() {
+                    @Override
+                    public void onLocationRetrieved(double latitude, double longitude) {
+                        onMapPointPicked(latitude, longitude);
+                    }
+
+                    @Override
+                    public void onLocationUnavailable() {
+                        Ux.toast(RegisterStationFragment.this,
+                                "No location fix. Tap the map or search the address instead.");
+                    }
+                });
     }
 
     @Override
@@ -167,7 +224,7 @@ public class RegisterStationFragment extends Fragment {
         }
     }
 
-    /** Writes a latitude/longitude pair into the form and moves the pin to match. */
+    /** Writes a latitude/longitude pair into the form and moves the Google pin to match. */
     private void applyPicked(double latitude, double longitude) {
         if (!isAdded() || latitudeEdit == null) {
             return;
@@ -176,7 +233,9 @@ public class RegisterStationFragment extends Fragment {
         latitudeEdit.setText(String.format(Locale.US, "%.5f", latitude));
         longitudeEdit.setText(String.format(Locale.US, "%.5f", longitude));
         applyingPickedLocation = false;
-        MapHelper.moveTo(stationMapContainer, latitude, longitude, 16f);
+        if (mapPanel != null) {
+            mapPanel.plotPicker(latitude, longitude, getString(R.string.map_pick_header), true);
+        }
     }
 
     private void save(View view) {
@@ -192,8 +251,16 @@ public class RegisterStationFragment extends Fragment {
             Ux.toast(this, "Station name and address are required.");
             return;
         }
-        double latitude = parse(text(view, R.id.latitudeEdit), AppConstants.PILOT_CENTER_LAT);
-        double longitude = parse(text(view, R.id.longitudeEdit), AppConstants.PILOT_CENTER_LNG);
+        // A charger is never published at a made-up coordinate: the host must have placed it.
+        String latText = text(view, R.id.latitudeEdit);
+        String lngText = text(view, R.id.longitudeEdit);
+        if (TextUtils.isEmpty(latText) || TextUtils.isEmpty(lngText)
+                || parse(latText, 0) == 0 || parse(lngText, 0) == 0) {
+            Ux.toast(this, "Set the charger location on the map or search its address first.");
+            return;
+        }
+        double latitude = parse(latText, 0);
+        double longitude = parse(lngText, 0);
         double price = parse(text(view, R.id.priceEdit), AppConstants.DEFAULT_TARIFF_INR_PER_KWH);
         double serviceFee = parse(text(view, R.id.serviceFeeEdit), AppConstants.DEFAULT_SERVICE_FEE_INR);
         double gatewayFee = parse(text(view, R.id.gatewayFeeEdit), AppConstants.DEFAULT_GATEWAY_FEE_INR);

@@ -5,6 +5,7 @@ import androidx.car.app.Screen;
 
 import com.amperly.app.car.screen.ChargerDetailsCarScreen;
 import com.amperly.app.car.screen.ChargerListCarScreen;
+import com.amperly.app.car.screen.NavigationCarScreen;
 import com.amperly.app.car.screen.ReservationStatusCarScreen;
 import com.amperly.app.car.screen.RouteOverviewCarScreen;
 import com.amperly.app.car.screen.SoCUpdateCarScreen;
@@ -13,6 +14,7 @@ public class CarScreenFactory {
 
     public enum ScreenType {
         ROUTE_OVERVIEW,
+        NAVIGATION,
         CHARGER_LIST,
         CHARGER_DETAILS,
         SOC_UPDATE,
@@ -34,6 +36,8 @@ public class CarScreenFactory {
                 return new SoCUpdateCarScreen(carContext);
             case RESERVATION_STATUS:
                 return new ReservationStatusCarScreen(carContext);
+            case NAVIGATION:
+                return new NavigationCarScreen(carContext);
             case ROUTE_OVERVIEW:
             default:
                 return new RouteOverviewCarScreen(carContext);

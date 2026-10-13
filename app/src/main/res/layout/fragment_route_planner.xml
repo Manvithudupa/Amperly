@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Route and charging plan.
+  Route and charging plan, on Google Maps.
 
-  Layout intent: the trip inputs are one bounded "form" card, the map is a
-  feature panel, and everything the planner produces reads top-down in the order
-  a driver decides: what the plan costs in time, which stop to take, what to do
-  if that stop fails, what was assumed. Status panels use the shared Notice
-  styles so a caution looks like a caution instead of a tinted rectangle with
-  light-mode colours baked in.
+  Layout intent: the trip inputs are one bounded "form" card whose origin is already
+  known (the device's current location) and whose destination is a Google Place
+  search. The map is a Google map panel, and the Google turn-by-turn directions sit
+  directly under the summary. Everything the planner produces reads top-down in the
+  order a driver decides: what the plan costs in time, which stop to take, what to do
+  if that stop fails, how to get there, what was assumed.
 -->
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
@@ -41,72 +41,63 @@
                 android:orientation="vertical"
                 android:padding="@dimen/amp_space_m">
 
-                <com.google.android.material.textfield.TextInputLayout
-                    style="@style/Widget.Amperly.TextInput"
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/route_start_label"
+                    android:textAppearance="@style/TextAppearance.Amperly.Label" />
+
+                <TextView
+                    android:id="@+id/originText"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:hint="@string/route_origin">
+                    android:text="@string/route_start_locating"
+                    android:textAppearance="@style/TextAppearance.Amperly.BodyStrong" />
 
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/originEdit"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="Mysore" />
-                </com.google.android.material.textfield.TextInputLayout>
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/setOriginOnMapButton"
+                    style="@style/Widget.Amperly.Button.Text"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:visibility="gone"
+                    android:text="@string/route_start_pick_on_map" />
 
                 <com.google.android.material.textfield.TextInputLayout
                     style="@style/Widget.Amperly.TextInput"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="@dimen/amp_space_s"
-                    android:hint="@string/route_destination">
+                    android:hint="@string/route_destination_hint">
 
-                    <com.google.android.material.textfield.TextInputEditText
+                    <com.google.android.material.textfield.MaterialAutoCompleteTextView
                         android:id="@+id/destinationEdit"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="Mangalore" />
+                        android:completionThreshold="2"
+                        android:inputType="text" />
                 </com.google.android.material.textfield.TextInputLayout>
 
-                <!-- Paired on one row: both are short numbers, and stacking them
-                     added 80dp of scrolling to every plan. -->
-                <LinearLayout
+                <TextView
+                    android:id="@+id/destinationResolvedText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textAppearance="@style/TextAppearance.Amperly.Label"
+                    android:visibility="gone" />
+
+                <com.google.android.material.textfield.TextInputLayout
+                    style="@style/Widget.Amperly.TextInput"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="@dimen/amp_space_s"
-                    android:baselineAligned="false"
-                    android:orientation="horizontal">
+                    android:hint="@string/route_current_soc">
 
-                    <com.google.android.material.textfield.TextInputLayout
-                        style="@style/Widget.Amperly.TextInput"
-                        android:layout_width="0dp"
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/currentSocEdit"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:hint="@string/route_distance_hint">
-
-                        <com.google.android.material.textfield.TextInputEditText
-                            android:id="@+id/distanceEdit"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:inputType="numberDecimal" />
-                    </com.google.android.material.textfield.TextInputLayout>
-
-                    <com.google.android.material.textfield.TextInputLayout
-                        style="@style/Widget.Amperly.TextInput"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="@dimen/amp_space_s"
-                        android:layout_weight="1"
-                        android:hint="@string/route_current_soc">
-
-                        <com.google.android.material.textfield.TextInputEditText
-                            android:id="@+id/currentSocEdit"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:inputType="number"
-                            android:text="55" />
-                    </com.google.android.material.textfield.TextInputLayout>
-                </LinearLayout>
+                        android:inputType="number"
+                        android:text="55" />
+                </com.google.android.material.textfield.TextInputLayout>
 
                 <TextView
                     android:id="@+id/socSourceText"
@@ -219,10 +210,7 @@
             android:layout_height="@dimen/amp_map_panel_height"
             android:layout_marginTop="@dimen/amp_space_m">
 
-            <!-- MaterialCardView already clips its children to its rounded
-                 outline, so no android:clipToOutline is needed here (that XML
-                 attribute is API 31+, and would be inert on this app's minSdk). -->
-            <FrameLayout
+            <com.amperly.app.core.map.MapContainerView
                 android:id="@+id/routeMapContainer"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent" />
@@ -249,6 +237,34 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/amp_space_s"
             android:visibility="gone" />
+
+        <!-- ======================================================== Directions -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/amp_space_l"
+            android:text="@string/route_directions_title"
+            android:textAppearance="@style/TextAppearance.Amperly.SectionTitle" />
+
+        <TextView
+            android:id="@+id/directionsMetaText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textAppearance="@style/TextAppearance.Amperly.Label" />
+
+        <LinearLayout
+            android:id="@+id/directionsContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical" />
+
+        <TextView
+            android:id="@+id/directionsNoteText"
+            style="@style/Widget.Amperly.Notice.Info"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/amp_space_s"
+            android:text="@string/route_directions_note" />
 
         <TextView
             android:layout_width="match_parent"
@@ -364,6 +380,14 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="@dimen/amp_space_s"
                     android:text="@string/soc_update_action" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/startNavigationButton"
+                    style="@style/Widget.Amperly.Button"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/amp_space_s"
+                    android:text="@string/route_start_navigation" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
@@ -375,12 +399,6 @@
             android:orientation="vertical" />
 
         <!-- =================================================== Out-of-range card -->
-        <!--
-          Shown only when the planner cannot find a safe charger. It is the one
-          place the app blocks a plan, so it gets the error treatment, and the
-          recovery options are ordered most-likely-first rather than presented as
-          three identical buttons.
-        -->
         <com.google.android.material.card.MaterialCardView
             android:id="@+id/noSafeChargerContainer"
             style="@style/Widget.Amperly.Card"

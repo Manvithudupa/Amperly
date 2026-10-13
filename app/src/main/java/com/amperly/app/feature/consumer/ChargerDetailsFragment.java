@@ -19,10 +19,10 @@ import com.amperly.app.R;
 import com.amperly.app.core.common.AppConstants;
 import com.amperly.app.core.common.Formatters;
 import com.amperly.app.core.location.LocationProvider;
-import com.amperly.app.core.map.MapHelper;
-import com.amperly.app.core.map.OsmTileMapView;
+import com.amperly.app.core.map.MapPanel;
 import com.amperly.app.core.nav.Navigator;
-import com.amperly.app.core.routing.OsrmRouter;
+import com.amperly.app.core.routing.DirectionsRoute;
+import com.amperly.app.core.routing.GoogleDirectionsClient;
 import com.amperly.app.core.security.AuthManager;
 import com.amperly.app.data.local.entity.ChargerPort;
 import com.amperly.app.data.local.entity.ChargerStation;
@@ -51,10 +51,10 @@ public class ChargerDetailsFragment extends Fragment {
     @Nullable
     private TextView directionsSummaryText;
     @Nullable
-    private OsmTileMapView mapView;
+    private MapPanel mapPanel;
 
     /** The travel mode whose route is currently shown. */
-    private OsrmRouter.TravelMode travelMode = OsrmRouter.TravelMode.DRIVING;
+    private GoogleDirectionsClient.TravelMode travelMode = GoogleDirectionsClient.TravelMode.DRIVING;
 
     /** The user's current position, or null until a fix arrives. */
     @Nullable
@@ -167,9 +167,9 @@ public class ChargerDetailsFragment extends Fragment {
 
         this.station = station;
         directionsSummaryText = view.findViewById(R.id.directionsSummaryText);
-        MapHelper.attach(this, mapContainer, map -> {
-            mapView = map;
-            MapHelper.plotStations(map, Collections.singletonList(station), station.getId());
+        MapPanel.attach(this, mapContainer, panel -> {
+            mapPanel = panel;
+            panel.plotStations(Collections.singletonList(station), station.getId(), null, null);
         });
         setUpDirections(view);
 
@@ -181,9 +181,26 @@ public class ChargerDetailsFragment extends Fragment {
             Navigator.open(this, fragment, "reserve");
         });
 
-        view.findViewById(R.id.navigateDetailsButton).setOnClickListener(v ->
-                Navigator.navigateTo(requireContext(), station.getLatitude(), station.getLongitude(),
-                        station.getName()));
+        view.findViewById(R.id.navigateDetailsButton).setOnClickListener(v -> {
+            if (userLat == null || userLng == null) {
+                Ux.toast(this, getString(R.string.route_needs_origin));
+                return;
+            }
+            // In-app navigation on Google Maps, not a handoff to an external maps app.
+            com.amperly.app.feature.consumer.InAppNavigationFragment fragment =
+                    new com.amperly.app.feature.consumer.InAppNavigationFragment();
+            Bundle navArgs = new Bundle();
+            navArgs.putDouble(com.amperly.app.feature.consumer.InAppNavigationFragment.ARG_ORIGIN_LAT, userLat);
+            navArgs.putDouble(com.amperly.app.feature.consumer.InAppNavigationFragment.ARG_ORIGIN_LNG, userLng);
+            navArgs.putDouble(com.amperly.app.feature.consumer.InAppNavigationFragment.ARG_DEST_LAT,
+                    station.getLatitude());
+            navArgs.putDouble(com.amperly.app.feature.consumer.InAppNavigationFragment.ARG_DEST_LNG,
+                    station.getLongitude());
+            navArgs.putString(com.amperly.app.feature.consumer.InAppNavigationFragment.ARG_LABEL,
+                    station.getName());
+            fragment.setArguments(navArgs);
+            Navigator.open(this, fragment, "in_app_nav");
+        });
 
         view.findViewById(R.id.reportButton).setOnClickListener(v ->
                 ReportDialog.show(this, getString(R.string.report_title), null, (type, details) -> {
@@ -207,7 +224,8 @@ public class ChargerDetailsFragment extends Fragment {
                     return;
                 }
                 travelMode = checkedIds.get(0) == R.id.walkModeChip
-                        ? OsrmRouter.TravelMode.WALKING : OsrmRouter.TravelMode.DRIVING;
+                        ? GoogleDirectionsClient.TravelMode.WALKING
+                        : GoogleDirectionsClient.TravelMode.DRIVING;
                 requestRoute();
             });
         }
@@ -250,7 +268,7 @@ public class ChargerDetailsFragment extends Fragment {
                 });
     }
 
-    /** Asks OSRM for a road route to the station and draws it on the map above. */
+    /** Asks Google Maps for a road route to the station and draws it on the map above. */
     private void requestRoute() {
         ChargerStation target = station;
         if (target == null) {
@@ -267,10 +285,10 @@ public class ChargerDetailsFragment extends Fragment {
         }
         final double fromLat = userLat;
         final double fromLng = userLng;
-        OsrmRouter.route(requireContext(), travelMode, fromLat, fromLng,
-                target.getLatitude(), target.getLongitude(), new OsrmRouter.Callback() {
+        GoogleDirectionsClient.route(requireContext(), travelMode, fromLat, fromLng,
+                target.getLatitude(), target.getLongitude(), new GoogleDirectionsClient.Callback() {
                     @Override
-                    public void onRoute(OsrmRouter.Route route) {
+                    public void onRoute(DirectionsRoute route) {
                         if (isAdded()) {
                             renderRoute(route);
                         }
@@ -281,27 +299,28 @@ public class ChargerDetailsFragment extends Fragment {
                         if (!isAdded()) {
                             return;
                         }
-                        // The routing service could not be reached. A straight-line estimate keeps
-                        // the screen useful and is labelled as an estimate, never as a road route.
-                        renderRoute(OsrmRouter.estimate(travelMode, fromLat, fromLng,
-                                target.getLatitude(), target.getLongitude()));
+                        // Google could not be reached. A straight-line estimate keeps the screen
+                        // useful and is labelled as an estimate, never as a road route.
+                        renderRoute(DirectionsRoute.straightLineEstimate(fromLat, fromLng,
+                                target.getLatitude(), target.getLongitude(),
+                                travelMode.estimateSpeedKmh()));
                     }
                 });
     }
 
-    private void renderRoute(OsrmRouter.Route route) {
+    private void renderRoute(DirectionsRoute route) {
         ChargerStation target = station;
-        if (mapView != null && target != null && userLat != null && userLng != null) {
-            MapHelper.plotRoadRoute(mapView, route.getPoints(), userLat, userLng,
-                    target.getLatitude(), target.getLongitude(), target.getName());
+        if (mapPanel != null && target != null && userLat != null && userLng != null) {
+            mapPanel.plotRoute(route, userLat, userLng, target.getLatitude(),
+                    target.getLongitude(), null, null);
         }
         if (directionsSummaryText != null) {
-            String time = Formatters.minutes((int) Math.round(route.getDurationMinutes()));
+            String time = Formatters.minutes(route.getEffectiveDurationMinutes());
             if (route.isApproximate()) {
                 directionsSummaryText.setText(getString(R.string.directions_approximate,
                         route.getDistanceKm(), time));
             } else {
-                String mode = travelMode == OsrmRouter.TravelMode.WALKING
+                String mode = travelMode == GoogleDirectionsClient.TravelMode.WALKING
                         ? getString(R.string.directions_walk) : getString(R.string.directions_drive);
                 directionsSummaryText.setText(getString(R.string.directions_summary, mode,
                         route.getDistanceKm(), time));

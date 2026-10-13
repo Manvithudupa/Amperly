@@ -20,8 +20,7 @@ import com.amperly.app.R;
 import com.amperly.app.core.common.AppConstants;
 import com.amperly.app.core.common.GeoUtils;
 import com.amperly.app.core.location.LocationProvider;
-import com.amperly.app.core.map.MapHelper;
-import com.amperly.app.core.map.OsmTileMapView;
+import com.amperly.app.core.map.MapPanel;
 import com.amperly.app.core.nav.Navigator;
 import com.amperly.app.core.security.AuthManager;
 import com.amperly.app.data.local.entity.ChargerStation;
@@ -61,9 +60,9 @@ public class ChargerDiscoveryFragment extends Fragment implements StationAdapter
     @Nullable
     private Double userLng;
 
-    /** The attached map panel, so a late location fix can re-centre without reloading the list. */
+    /** The attached Google map panel, so a late location fix can re-centre without reloading. */
     @Nullable
-    private OsmTileMapView mapView;
+    private MapPanel mapPanel;
 
     private final ActivityResultLauncher<String[]> locationPermissionLauncher =
             registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(), result -> {
@@ -154,18 +153,26 @@ public class ChargerDiscoveryFragment extends Fragment implements StationAdapter
             vehicle = repo.getVehicleSync(userId);
             List<StationAdapter.StationRow> rows = new ArrayList<>();
             StringBuilder summary = new StringBuilder();
-            summary.append("Pilot area: ").append(AppConstants.PILOT_NAME)
-                    .append(" · vehicle: ")
+            summary.append("Vehicle: ")
                     .append(vehicle == null ? "not set" : vehicle.getMake() + " " + vehicle.getModel()
-                            + " (" + vehicle.getConnectorType() + ")");
+                            + " (" + vehicle.getConnectorType() + ")")
+                    .append(" · distances are from your current location when it is known");
             DiscoveredData data = new DiscoveredData(rows, summary.toString());
+            // Distances are measured from the driver's real position, never a fixed pilot point.
+            Double fromLat = userLat;
+            Double fromLng = userLng;
             for (ChargerStation station : repo.getApprovedStationsSync()) {
                 AvailabilityEngine.AvailabilitySummary availability =
                         repo.getAvailabilitySummary(station.getId());
-                double distance = GeoUtils.distanceKm(AppConstants.PILOT_CENTER_LAT,
-                        AppConstants.PILOT_CENTER_LNG, station.getLatitude(), station.getLongitude());
-                String extra = String.format(Locale.US, "%.1f km from your usual area · %s",
-                        distance, station.getOperatingHours());
+                String extra;
+                if (fromLat != null && fromLng != null) {
+                    double distance = GeoUtils.distanceKm(fromLat, fromLng, station.getLatitude(),
+                            station.getLongitude());
+                    extra = String.format(Locale.US, "%.1f km away · %s", distance,
+                            station.getOperatingHours());
+                } else {
+                    extra = station.getOperatingHours();
+                }
                 rows.add(new StationAdapter.StationRow(station, availability, extra));
             }
             return data;
@@ -186,13 +193,13 @@ public class ChargerDiscoveryFragment extends Fragment implements StationAdapter
             adapter = new StationAdapter(this, vehicle);
             recyclerView.setAdapter(adapter);
             applyFilter();
-            MapHelper.attach(this, mapContainer, map -> {
-                mapView = map;
-                MapHelper.plotStations(map, allStations, null, userLat, userLng);
+            MapPanel.attach(this, mapContainer, panel -> {
+                mapPanel = panel;
+                panel.plotStations(allStations, null, userLat, userLng);
                 // Tapping a station marker is the map's way of selecting that charger.
-                map.setPinTapListener(pin -> {
-                    if (pin != null) {
-                        openStationByName(pin.title);
+                panel.setMarkerTapListener(station -> {
+                    if (station != null) {
+                        onOpenStation(station);
                     }
                 });
             });
@@ -311,20 +318,8 @@ public class ChargerDiscoveryFragment extends Fragment implements StationAdapter
 
     /** Re-draws the already attached panel once a location fix arrives. */
     private void refreshMap() {
-        if (mapView != null) {
-            MapHelper.plotStations(mapView, allStations, null, userLat, userLng);
-        }
-    }
-
-    private void openStationByName(@Nullable String name) {
-        if (name == null) {
-            return;
-        }
-        for (ChargerStation station : allStations) {
-            if (name.equals(station.getName())) {
-                onOpenStation(station);
-                return;
-            }
+        if (mapPanel != null) {
+            mapPanel.plotStations(allStations, null, userLat, userLng);
         }
     }
 
@@ -339,7 +334,20 @@ public class ChargerDiscoveryFragment extends Fragment implements StationAdapter
 
     @Override
     public void onNavigateToStation(ChargerStation station) {
-        Navigator.navigateTo(requireContext(), station.getLatitude(), station.getLongitude(), station.getName());
+        if (userLat == null || userLng == null) {
+            Ux.toast(this, getString(R.string.route_needs_origin));
+            return;
+        }
+        // In-app navigation, not a handoff to an external maps app.
+        InAppNavigationFragment fragment = new InAppNavigationFragment();
+        Bundle args = new Bundle();
+        args.putDouble(InAppNavigationFragment.ARG_ORIGIN_LAT, userLat);
+        args.putDouble(InAppNavigationFragment.ARG_ORIGIN_LNG, userLng);
+        args.putDouble(InAppNavigationFragment.ARG_DEST_LAT, station.getLatitude());
+        args.putDouble(InAppNavigationFragment.ARG_DEST_LNG, station.getLongitude());
+        args.putString(InAppNavigationFragment.ARG_LABEL, station.getName());
+        fragment.setArguments(args);
+        Navigator.open(this, fragment, "in_app_nav");
     }
 
     private static class DiscoveredData {

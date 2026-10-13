@@ -60,10 +60,14 @@ public class AppConstants {
     public static final String PAYMENT_REFUNDED = "REFUNDED";
     public static final String PAYMENT_RELEASED = "RELEASED";
 
-    /** Demo pilot area. The first deployment is one controlled campus plus one apartment community. */
+    /**
+     * The first deployment's pilot area (one controlled campus plus one apartment community).
+     *
+     * <p>Only the name survives: there is deliberately no pilot centre coordinate to fall back to,
+     * because silently using a fixed point as the user's location is forbidden. The driver's real
+     * position comes from {@code LocationProvider} and, when there is none, the screen says so.
+     */
     public static final String PILOT_NAME = "Mysore pilot";
-    public static final double PILOT_CENTER_LAT = 12.3010;
-    public static final double PILOT_CENTER_LNG = 76.6450;
 
     public static final double DEFAULT_CORRIDOR_KM = 10.0;
 }

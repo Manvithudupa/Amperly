@@ -505,74 +505,67 @@ public class MainActivity extends AppCompatActivity {
         bottomNavigationView.setOnItemSelectedListener(null);
 
         if (AppConstants.ROLE_HOST.equals(role)) {
-            menu.add(0, 10, 0, R.string.nav_dashboard).setIcon(R.drawable.ic_dashboard);
-            menu.add(0, 11, 1, R.string.nav_add_station).setIcon(R.drawable.ic_add);
-            menu.add(0, 12, 2, R.string.nav_chat).setIcon(R.drawable.ic_chat);
+            menu.add(0, R.id.nav_host_dashboard, 0, R.string.nav_dashboard).setIcon(R.drawable.ic_dashboard);
+            menu.add(0, R.id.nav_host_add_station, 1, R.string.nav_add_station).setIcon(R.drawable.ic_add);
+            menu.add(0, R.id.nav_host_chat, 2, R.string.nav_chat).setIcon(R.drawable.ic_chat);
             bottomNavigationView.setOnItemSelectedListener(item -> loadHostScreen(item.getItemId()));
-            bottomNavigationView.setSelectedItemId(10);
+            bottomNavigationView.setSelectedItemId(R.id.nav_host_dashboard);
             loadRoot(new HostDashboardFragment(), "host_dashboard");
             return;
         }
 
         if (AppConstants.ROLE_ADMIN.equals(role)) {
-            menu.add(0, 20, 0, R.string.nav_admin).setIcon(R.drawable.ic_admin);
+            menu.add(0, R.id.nav_admin, 0, R.string.nav_admin).setIcon(R.drawable.ic_admin);
             bottomNavigationView.setOnItemSelectedListener(item -> loadAdminScreen(item.getItemId()));
-            bottomNavigationView.setSelectedItemId(20);
+            bottomNavigationView.setSelectedItemId(R.id.nav_admin);
             loadRoot(new AdminDashboardFragment(), "admin_dashboard");
             return;
         }
 
-        menu.add(0, 1, 0, R.string.nav_discover).setIcon(R.drawable.ic_discover);
-        menu.add(0, 2, 1, R.string.nav_route).setIcon(R.drawable.ic_route);
-        menu.add(0, 3, 2, R.string.nav_reserve).setIcon(R.drawable.ic_reserve);
-        menu.add(0, 4, 3, R.string.nav_session).setIcon(R.drawable.ic_session);
-        menu.add(0, 5, 4, R.string.nav_safety).setIcon(R.drawable.ic_safety);
+        menu.add(0, R.id.nav_discover, 0, R.string.nav_discover).setIcon(R.drawable.ic_discover);
+        menu.add(0, R.id.nav_route_plan, 1, R.string.nav_route).setIcon(R.drawable.ic_route);
+        menu.add(0, R.id.nav_reserve, 2, R.string.nav_reserve).setIcon(R.drawable.ic_reserve);
+        menu.add(0, R.id.nav_session, 3, R.string.nav_session).setIcon(R.drawable.ic_session);
+        menu.add(0, R.id.nav_safety, 4, R.string.nav_safety).setIcon(R.drawable.ic_safety);
         bottomNavigationView.setOnItemSelectedListener(item -> loadConsumerScreen(item.getItemId()));
-        bottomNavigationView.setSelectedItemId(1);
+        bottomNavigationView.setSelectedItemId(R.id.nav_discover);
         loadRoot(new ChargerDiscoveryFragment(), "discover");
     }
 
     private boolean loadConsumerScreen(int itemId) {
         Fragment fragment;
         String tag;
-        switch (itemId) {
-            case 2:
-                fragment = new RoutePlannerFragment();
-                tag = "route";
-                break;
-            case 3:
-                fragment = new ReservationFragment();
-                tag = "reserve";
-                break;
-            case 4:
-                fragment = new ActiveSessionFragment();
-                tag = "session";
-                break;
-            case 5:
-                fragment = new SafetySOSFragment();
-                tag = "safety";
-                break;
-            default:
-                fragment = new ChargerDiscoveryFragment();
-                tag = "discover";
-                break;
+        if (itemId == R.id.nav_route_plan) {
+            fragment = new RoutePlannerFragment();
+            tag = "route";
+        } else if (itemId == R.id.nav_reserve) {
+            fragment = new ReservationFragment();
+            tag = "reserve";
+        } else if (itemId == R.id.nav_session) {
+            fragment = new ActiveSessionFragment();
+            tag = "session";
+        } else if (itemId == R.id.nav_safety) {
+            fragment = new SafetySOSFragment();
+            tag = "safety";
+        } else {
+            fragment = new ChargerDiscoveryFragment();
+            tag = "discover";
         }
         loadRoot(fragment, tag);
         return true;
     }
 
     private boolean loadHostScreen(int itemId) {
-        switch (itemId) {
-            case 11:
-                loadRoot(new RegisterStationFragment(), "register");
-                return true;
-            case 12:
-                loadRoot(new HostChatFragment(), "chat");
-                return true;
-            default:
-                loadRoot(new HostDashboardFragment(), "host_dashboard");
-                return true;
+        if (itemId == R.id.nav_host_add_station) {
+            loadRoot(new RegisterStationFragment(), "register");
+            return true;
         }
+        if (itemId == R.id.nav_host_chat) {
+            loadRoot(new HostChatFragment(), "chat");
+            return true;
+        }
+        loadRoot(new HostDashboardFragment(), "host_dashboard");
+        return true;
     }
 
     private boolean loadAdminScreen(int itemId) {

@@ -65,10 +65,12 @@
                     android:layout_marginTop="@dimen/amp_space_s"
                     android:hint="@string/host_address">
 
-                    <com.google.android.material.textfield.TextInputEditText
+                    <com.google.android.material.textfield.MaterialAutoCompleteTextView
                         android:id="@+id/addressEdit"
                         android:layout_width="match_parent"
-                        android:layout_height="wrap_content" />
+                        android:layout_height="wrap_content"
+                        android:completionThreshold="2"
+                        android:inputType="text" />
                 </com.google.android.material.textfield.TextInputLayout>
 
                 <LinearLayout
@@ -126,7 +128,7 @@
                     android:layout_height="@dimen/amp_map_panel_height"
                     android:layout_marginTop="@dimen/amp_space_s">
 
-                    <FrameLayout
+                    <com.amperly.app.core.map.MapContainerView
                         android:id="@+id/stationMapContainer"
                         android:layout_width="match_parent"
                         android:layout_height="match_parent" />

@@ -7,7 +7,6 @@ import android.location.Location;
 
 import androidx.core.content.ContextCompat;
 
-import com.amperly.app.core.common.AppConstants;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.location.Priority;
@@ -17,9 +16,10 @@ import com.google.android.gms.tasks.CancellationTokenSource;
  * One place that turns the platform's location services into a coordinate.
  *
  * <p>{@link #requestCurrentLocation} asks for the position now and reports
- * {@link LocationCallback#onLocationUnavailable()} when there is genuinely none — it never invents a
- * coordinate. The older {@link #getCurrentLocation} entry point is kept for callers that only need
- * "a point to start from" and can live with the pilot-area fallback.
+ * {@link LocationCallback#onLocationUnavailable()} when there is genuinely none. It never invents a
+ * coordinate: there is deliberately no pilot-area fallback here, because silently substituting a
+ * fixed point for the driver's real position is forbidden — the screens must show an unavailable
+ * state (or let the user pick an explicit map origin) instead.
  */
 public final class LocationProvider {
 
@@ -116,51 +116,4 @@ public final class LocationProvider {
         }
     }
 
-    /**
-     * The original entry point: always reports a coordinate. Kept because a host registering a
-     * charger only needs a starting point, and the pilot centre is a sensible one when the fix is
-     * missing.
-     */
-    @SuppressWarnings("MissingPermission")
-    public static void getCurrentLocation(Context context, LocationCallback callback) {
-        if (context == null || callback == null) {
-            return;
-        }
-        if (!hasLocationPermission(context)) {
-            callback.onLocationRetrieved(AppConstants.PILOT_CENTER_LAT, AppConstants.PILOT_CENTER_LNG);
-            return;
-        }
-        try {
-            FusedLocationProviderClient client = LocationServices.getFusedLocationProviderClient(context);
-            client.getLastLocation().addOnSuccessListener(location -> {
-                if (location != null) {
-                    callback.onLocationRetrieved(location.getLatitude(), location.getLongitude());
-                } else {
-                    requestCurrentLocation(context, new PilotFallbackCallback(callback));
-                }
-            }).addOnFailureListener(e -> requestCurrentLocation(context,
-                    new PilotFallbackCallback(callback)));
-        } catch (SecurityException e) {
-            callback.onLocationRetrieved(AppConstants.PILOT_CENTER_LAT, AppConstants.PILOT_CENTER_LNG);
-        }
-    }
-
-    /** Turns an unavailable fix into the pilot centre, for callers that need a point no matter what. */
-    private static final class PilotFallbackCallback implements LocationCallback {
-        private final LocationCallback delegate;
-
-        PilotFallbackCallback(LocationCallback delegate) {
-            this.delegate = delegate;
-        }
-
-        @Override
-        public void onLocationRetrieved(double latitude, double longitude) {
-            delegate.onLocationRetrieved(latitude, longitude);
-        }
-
-        @Override
-        public void onLocationUnavailable() {
-            delegate.onLocationRetrieved(AppConstants.PILOT_CENTER_LAT, AppConstants.PILOT_CENTER_LNG);
-        }
-    }
 }

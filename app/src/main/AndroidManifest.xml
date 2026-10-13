@@ -31,10 +31,16 @@
         android:theme="@style/Theme.Amperly">
 
         <!--
-          The map draws OpenStreetMap raster tiles itself (core/map/OsmTileMapView), so there is
-          no maps API key to declare and no map SDK to initialise. The only attribution
-          OpenStreetMap requires is drawn on the map itself.
+          Google Maps SDK for Android. The key (Maps SDK for Android + Places API + Directions
+          API, restricted to this package name and signing certificate) is injected from
+          local.properties through the googleMapsApiKey manifest placeholder, so it never
+          appears in version control. A missing key shows an actionable notice rather than a
+          blank map (see GoogleConfig).
         -->
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="${googleMapsApiKey}" />
+
 
         <meta-data
             android:name="com.google.android.gms.car.application"

@@ -78,7 +78,7 @@
     <string name="label_meter_level_3">Level 3 — no verified meter</string>
     <string name="meter_gating_warning">This station has no verified meter and is shown for discovery only.</string>
 
-    <!-- Directions (OpenStreetMap tiles + OSRM road routing) -->
+    <!-- Directions (Google Maps + Google Directions API) -->
     <string name="directions_drive">Driving</string>
     <string name="directions_walk">Walking</string>
     <string name="directions_calculating">Working out the route…</string>
@@ -136,9 +136,22 @@
 
     <!-- Route planner -->
     <string name="route_title">Route and charging plan</string>
-    <string name="route_origin">From</string>
-    <string name="route_distance_hint">Distance km (blank = auto)</string>
     <string name="route_destination">To</string>
+    <string name="route_start_label">Starting point</string>
+    <string name="route_start_locating">Finding your current location…</string>
+    <string name="route_start_current">Your current location</string>
+    <string name="route_start_pick_on_map">Set start on the map</string>
+    <string name="route_start_unavailable">Current location is unavailable. Tap the map to set your starting point, or turn on location and try again.</string>
+    <string name="route_start_map_hint">Tap the map to set your starting point.</string>
+    <string name="route_destination_hint">Where to? Search a shop, hotel, landmark or town</string>
+    <string name="route_destination_resolved">Destination: %1$s</string>
+    <string name="route_directions_title">Directions from Google Maps</string>
+    <string name="route_directions_meta">%1$s · %2$.1f km · %3$s</string>
+    <string name="route_directions_meta_traffic">%1$s · %2$.1f km · %3$s drive (traffic: %4$s)</string>
+    <string name="route_directions_none">Directions from Google Maps appear here once a route is calculated.</string>
+    <string name="route_directions_step">%1$s — %2$s (%3$s)</string>
+    <string name="route_directions_note">Turn-by-turn directions come from Google Maps for the road route above. The charging stops and battery figures are Amperly’s planning estimates.</string>
+    <string name="route_start_navigation">Start in-app navigation</string>
     <string name="route_current_soc">Current battery %</string>
     <string name="route_arrival_soc">Target arrival battery %</string>
     <string name="route_corridor">Corridor</string>
@@ -150,7 +163,7 @@
     <string name="route_plan_action">Plan route and charging stops</string>
     <string name="route_assumptions">Plan assumptions</string>
     <string name="route_confidence">Confidence: %1$s</string>
-    <string name="route_summary">%1$s → %2$s · %3$.0f km · %4$s drive · %5$s charging</string>
+    <string name="route_summary">%1$s → %2$s · %3$.1f km · %4$s drive · %5$s charging · %6$s total</string>
     <string name="route_recommended_stop">Recommended stop</string>
     <string name="route_backups">Backup chargers</string>
     <string name="route_candidates">Corridor chargers</string>
@@ -354,13 +367,24 @@
     <string name="account_role_note">Every Amperly account can charge and host. Switch between Consumer and Host from the strip at the top of any screen.</string>
     <string name="account_synced">Sync finished: %1$s</string>
 
-    <!-- Map (OpenStreetMap tiles drawn by osmdroid; no API key anywhere in the app) -->
+    <!-- Map (Google Maps SDK for Android; the key is injected at build time) -->
     <string name="map_title">Map</string>
-    <string name="map_attribution">© OpenStreetMap contributors</string>
     <string name="map_open_external">Open in maps app</string>
-    <string name="map_offline_note">Offline — showing the last tiles this device downloaded.</string>
     <string name="map_pick_hint">Drag the map and tap the charger&#8217;s exact spot to set its coordinates.</string>
     <string name="map_pick_header">Charger location</string>
     <string name="map_pick_use_gps">Use my current location</string>
     <string name="map_no_location_permission">Location permission is needed to use your current position.</string>
+    <string name="map_setup_required">Google Maps is not configured in this build. Add GOOGLE_MAPS_API_KEY to local.properties and rebuild.</string>
+    <string name="route_needs_destination">Enter a destination first.</string>
+    <string name="route_needs_origin">Waiting for your location. Tap the map to set a starting point.</string>
+    <string name="route_planning">Asking Google Maps for the route and directions…</string>
+    <string name="nav_voice_note">Turn-by-turn directions are from Google Maps. Spoken guidance and Android Auto navigation require the Google Navigation SDK licence — see GOOGLE_NAVIGATION_MIGRATION.md.</string>
+    <string name="nav_stop">Stop navigation</string>
+    <string name="nav_next_maneuver">Next: %1$s</string>
+    <string name="nav_starting">Starting in-app navigation…</string>
+    <string name="nav_remaining">%1$.1f km · %2$s remaining</string>
+    <string name="nav_eta">Arrive about %1$s · %2$d%% of the route driven</string>
+    <string name="nav_arrived">You have arrived near %1$s.</string>
+    <string name="nav_route_failed">Google Maps could not calculate this route.</string>
+    <string name="nav_off_route">Off the planned route — recalculating from your current position…</string>
 </resources>

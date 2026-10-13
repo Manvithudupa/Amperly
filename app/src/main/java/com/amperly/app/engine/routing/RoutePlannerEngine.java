@@ -251,6 +251,7 @@ public class RoutePlannerEngine {
     private RoutePlannerEngine() {
     }
 
+    /** Convenience overload: no measured drive time, so the average-speed estimate is used. */
     public static RoutePlanResult planRoute(String origin, String destination,
                                            double originLat, double originLng,
                                            double destinationLat, double destinationLng,
@@ -258,6 +259,27 @@ public class RoutePlannerEngine {
                                            int startSoc, boolean socIsAuthoritative,
                                            boolean socEstimatedFromProfile, String preference,
                                            Vehicle vehicle, List<ChargerStation> stations) {
+        return planRoute(origin, destination, originLat, originLng, destinationLat, destinationLng,
+                totalDistanceKm, corridorKm, startSoc, socIsAuthoritative, socEstimatedFromProfile,
+                preference, vehicle, stations, 0);
+    }
+
+    /**
+     * Plans the journey with the distance and drive time Google measured.
+     *
+     * @param measuredDriveMinutes the traffic-aware drive time from the routing provider, or 0 to
+     *                             fall back to the average-speed estimate. Supplying it means the
+     *                             plan's total journey time reflects real roads and traffic rather
+     *                             than a flat 45 km/h assumption.
+     */
+    public static RoutePlanResult planRoute(String origin, String destination,
+                                           double originLat, double originLng,
+                                           double destinationLat, double destinationLng,
+                                           double totalDistanceKm, double corridorKm,
+                                           int startSoc, boolean socIsAuthoritative,
+                                           boolean socEstimatedFromProfile, String preference,
+                                           Vehicle vehicle, List<ChargerStation> stations,
+                                           int measuredDriveMinutes) {
         double capacity = vehicle != null ? vehicle.effectiveCapacityKwh() : 40.0;
         double efficiency = vehicle != null ? vehicle.effectiveEfficiencyKmPerKwh() : 6.5;
         int reserve = vehicle != null ? vehicle.getMinArrivalSocPercent() : 15;
@@ -373,12 +395,21 @@ public class RoutePlannerEngine {
             chargingMinutes = recommended.getChargingMinutes();
         }
 
-        int driveMinutes = (int) Math.round((totalDistanceKm / AVERAGE_SPEED_KMH) * 60.0);
+        boolean measuredDriveTime = measuredDriveMinutes > 0;
+        int driveMinutes = measuredDriveTime ? measuredDriveMinutes
+                : (int) Math.round((totalDistanceKm / AVERAGE_SPEED_KMH) * 60.0);
         int totalJourneyMinutes = driveMinutes + detourMinutes + chargingMinutes;
 
         List<String> assumptions = new ArrayList<>();
-        assumptions.add("Distance of " + String.format(Locale.US, "%.0f", totalDistanceKm)
-                + " km at an average " + (int) AVERAGE_SPEED_KMH + " km/h, with no live traffic or weather.");
+        if (measuredDriveTime) {
+            assumptions.add("Distance and drive time from Google Maps for this route: "
+                    + String.format(Locale.US, "%.1f", totalDistanceKm) + " km, "
+                    + measuredDriveMinutes + " min (traffic-aware where Google publishes it).");
+        } else {
+            assumptions.add("Distance of " + String.format(Locale.US, "%.0f", totalDistanceKm)
+                    + " km at an average " + (int) AVERAGE_SPEED_KMH
+                    + " km/h, with no live traffic or weather.");
+        }
         assumptions.add("Vehicle efficiency of " + String.format(Locale.US, "%.1f", efficiency)
                 + " km/kWh on a usable capacity of " + String.format(Locale.US, "%.1f", capacity) + " kWh.");
         assumptions.add("Starting battery " + startSoc + "% "
@@ -406,11 +437,11 @@ public class RoutePlannerEngine {
                 noStopWarning);
     }
 
-    /** Convenience overload for callers that only have the names and a distance. */
+    /** Convenience overload for callers that only have the names and a distance between two points. */
     public static RoutePlanResult planRoute(String origin, String destination, double totalDistanceKm,
                                             int startSoc, Vehicle vehicle, List<ChargerStation> stations) {
         return planRoute(origin, destination, 12.2958, 76.6394, 12.9141, 74.8560,
-                totalDistanceKm, 10.0, startSoc, false, false, PREF_FASTEST, vehicle, stations);
+                totalDistanceKm, 10.0, startSoc, false, false, PREF_FASTEST, vehicle, stations, 0);
     }
 
     private static CandidateEvaluation evaluate(ChargerStation station, double distanceFromRoute,

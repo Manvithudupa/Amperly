@@ -50,7 +50,7 @@
             android:layout_marginHorizontal="@dimen/amp_screen_padding"
             android:layout_marginTop="@dimen/amp_space_m">
 
-            <FrameLayout
+            <com.amperly.app.core.map.MapContainerView
                 android:id="@+id/mapContainer"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent" />

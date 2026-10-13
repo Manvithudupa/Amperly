@@ -7,18 +7,12 @@ plugins {
 // Keys are read from local.properties (which is gitignored) or from environment
 // variables of the same name. Nothing here is committed.
 //
-//   OSM_TILE_URL               - optional. An OpenStreetMap-compatible raster tile URL
-//                                template, e.g. https://tiles.example.org/{z}/{x}/{y}.png.
-//                                Leave it empty to use the public OpenStreetMap tiles,
-//                                which need no account and no key of any kind.
-//   OSM_USER_AGENT             - optional. Identifies the app to the tile server, as
-//                                OpenStreetMap's tile usage policy requires. Defaults to
-//                                the application id and version.
-//   OSRM_BASE_URL              - optional. An OSRM-compatible routing server, e.g.
-//                                https://router.project-osrm.org. Leave it empty to use
-//                                the public OSRM demo server, which needs no key. Point
-//                                this at a self-hosted OSRM to get non-car profiles such
-//                                as walking.
+//   GOOGLE_MAPS_API_KEY        - required for the map, Place autocomplete and road routing.
+//                                One Google Cloud Android key with the "Maps SDK for
+//                                Android", "Places API" and "Directions API" enabled,
+//                                restricted to this package name + signing SHA-1. It is
+//                                injected through BuildConfig and the manifest placeholder
+//                                below and is never written into Java or XML by hand.
 //   SUPABASE_URL               - your project URL, https://<ref>.supabase.co
 //   SUPABASE_PUBLISHABLE_KEY   - the public sb_publishable_... (formerly "anon") key.
 //                                Safe to ship ONLY because every table has RLS enabled.
@@ -36,9 +30,19 @@ val localProperties = Properties().apply {
 fun secret(name: String): String =
     (localProperties.getProperty(name) ?: System.getenv(name) ?: "").trim()
 
-val osmTileUrl: String = secret("OSM_TILE_URL")
-val osmUserAgent: String = secret("OSM_USER_AGENT")
-val osrmBaseUrl: String = secret("OSRM_BASE_URL")
+// Google Maps Platform key. The same value feeds BuildConfig (for the Directions and Place
+// autocomplete web calls) and the manifest placeholder (for the Maps SDK renderer), so a
+// single entry in local.properties configures the whole map experience.
+val googleMapsApiKey: String = secret("GOOGLE_MAPS_API_KEY")
+val googleMapsEnabled: Boolean = googleMapsApiKey.isNotEmpty()
+
+if (!googleMapsEnabled) {
+    logger.warn(
+        "Amperly: no GOOGLE_MAPS_API_KEY set, so the map, Place autocomplete and road routing " +
+            "are disabled and the screens show an actionable setup notice instead of a blank map. " +
+            "See README section 6."
+    )
+}
 
 val supabaseUrl: String = secret("SUPABASE_URL")
 val supabasePublishableKey: String = secret("SUPABASE_PUBLISHABLE_KEY")
@@ -94,14 +98,16 @@ android {
         applicationId = "com.amperly.app"
         minSdk = 24
         targetSdk = 35
-        versionCode = 3
-        versionName = "2.0.0"
+        versionCode = 4
+        versionName = "2.4.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        buildConfigField("String", "OSM_TILE_URL", "\"$osmTileUrl\"")
-        buildConfigField("String", "OSM_USER_AGENT", "\"$osmUserAgent\"")
-        buildConfigField("String", "OSRM_BASE_URL", "\"$osrmBaseUrl\"")
+        // Google Maps Platform. The key is injected, never hard-coded: BuildConfig for the
+        // in-app web calls and a manifest placeholder for the Maps SDK meta-data entry.
+        buildConfigField("String", "GOOGLE_MAPS_API_KEY", "\"$googleMapsApiKey\"")
+        buildConfigField("boolean", "GOOGLE_MAPS_ENABLED", googleMapsEnabled.toString())
+        manifestPlaceholders["googleMapsApiKey"] = googleMapsApiKey
 
         buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
         buildConfigField("String", "SUPABASE_PUBLISHABLE_KEY", "\"$supabasePublishableKey\"")
@@ -168,8 +174,11 @@ dependencies {
     // get a position on the devices that ship it.
     implementation("com.google.android.gms:play-services-location:21.2.0")
 
-    // Maps: the map is OpenStreetMap raster tiles drawn by core/map/OsmTileMapView on top of the
-    // OkHttp client above — no API key, no billing account, no proprietary map SDK.
+    // Maps: the production map is the Google Maps SDK for Android (core/map/MapPanel), and
+    // destinations are found with Google Place autocomplete (core/places/PlacesAutocomplete).
+    // Both use the key injected above.
+    implementation(libs.playservicesmaps)
+    implementation(libs.places)
 
     // Navigation & Lifecycle Components
     implementation("androidx.navigation:navigation-fragment:2.7.7")
