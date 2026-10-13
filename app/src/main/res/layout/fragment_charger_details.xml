@@ -49,6 +49,44 @@
                 android:layout_height="match_parent" />
         </com.google.android.material.card.MaterialCardView>
 
+        <!--
+          Directions. The map above draws the road route; these chips pick the travel mode and the
+          line underneath reports the distance and time OSRM returned. Voice turn-by-turn is still
+          handed to the phone's maps app from the Navigate button below.
+        -->
+        <com.google.android.material.chip.ChipGroup
+            android:id="@+id/travelModeChipGroup"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="@dimen/amp_screen_padding"
+            android:layout_marginTop="@dimen/amp_space_s"
+            app:singleLine="true"
+            app:singleSelection="true">
+
+            <com.google.android.material.chip.Chip
+                android:id="@+id/driveModeChip"
+                style="@style/Widget.Amperly.Chip"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:checked="true"
+                android:text="@string/directions_drive" />
+
+            <com.google.android.material.chip.Chip
+                android:id="@+id/walkModeChip"
+                style="@style/Widget.Amperly.Chip"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/directions_walk" />
+        </com.google.android.material.chip.ChipGroup>
+
+        <TextView
+            android:id="@+id/directionsSummaryText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/amp_space_xs"
+            android:paddingHorizontal="@dimen/amp_screen_padding"
+            android:textAppearance="@style/TextAppearance.Amperly.Body" />
+
         <!-- ============================ Live state: available now, how fresh === -->
         <com.google.android.material.card.MaterialCardView
             style="@style/Widget.Amperly.Card"

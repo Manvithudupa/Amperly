@@ -146,12 +146,30 @@ public final class MapHelper {
     public static void plotStations(@Nullable OsmTileMapView map,
                                     @Nullable List<ChargerStation> stations,
                                     @Nullable String highlightStationId) {
-        if (map == null || stations == null || stations.isEmpty()) {
+        plotStations(map, stations, highlightStationId, null, null);
+    }
+
+    /**
+     * Draws stations and, when the user's position is known, a distinct "you are here" pin as well.
+     * The camera frames both, so opening the screen starts on the user rather than a fixed point.
+     */
+    public static void plotStations(@Nullable OsmTileMapView map,
+                                    @Nullable List<ChargerStation> stations,
+                                    @Nullable String highlightStationId,
+                                    @Nullable Double userLat, @Nullable Double userLng) {
+        if (map == null) {
+            return;
+        }
+        boolean hasUser = userLat != null && userLng != null;
+        List<ChargerStation> safeStations = stations == null
+                ? java.util.Collections.emptyList() : stations;
+        if (safeStations.isEmpty() && !hasUser) {
             return;
         }
         List<OsmTileMapView.Pin> pins = new ArrayList<>();
         double north = -90, south = 90, east = -180, west = 180;
-        for (ChargerStation station : stations) {
+        boolean anyPoint = false;
+        for (ChargerStation station : safeStations) {
             boolean highlight = station.getId().equals(highlightStationId);
             int fill = highlight
                     ? R.color.amp_secondary
@@ -162,9 +180,63 @@ public final class MapHelper {
             south = Math.min(south, station.getLatitude());
             east = Math.max(east, station.getLongitude());
             west = Math.min(west, station.getLongitude());
+            anyPoint = true;
+        }
+        if (hasUser) {
+            pins.add(userPin(map, userLat, userLng));
+            north = Math.max(north, userLat);
+            south = Math.min(south, userLat);
+            east = Math.max(east, userLng);
+            west = Math.min(west, userLng);
+            anyPoint = true;
+        }
+        if (!anyPoint) {
+            return;
         }
         map.setPins(pins);
-        map.fitTo(north, south, east, west, 11f);
+        if (hasUser && safeStations.isEmpty()) {
+            map.setCamera(userLat, userLng, 13f);
+        } else {
+            map.frameTo(north, south, east, west, 11f);
+        }
+    }
+
+    /**
+     * Draws a real road route (an OSRM polyline) with the user's starting point and the destination.
+     */
+    public static void plotRoadRoute(@Nullable OsmTileMapView map, @Nullable List<double[]> line,
+                                     double fromLat, double fromLng, double toLat, double toLng,
+                                     @Nullable String destinationLabel) {
+        if (map == null || line == null || line.size() < 2) {
+            return;
+        }
+        map.setRoute(line);
+        List<OsmTileMapView.Pin> pins = new ArrayList<>();
+        pins.add(userPin(map, fromLat, fromLng));
+        pins.add(pinAt(map, toLat, toLng, destinationLabel, R.color.amp_primary));
+        map.setPins(pins);
+        double north = Math.max(fromLat, toLat);
+        double south = Math.min(fromLat, toLat);
+        double east = Math.max(fromLng, toLng);
+        double west = Math.min(fromLng, toLng);
+        map.frameTo(north, south, east, west, 13f);
+    }
+
+    /** Places the camera on a single point, used when there is a user position but no stations. */
+    public static void centerOn(@Nullable OsmTileMapView map, double latitude, double longitude,
+                                float zoom) {
+        if (map == null) {
+            return;
+        }
+        map.setCamera(latitude, longitude, zoom);
+    }
+
+    /** A "you are here" pin, drawn in the route accent colour so it never reads as a charger. */
+    private static OsmTileMapView.Pin userPin(@NonNull OsmTileMapView map, double latitude,
+                                              double longitude) {
+        return new OsmTileMapView.Pin(latitude, longitude, "Your location",
+                ContextCompat.getColor(map.getContext(), R.color.amp_secondary),
+                ContextCompat.getColor(map.getContext(), R.color.white));
     }
 
     /**

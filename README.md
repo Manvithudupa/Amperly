@@ -23,7 +23,7 @@ The MVP is a **single-process Android application**. There is no live backend an
 | Charger telemetry | None. Availability is schedule-, reservation- and host-update-based, and is labelled with a freshness timestamp |
 | Meter data | `MeterSimulator` / manual entry, always labelled **Demo meter** or **manually entered** |
 | Cloud | Optional Supabase/Postgres backend (`supabase/`). When `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` are set it becomes the source of truth; when they are absent the app runs fully on-device. A trigger on `auth.users` gives every account its `public.users` profile — the row Row Level Security resolves the caller through |
-| Sync | Room stays the read cache and the offline write queue: a `sync_outbox` table plus `SyncEngine` push local changes and pull everything changed on the server |
+| Sync | Room stays the read cache and the offline write queue: a `sync_outbox` table plus `SyncEngine` push local changes and pull everything changed on the server. Pushing is automatic — every local write schedules a coalesced push shortly after it — so a saved profile reaches the backend without the user pressing anything; the account screen's **Sync now** remains for a manual push/pull |
 
 `AmperlyDatabase` uses `fallbackToDestructiveMigration()`, so a schema change resets local demo data instead of migrating it.
 
@@ -224,6 +224,22 @@ the first time a map panel is created), so a station list that has been opened o
 without a connection. Turn-by-turn navigation is still
 handed off to the phone's own maps application through a `geo:` intent.
 
+### Routing — OSRM, no key of any kind
+
+Directions to a charger are road-based, not straight lines: `core/routing/OsrmRouter` calls OSRM
+(the Open Source Routing Machine) and draws the returned geometry on the same map. The public OSRM
+demo server is the default and needs no account. Something else can be used by setting:
+
+```properties
+OSRM_BASE_URL=https://osrm.example.org
+```
+
+The routing screen offers **Driving** and **Walking**. The public demo server carries only the car
+profile and answers a foot request with car geometry, so walking is shown as a clearly-labelled
+straight-line estimate unless `OSRM_BASE_URL` points at a server with a foot profile — the app never
+presents driving geometry as a walking route. When the routing service cannot be reached, the screen
+falls back to the same labelled estimate instead of failing.
+
 ---
 
 ## 7. Pilot data (`PilotDataSeeder`)
@@ -298,6 +314,7 @@ Run the whole value chain, not just a map:
 | Persistence | Room (`room-runtime 2.6.1`) — 23 entities, 24 DAOs (incl. the sync outbox) |
 | Backend (optional) | Supabase — Postgres with Row Level Security, PostgREST data API and GoTrue auth, over Retrofit/OkHttp. See [`supabase/README.md`](supabase/README.md) |
 | Maps & location | OpenStreetMap raster tiles drawn in-app (`core/map`, no SDK and no API key) + `play-services-location` for the position fix |
+| Routing | OSRM (`core/routing`, public demo server by default, no key); driving road routes, walking shown as a labelled estimate unless a foot-profile server is configured |
 | QR codes | ZXing `core` (bitmap generated in-app) |
 | Payments | In-repo sandbox `PaymentManager` (no card data is ever stored) |
 | Tests | JUnit 4 (unit tests, no device required) |

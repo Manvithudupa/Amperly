@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The toolbar profile badge: the signed-in user's initials in a circle, reusing the same badge
+  drawable as the account page so the two read as the same identity.
+-->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/profileBadge"
+    android:layout_width="40dp"
+    android:layout_height="40dp"
+    android:layout_marginEnd="@dimen/amp_space_s"
+    android:background="@drawable/bg_brand_mark"
+    android:clickable="true"
+    android:contentDescription="@string/account_title"
+    android:focusable="true">
+
+    <TextView
+        android:id="@+id/profileBadgeText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:textAppearance="@style/TextAppearance.Material3.TitleSmall"
+        android:textColor="?attr/colorOnPrimaryContainer"
+        android:textStyle="bold" />
+</FrameLayout>

@@ -14,6 +14,11 @@ plugins {
 //   OSM_USER_AGENT             - optional. Identifies the app to the tile server, as
 //                                OpenStreetMap's tile usage policy requires. Defaults to
 //                                the application id and version.
+//   OSRM_BASE_URL              - optional. An OSRM-compatible routing server, e.g.
+//                                https://router.project-osrm.org. Leave it empty to use
+//                                the public OSRM demo server, which needs no key. Point
+//                                this at a self-hosted OSRM to get non-car profiles such
+//                                as walking.
 //   SUPABASE_URL               - your project URL, https://<ref>.supabase.co
 //   SUPABASE_PUBLISHABLE_KEY   - the public sb_publishable_... (formerly "anon") key.
 //                                Safe to ship ONLY because every table has RLS enabled.
@@ -33,6 +38,7 @@ fun secret(name: String): String =
 
 val osmTileUrl: String = secret("OSM_TILE_URL")
 val osmUserAgent: String = secret("OSM_USER_AGENT")
+val osrmBaseUrl: String = secret("OSRM_BASE_URL")
 
 val supabaseUrl: String = secret("SUPABASE_URL")
 val supabasePublishableKey: String = secret("SUPABASE_PUBLISHABLE_KEY")
@@ -95,6 +101,7 @@ android {
 
         buildConfigField("String", "OSM_TILE_URL", "\"$osmTileUrl\"")
         buildConfigField("String", "OSM_USER_AGENT", "\"$osmUserAgent\"")
+        buildConfigField("String", "OSRM_BASE_URL", "\"$osrmBaseUrl\"")
 
         buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
         buildConfigField("String", "SUPABASE_PUBLISHABLE_KEY", "\"$supabasePublishableKey\"")

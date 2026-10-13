@@ -78,6 +78,14 @@
     <string name="label_meter_level_3">Level 3 — no verified meter</string>
     <string name="meter_gating_warning">This station has no verified meter and is shown for discovery only.</string>
 
+    <!-- Directions (OpenStreetMap tiles + OSRM road routing) -->
+    <string name="directions_drive">Driving</string>
+    <string name="directions_walk">Walking</string>
+    <string name="directions_calculating">Working out the route…</string>
+    <string name="directions_summary">%1$s route · %2$.1f km · about %3$s</string>
+    <string name="directions_approximate">Straight-line estimate (the routing service could not be reached) · %1$.1f km · about %2$s</string>
+    <string name="directions_no_location">Turn on location to see directions from where you are.</string>
+
     <!-- Reservation -->
     <string name="reserve_title">Reserve a port</string>
     <string name="reserve_station">Station</string>

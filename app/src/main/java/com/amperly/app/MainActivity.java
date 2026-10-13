@@ -9,8 +9,10 @@ import android.view.MenuItem;
 import android.view.View;
 import android.widget.TextView;
 
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.content.res.AppCompatResources;
+import androidx.appcompat.widget.PopupMenu;
 import androidx.appcompat.widget.Toolbar;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
@@ -47,6 +49,7 @@ import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.chip.Chip;
 import com.google.android.material.chip.ChipGroup;
 import com.google.android.material.color.MaterialColors;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import java.util.List;
 
@@ -84,6 +87,7 @@ public class MainActivity extends AppCompatActivity {
             Toolbar toolbar = findViewById(R.id.topToolbar);
             setSupportActionBar(toolbar);
             applyBrandMark(toolbar);
+            makeToolbarHome(toolbar);
 
             bottomNavigationView = findViewById(R.id.bottomNavigationView);
             currentUserText = findViewById(R.id.currentUserText);
@@ -294,7 +298,53 @@ public class MainActivity extends AppCompatActivity {
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         getMenuInflater().inflate(R.menu.main_menu, menu);
+        MenuItem profileAction = menu.findItem(R.id.action_profile);
+        if (profileAction != null) {
+            profileAction.setActionView(buildProfileBadge());
+        }
         return true;
+    }
+
+    /**
+     * The circular profile badge shown in the top bar: the signed-in user's initials, and a tap
+     * opens the dropdown of the remaining destinations.
+     */
+    private View buildProfileBadge() {
+        View badge = LayoutInflater.from(this).inflate(R.layout.view_profile_button, null);
+        TextView initials = badge.findViewById(R.id.profileBadgeText);
+        User user = AuthManager.getInstance().getCurrentUser();
+        initials.setText(initialsOf(user == null ? null : user.getName()));
+        badge.setOnClickListener(this::showProfileMenu);
+        return badge;
+    }
+
+    private void showProfileMenu(View anchor) {
+        PopupMenu popup = new PopupMenu(this, anchor);
+        popup.inflate(R.menu.profile_menu);
+        popup.getMenu().findItem(R.id.profile_action_sign_out)
+                .setVisible(SupabaseAuth.isSignedIn());
+        popup.setOnMenuItemClickListener(item -> {
+            int id = item.getItemId();
+            if (id == R.id.profile_action_account) {
+                Navigator.openRoot(this, new AccountFragment(), "account");
+                return true;
+            }
+            if (id == R.id.profile_action_vehicle) {
+                selectRole(AppConstants.ROLE_CONSUMER);
+                Navigator.openRoot(this, new VehicleProfileFragment(), "vehicle");
+                return true;
+            }
+            if (id == R.id.profile_action_safety) {
+                Navigator.openRoot(this, new SafetySOSFragment(), "safety");
+                return true;
+            }
+            if (id == R.id.profile_action_sign_out) {
+                confirmSignOut();
+                return true;
+            }
+            return false;
+        });
+        popup.show();
     }
 
     @Override
@@ -308,20 +358,91 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        if (item.getItemId() == R.id.action_account) {
-            Navigator.openRoot(this, new AccountFragment(), "account");
-            return true;
-        }
-        if (item.getItemId() == R.id.action_vehicle) {
-            selectRole(AppConstants.ROLE_CONSUMER);
-            Navigator.openRoot(this, new VehicleProfileFragment(), "vehicle");
-            return true;
-        }
-        if (item.getItemId() == R.id.action_safety) {
-            Navigator.openRoot(this, new SafetySOSFragment(), "safety");
-            return true;
-        }
+        // The three destinations that used to sit here now live in the profile dropdown, which is
+        // triggered from the badge's own click listener rather than from a menu item id.
         return super.onOptionsItemSelected(item);
+    }
+
+    /**
+     * Makes the brand mark and title in the top bar a link home. Toolbar lays its title view out
+     * after it is attached, so the children are wired both now and once more after layout.
+     */
+    private void makeToolbarHome(Toolbar toolbar) {
+        if (toolbar == null) {
+            return;
+        }
+        View.OnClickListener home = v -> goHome();
+        toolbar.setClickable(true);
+        toolbar.setOnClickListener(home);
+        wireHome(toolbar, home);
+        toolbar.post(() -> wireHome(toolbar, home));
+    }
+
+    /**
+     * Points the title and the empty bar area at home, while leaving the action area — which holds
+     * the profile badge and its own click behaviour — alone.
+     */
+    private void wireHome(Toolbar toolbar, View.OnClickListener home) {
+        for (int i = 0; i < toolbar.getChildCount(); i++) {
+            View child = toolbar.getChildAt(i);
+            if (child == null || child.getId() == R.id.profileBadge) {
+                continue;
+            }
+            if (child instanceof androidx.appcompat.widget.ActionMenuView) {
+                continue;
+            }
+            child.setOnClickListener(home);
+        }
+    }
+
+    /** Opens the default page for the role the account is currently acting as. */
+    public void goHome() {
+        if (bottomNavigationView == null
+                || bottomNavigationView.getVisibility() != View.VISIBLE) {
+            return;
+        }
+        buildNavigation(AuthManager.getInstance().getCurrentRole());
+    }
+
+    /** Up to two initials from a display name, matching the account page's monogram. */
+    private static String initialsOf(@Nullable String name) {
+        if (name == null || name.trim().isEmpty()) {
+            return "\u2022";
+        }
+        String[] words = name.trim().split("\\s+");
+        StringBuilder initials = new StringBuilder();
+        for (String word : words) {
+            if (word.isEmpty()) {
+                continue;
+            }
+            initials.append(Character.toUpperCase(word.charAt(0)));
+            if (initials.length() == 2) {
+                break;
+            }
+        }
+        return initials.length() == 0 ? "\u2022" : initials.toString();
+    }
+
+    private void confirmSignOut() {
+        new MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.account_sign_out)
+                .setMessage(R.string.account_sign_out_confirm)
+                .setNegativeButton(R.string.action_cancel, null)
+                .setPositiveButton(R.string.account_sign_out, (dialog, which) -> performSignOut())
+                .show();
+    }
+
+    /** Ends the session and wipes the local copy, exactly as the account page does. */
+    private void performSignOut() {
+        repo.background(() -> {
+            SupabaseAuth.signOut(getApplicationContext());
+            repo.clearLocalData();
+            return Boolean.TRUE;
+        }, done -> {
+            AuthManager.getInstance().clearCurrentUser();
+            AppStateStore.get().reset();
+            onSignedOut();
+        });
     }
 
     private void selectRole(String role) {

@@ -248,6 +248,30 @@ public class OsmTileMapView extends View {
         setCamera(centerLatitude, centerLongitude, best);
     }
 
+    /**
+     * Frames every point and moves the camera even when one has already been set. Used when the
+     * content changes on an existing screen — for example the discovery list re-centring on the
+     * user's live position — where {@link #fitTo} would deliberately leave the camera alone.
+     */
+    public void frameTo(double north, double south, double east, double west, float fallbackZoom) {
+        if (getWidth() == 0 || getHeight() == 0 || north <= south || east <= west) {
+            setCamera((north + south) / 2d, (east + west) / 2d, fallbackZoom);
+            return;
+        }
+        double centerLatitude = (north + south) / 2d;
+        double centerLongitude = (east + west) / 2d;
+        float best = fallbackZoom;
+        for (int z = MAX_ZOOM; z >= MIN_ZOOM; z--) {
+            double spanY = Math.abs(worldY(north, z) - worldY(south, z));
+            double spanX = Math.abs(worldX(east, z) - worldX(west, z));
+            if (spanY <= getHeight() * 0.82d && spanX <= getWidth() * 0.82d) {
+                best = z;
+                break;
+            }
+        }
+        setCamera(centerLatitude, centerLongitude, best);
+    }
+
     private void pan(float distanceX, float distanceY) {
         double scale = TILE_SIZE * Math.pow(2d, zoom);
         double worldX = worldX(centerLng, zoom) - distanceX;

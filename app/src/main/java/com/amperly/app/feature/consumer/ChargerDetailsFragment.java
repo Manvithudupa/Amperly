@@ -1,5 +1,6 @@
 package com.amperly.app.feature.consumer;
 
+import android.Manifest;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -8,6 +9,8 @@ import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
@@ -15,8 +18,11 @@ import androidx.fragment.app.Fragment;
 import com.amperly.app.R;
 import com.amperly.app.core.common.AppConstants;
 import com.amperly.app.core.common.Formatters;
+import com.amperly.app.core.location.LocationProvider;
 import com.amperly.app.core.map.MapHelper;
+import com.amperly.app.core.map.OsmTileMapView;
 import com.amperly.app.core.nav.Navigator;
+import com.amperly.app.core.routing.OsrmRouter;
 import com.amperly.app.core.security.AuthManager;
 import com.amperly.app.data.local.entity.ChargerPort;
 import com.amperly.app.data.local.entity.ChargerStation;
@@ -25,6 +31,7 @@ import com.amperly.app.data.repository.AmperlyRepository;
 import com.amperly.app.engine.availability.AvailabilityEngine;
 import com.amperly.app.ui.Ux;
 import com.amperly.app.ui.dialog.ReportDialog;
+import com.google.android.material.chip.ChipGroup;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -38,6 +45,35 @@ public class ChargerDetailsFragment extends Fragment {
 
     private AmperlyRepository repo;
     private String stationId;
+
+    @Nullable
+    private ChargerStation station;
+    @Nullable
+    private TextView directionsSummaryText;
+    @Nullable
+    private OsmTileMapView mapView;
+
+    /** The travel mode whose route is currently shown. */
+    private OsrmRouter.TravelMode travelMode = OsrmRouter.TravelMode.DRIVING;
+
+    /** The user's current position, or null until a fix arrives. */
+    @Nullable
+    private Double userLat;
+    @Nullable
+    private Double userLng;
+
+    private final ActivityResultLauncher<String[]> locationPermissionLauncher =
+            registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(), result -> {
+                boolean granted = Boolean.TRUE.equals(
+                        result.get(Manifest.permission.ACCESS_FINE_LOCATION))
+                        || Boolean.TRUE.equals(
+                        result.get(Manifest.permission.ACCESS_COARSE_LOCATION));
+                if (granted) {
+                    resolveUserLocation();
+                } else if (isAdded() && directionsSummaryText != null) {
+                    directionsSummaryText.setText(R.string.directions_no_location);
+                }
+            });
 
     @Nullable
     @Override
@@ -129,8 +165,13 @@ public class ChargerDetailsFragment extends Fragment {
             portsContainer.addView(empty);
         }
 
-        MapHelper.attach(this, mapContainer, map ->
-                MapHelper.plotStations(map, Collections.singletonList(station), station.getId()));
+        this.station = station;
+        directionsSummaryText = view.findViewById(R.id.directionsSummaryText);
+        MapHelper.attach(this, mapContainer, map -> {
+            mapView = map;
+            MapHelper.plotStations(map, Collections.singletonList(station), station.getId());
+        });
+        setUpDirections(view);
 
         view.findViewById(R.id.reserveButton).setOnClickListener(v -> {
             ReservationFragment fragment = new ReservationFragment();
@@ -155,6 +196,117 @@ public class ChargerDetailsFragment extends Fragment {
                     repo.saveReport(report);
                     Ux.toast(this, getString(R.string.report_submitted));
                 }));
+    }
+
+    /** Travel-mode chips plus the location fix the route starts from. */
+    private void setUpDirections(View view) {
+        ChipGroup group = view.findViewById(R.id.travelModeChipGroup);
+        if (group != null) {
+            group.setOnCheckedStateChangeListener((chipGroup, checkedIds) -> {
+                if (checkedIds.isEmpty()) {
+                    return;
+                }
+                travelMode = checkedIds.get(0) == R.id.walkModeChip
+                        ? OsrmRouter.TravelMode.WALKING : OsrmRouter.TravelMode.DRIVING;
+                requestRoute();
+            });
+        }
+        ensureUserLocation();
+    }
+
+    private void ensureUserLocation() {
+        if (LocationProvider.hasLocationPermission(requireContext())) {
+            resolveUserLocation();
+            return;
+        }
+        if (LocationProvider.hasAskedForPermission(requireContext())) {
+            if (directionsSummaryText != null) {
+                directionsSummaryText.setText(R.string.directions_no_location);
+            }
+            return;
+        }
+        LocationProvider.markPermissionAsked(requireContext());
+        locationPermissionLauncher.launch(new String[]{
+                Manifest.permission.ACCESS_FINE_LOCATION,
+                Manifest.permission.ACCESS_COARSE_LOCATION});
+    }
+
+    private void resolveUserLocation() {
+        LocationProvider.requestCurrentLocation(requireContext(),
+                new LocationProvider.LocationCallback() {
+                    @Override
+                    public void onLocationRetrieved(double latitude, double longitude) {
+                        userLat = latitude;
+                        userLng = longitude;
+                        requestRoute();
+                    }
+
+                    @Override
+                    public void onLocationUnavailable() {
+                        if (isAdded() && directionsSummaryText != null) {
+                            directionsSummaryText.setText(R.string.directions_no_location);
+                        }
+                    }
+                });
+    }
+
+    /** Asks OSRM for a road route to the station and draws it on the map above. */
+    private void requestRoute() {
+        ChargerStation target = station;
+        if (target == null) {
+            return;
+        }
+        if (userLat == null || userLng == null) {
+            if (directionsSummaryText != null) {
+                directionsSummaryText.setText(R.string.directions_no_location);
+            }
+            return;
+        }
+        if (directionsSummaryText != null) {
+            directionsSummaryText.setText(R.string.directions_calculating);
+        }
+        final double fromLat = userLat;
+        final double fromLng = userLng;
+        OsrmRouter.route(requireContext(), travelMode, fromLat, fromLng,
+                target.getLatitude(), target.getLongitude(), new OsrmRouter.Callback() {
+                    @Override
+                    public void onRoute(OsrmRouter.Route route) {
+                        if (isAdded()) {
+                            renderRoute(route);
+                        }
+                    }
+
+                    @Override
+                    public void onError(String message) {
+                        if (!isAdded()) {
+                            return;
+                        }
+                        // The routing service could not be reached. A straight-line estimate keeps
+                        // the screen useful and is labelled as an estimate, never as a road route.
+                        renderRoute(OsrmRouter.estimate(travelMode, fromLat, fromLng,
+                                target.getLatitude(), target.getLongitude()));
+                    }
+                });
+    }
+
+    private void renderRoute(OsrmRouter.Route route) {
+        ChargerStation target = station;
+        if (mapView != null && target != null && userLat != null && userLng != null) {
+            MapHelper.plotRoadRoute(mapView, route.getPoints(), userLat, userLng,
+                    target.getLatitude(), target.getLongitude(), target.getName());
+        }
+        if (directionsSummaryText != null) {
+            String time = Formatters.minutes((int) Math.round(route.getDurationMinutes()));
+            if (route.isApproximate()) {
+                directionsSummaryText.setText(getString(R.string.directions_approximate,
+                        route.getDistanceKm(), time));
+            } else {
+                String mode = travelMode == OsrmRouter.TravelMode.WALKING
+                        ? getString(R.string.directions_walk) : getString(R.string.directions_drive);
+                directionsSummaryText.setText(getString(R.string.directions_summary, mode,
+                        route.getDistanceKm(), time));
+            }
+        }
     }
 
     private String verificationLabel(ChargerStation station) {

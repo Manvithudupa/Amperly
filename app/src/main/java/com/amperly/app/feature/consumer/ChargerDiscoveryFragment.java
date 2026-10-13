@@ -1,5 +1,6 @@
 package com.amperly.app.feature.consumer;
 
+import android.Manifest;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -7,6 +8,8 @@ import android.view.ViewGroup;
 import android.widget.FrameLayout;
 import android.widget.TextView;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
@@ -16,7 +19,9 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.amperly.app.R;
 import com.amperly.app.core.common.AppConstants;
 import com.amperly.app.core.common.GeoUtils;
+import com.amperly.app.core.location.LocationProvider;
 import com.amperly.app.core.map.MapHelper;
+import com.amperly.app.core.map.OsmTileMapView;
 import com.amperly.app.core.nav.Navigator;
 import com.amperly.app.core.security.AuthManager;
 import com.amperly.app.data.local.entity.ChargerStation;
@@ -24,6 +29,7 @@ import com.amperly.app.data.local.entity.Vehicle;
 import com.amperly.app.data.repository.AmperlyRepository;
 import com.amperly.app.engine.availability.AvailabilityEngine;
 import com.amperly.app.engine.routing.RoutePlannerEngine;
+import com.amperly.app.ui.Ux;
 import com.amperly.app.ui.adapter.StationAdapter;
 import com.google.android.material.chip.ChipGroup;
 
@@ -48,6 +54,29 @@ public class ChargerDiscoveryFragment extends Fragment implements StationAdapter
     private View emptyStateActionButton;
     private ChipGroup filterChipGroup;
     private FrameLayout mapContainer;
+
+    /** The user's current position, or null until a fix arrives. */
+    @Nullable
+    private Double userLat;
+    @Nullable
+    private Double userLng;
+
+    /** The attached map panel, so a late location fix can re-centre without reloading the list. */
+    @Nullable
+    private OsmTileMapView mapView;
+
+    private final ActivityResultLauncher<String[]> locationPermissionLauncher =
+            registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(), result -> {
+                boolean granted = Boolean.TRUE.equals(
+                        result.get(Manifest.permission.ACCESS_FINE_LOCATION))
+                        || Boolean.TRUE.equals(
+                        result.get(Manifest.permission.ACCESS_COARSE_LOCATION));
+                if (granted) {
+                    resolveUserLocation();
+                } else if (isAdded()) {
+                    Ux.toast(this, getString(R.string.map_no_location_permission));
+                }
+            });
 
     /** "Pilot area: ... · vehicle: ...": the context the list is being filtered against. */
     private String contextLine = "";
@@ -109,6 +138,7 @@ public class ChargerDiscoveryFragment extends Fragment implements StationAdapter
             applyFilter();
         });
 
+        ensureUserLocation();
         loadStations();
     }
 
@@ -156,7 +186,16 @@ public class ChargerDiscoveryFragment extends Fragment implements StationAdapter
             adapter = new StationAdapter(this, vehicle);
             recyclerView.setAdapter(adapter);
             applyFilter();
-            MapHelper.attach(this, mapContainer, map -> MapHelper.plotStations(map, allStations, null));
+            MapHelper.attach(this, mapContainer, map -> {
+                mapView = map;
+                MapHelper.plotStations(map, allStations, null, userLat, userLng);
+                // Tapping a station marker is the map's way of selecting that charger.
+                map.setPinTapListener(pin -> {
+                    if (pin != null) {
+                        openStationByName(pin.title);
+                    }
+                });
+            });
         });
     }
 
@@ -232,6 +271,61 @@ public class ChargerDiscoveryFragment extends Fragment implements StationAdapter
             return;
         }
         applyFilter();
+    }
+
+    /** Asks for permission if needed, then resolves the user's position and re-centres the map. */
+    private void ensureUserLocation() {
+        if (LocationProvider.hasLocationPermission(requireContext())) {
+            resolveUserLocation();
+            return;
+        }
+        if (LocationProvider.hasAskedForPermission(requireContext())) {
+            // Already declined once: keep the map useful without prompting on every visit.
+            return;
+        }
+        LocationProvider.markPermissionAsked(requireContext());
+        locationPermissionLauncher.launch(new String[]{
+                Manifest.permission.ACCESS_FINE_LOCATION,
+                Manifest.permission.ACCESS_COARSE_LOCATION});
+    }
+
+    private void resolveUserLocation() {
+        LocationProvider.requestCurrentLocation(requireContext(),
+                new LocationProvider.LocationCallback() {
+                    @Override
+                    public void onLocationRetrieved(double latitude, double longitude) {
+                        userLat = latitude;
+                        userLng = longitude;
+                        refreshMap();
+                    }
+
+                    @Override
+                    public void onLocationUnavailable() {
+                        if (isAdded()) {
+                            Ux.toast(ChargerDiscoveryFragment.this,
+                                    "Current location is unavailable. Showing the pilot area instead.");
+                        }
+                    }
+                });
+    }
+
+    /** Re-draws the already attached panel once a location fix arrives. */
+    private void refreshMap() {
+        if (mapView != null) {
+            MapHelper.plotStations(mapView, allStations, null, userLat, userLng);
+        }
+    }
+
+    private void openStationByName(@Nullable String name) {
+        if (name == null) {
+            return;
+        }
+        for (ChargerStation station : allStations) {
+            if (name.equals(station.getName())) {
+                onOpenStation(station);
+                return;
+            }
+        }
     }
 
     @Override

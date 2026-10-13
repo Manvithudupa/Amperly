@@ -76,6 +76,16 @@ public class AmperlyRepository {
      */
     private volatile boolean profileWriteFailed;
 
+    /**
+     * Set while a background push is already scheduled. Writes arrive in bursts — a profile save
+     * followed by its child rows — and one sync is enough for the whole burst.
+     */
+    private final java.util.concurrent.atomic.AtomicBoolean autoSyncScheduled =
+            new java.util.concurrent.atomic.AtomicBoolean(false);
+
+    /** How long to wait after the last local write before pushing, so a burst becomes one sync. */
+    private static final long AUTO_SYNC_DEBOUNCE_MS = 900L;
+
     private AmperlyRepository(Context context) {
         db = AmperlyDatabase.getInstance(context);
         appContext = context.getApplicationContext();
@@ -136,19 +146,22 @@ public class AmperlyRepository {
 
     private void syncUpsert(String table, Object entity) {
         SyncEngine.enqueue(db, table, entity, SyncOutboxEntry.OP_UPSERT);
+        requestAutoSync();
     }
 
     private void syncUpsertAll(String table, List<?> entities) {
-        if (entities == null) {
+        if (entities == null || entities.isEmpty()) {
             return;
         }
         for (Object entity : entities) {
             SyncEngine.enqueue(db, table, entity, SyncOutboxEntry.OP_UPSERT);
         }
+        requestAutoSync();
     }
 
     private void syncDelete(String table, Object entity) {
         SyncEngine.enqueue(db, table, entity, SyncOutboxEntry.OP_DELETE);
+        requestAutoSync();
     }
 
     /**
@@ -157,6 +170,37 @@ public class AmperlyRepository {
      */
     private void syncRpc(String function, String dedupeKey, Map<String, Object> args) {
         SyncEngine.enqueueRpc(db, function, dedupeKey, args);
+        requestAutoSync();
+    }
+
+    /**
+     * Pushes queued changes to the server shortly after a local write, so a saved profile reaches
+     * the backend without the user having to press anything. Bursts are coalesced: several writes
+     * made together produce a single sync.
+     *
+     * <p>Room is still written first and the outbox still makes each change durable, so a device
+     * that is offline simply retries on the next write (or on the next explicit sync) rather than
+     * losing the change. When the backend is not configured this is a no-op.
+     */
+    public void requestAutoSync() {
+        if (!SyncEngine.isEnabled()) {
+            return;
+        }
+        if (!autoSyncScheduled.compareAndSet(false, true)) {
+            return;
+        }
+        mainHandler.postDelayed(() -> {
+            autoSyncScheduled.set(false);
+            executor.execute(() -> {
+                try {
+                    SyncEngine.syncNow(appContext, db);
+                } catch (Exception e) {
+                    // Left queued on purpose: the next write, or the account screen's sync button,
+                    // will pick it up again.
+                    Log.w(TAG, "Automatic sync failed and will retry later: " + e.getMessage());
+                }
+            });
+        }, AUTO_SYNC_DEBOUNCE_MS);
     }
 
     private static Map<String, Object> singleArg(String key, Object value) {
@@ -272,6 +316,7 @@ public class AmperlyRepository {
             // so the next sync can retry the insert until the server accepts it.
             SyncEngine.enqueuePayload(db, "users", authUserId,
                     newUserProfileRow(authUserId, email, displayName));
+            requestAutoSync();
         }
 
         return localUser;
