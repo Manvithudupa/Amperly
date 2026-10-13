@@ -2,12 +2,15 @@
 <!--
   The toolbar profile badge: the signed-in user's initials in a circle, reusing the same badge
   drawable as the account page so the two read as the same identity.
+
+  Sized to a full toolbar action (44dp) with a readable monogram; an earlier 40dp disc with
+  TitleSmall text was too small to read or tap comfortably.
 -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/profileBadge"
-    android:layout_width="40dp"
-    android:layout_height="40dp"
-    android:layout_marginEnd="@dimen/amp_space_s"
+    android:layout_width="44dp"
+    android:layout_height="44dp"
+    android:layout_marginEnd="@dimen/amp_space_xs"
     android:background="@drawable/bg_brand_mark"
     android:clickable="true"
     android:contentDescription="@string/account_title"
@@ -18,7 +21,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="center"
-        android:textAppearance="@style/TextAppearance.Material3.TitleSmall"
+        android:textAppearance="@style/TextAppearance.Material3.TitleMedium"
         android:textColor="?attr/colorOnPrimaryContainer"
         android:textStyle="bold" />
 </FrameLayout>

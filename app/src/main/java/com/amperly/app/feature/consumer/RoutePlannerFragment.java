@@ -21,7 +21,9 @@ import com.amperly.app.R;
 import com.google.android.material.chip.ChipGroup;
 import com.amperly.app.core.common.AppConstants;
 import com.amperly.app.core.common.Formatters;
+import com.amperly.app.core.common.GeoUtils;
 import com.amperly.app.core.common.PilotPlaces;
+import com.amperly.app.core.routing.OsrmRouter;
 import com.amperly.app.core.map.MapHelper;
 import com.amperly.app.core.nav.Navigator;
 import com.amperly.app.core.security.AuthManager;
@@ -175,13 +177,72 @@ public class RoutePlannerFragment extends Fragment implements RouteStopAdapter.L
     private void planRoute() {
         final String origin = originEdit.getText().toString().trim();
         final String destination = destinationEdit.getText().toString().trim();
-        final double distance;
-        try {
-            distance = Double.parseDouble(distanceEdit.getText().toString().trim());
-        } catch (NumberFormatException e) {
-            Ux.toast(this, "Enter the route distance in kilometres.");
+        String distanceText = distanceEdit.getText().toString().trim();
+        if (TextUtils.isEmpty(distanceText)) {
+            // Nothing to type: work the road distance out from the two places.
+            computeDistanceThenPlan(origin, destination);
             return;
         }
+        final double distance;
+        try {
+            distance = Double.parseDouble(distanceText);
+        } catch (NumberFormatException e) {
+            Ux.toast(this, "Enter the route distance in kilometres, or clear it to calculate it automatically.");
+            return;
+        }
+        if (distance <= 0) {
+            Ux.toast(this, "Route distance must be greater than zero.");
+            return;
+        }
+        runPlan(origin, destination, distance);
+    }
+
+    /**
+     * Fills the distance in from the two places instead of asking the driver to know it: the OSRM
+     * road distance, or a straight-line estimate when the routing service cannot be reached. The
+     * field is left editable, so a driver who knows the real figure can still override it.
+     */
+    private void computeDistanceThenPlan(final String origin, final String destination) {
+        final double[] originCoords = PilotPlaces.resolveOrPilot(origin);
+        final double[] destinationCoords = PilotPlaces.resolveOrPilot(destination);
+        planStatusText.setVisibility(View.VISIBLE);
+        planStatusText.setText("Working out the road distance between "
+                + (TextUtils.isEmpty(origin) ? "the start" : origin) + " and "
+                + (TextUtils.isEmpty(destination) ? "the destination" : destination) + "\u2026");
+        OsrmRouter.route(requireContext(), OsrmRouter.TravelMode.DRIVING,
+                originCoords[0], originCoords[1], destinationCoords[0], destinationCoords[1],
+                new OsrmRouter.Callback() {
+                    @Override
+                    public void onRoute(OsrmRouter.Route route) {
+                        if (isAdded()) {
+                            applyDistanceAndPlan(origin, destination, route.getDistanceKm());
+                        }
+                    }
+
+                    @Override
+                    public void onError(String message) {
+                        if (!isAdded()) {
+                            return;
+                        }
+                        double straight = GeoUtils.distanceKm(originCoords[0], originCoords[1],
+                                destinationCoords[0], destinationCoords[1]);
+                        planStatusText.setVisibility(View.VISIBLE);
+                        planStatusText.setText("The routing service could not be reached, so the "
+                                + "distance is a straight-line estimate.");
+                        applyDistanceAndPlan(origin, destination, Math.max(1.0, straight));
+                    }
+                });
+    }
+
+    private void applyDistanceAndPlan(String origin, String destination, double distanceKm) {
+        if (!isAdded() || distanceEdit == null) {
+            return;
+        }
+        distanceEdit.setText(String.format(Locale.US, "%.1f", distanceKm));
+        runPlan(origin, destination, distanceKm);
+    }
+
+    private void runPlan(final String origin, final String destination, final double distance) {
         String socText = currentSocEdit.getText().toString().trim();
         final Integer enteredSoc = TextUtils.isEmpty(socText) ? null : safeInt(socText);
         final String userId = AuthManager.getInstance().getCurrentUserId();

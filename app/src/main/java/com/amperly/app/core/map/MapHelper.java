@@ -194,7 +194,11 @@ public final class MapHelper {
             return;
         }
         map.setPins(pins);
-        if (hasUser && safeStations.isEmpty()) {
+        if (hasUser) {
+            // Centre on the user. Fitting the user and every station together zoomed out to the
+            // whole corridor whenever they were far apart, which left the map looking unchanged
+            // from its initial view. The point of this screen is "where am I, what is near me",
+            // so the user's position wins and nearby chargers fall inside the view on their own.
             map.setCamera(userLat, userLng, 13f);
         } else {
             map.frameTo(north, south, east, west, 11f);

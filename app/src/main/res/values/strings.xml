@@ -137,7 +137,7 @@
     <!-- Route planner -->
     <string name="route_title">Route and charging plan</string>
     <string name="route_origin">From</string>
-    <string name="route_distance_hint">Route distance (km)</string>
+    <string name="route_distance_hint">Distance km (blank = auto)</string>
     <string name="route_destination">To</string>
     <string name="route_current_soc">Current battery %</string>
     <string name="route_arrival_soc">Target arrival battery %</string>
