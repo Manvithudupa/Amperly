@@ -63,14 +63,23 @@
                     android:text="@string/route_start_pick_on_map" />
 
                 <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/destinationField"
                     style="@style/Widget.Amperly.TextInput"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="@dimen/amp_space_s"
                     android:hint="@string/route_destination_hint">
 
+                    <!--
+                      The OutlinedBox autocomplete style is explicit here on purpose. A
+                      TextInputLayout only re-styles its child through its materialThemeOverlay, and
+                      the outlined overlay sets editTextStyle alone - never autoCompleteTextViewStyle.
+                      An unstyled field therefore kept the platform AutoCompleteTextView padding
+                      (none), and the box collapsed to about 23dp next to the 56dp fields below it.
+                    -->
                     <com.google.android.material.textfield.MaterialAutoCompleteTextView
                         android:id="@+id/destinationEdit"
+                        style="@style/Widget.Material3.AutoCompleteTextView.OutlinedBox"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:completionThreshold="2"

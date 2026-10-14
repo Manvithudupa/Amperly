@@ -3,8 +3,13 @@ package com.amperly.app.core.places;
 import android.content.Context;
 import android.text.Editable;
 import android.text.TextWatcher;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.AutoCompleteTextView;
+import android.widget.Filter;
+import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -65,6 +70,14 @@ public final class PlacesAutocomplete {
 
         /** The text no longer matches a Google place (they edited it after choosing). */
         void onSelectionCleared();
+
+        /**
+         * Google Place lookup could not answer (the key's project does not have the Places API
+         * enabled, there is no connectivity, or the quota is spent). Defaulted to a no-op so that a
+         * caller with nowhere to show the message still compiles.
+         */
+        default void onLookupFailed(@NonNull String message) {
+        }
     }
 
     private static volatile boolean initialized;
@@ -110,16 +123,58 @@ public final class PlacesAutocomplete {
             return;
         }
         final List<AutocompletePrediction> predictions = new ArrayList<>();
-        final ArrayAdapter<AutocompletePrediction> adapter = new ArrayAdapter<>(context,
-                android.R.layout.simple_list_item_1, predictions) {
+        final ArrayAdapter<AutocompletePrediction> adapter =
+                new ArrayAdapter<AutocompletePrediction>(context,
+                        android.R.layout.simple_list_item_2, predictions) {
+
+            /**
+             * Google has already matched these predictions against what the driver typed, so the
+             * adapter hands the backend's list straight back.
+             *
+             * <p>{@link ArrayAdapter}'s own filter compares {@code AutocompletePrediction.toString()}
+             * with the query, which never matches. It therefore emptied the list, replaced the
+             * adapter's own backing list with that empty result, and reported a count of zero - so
+             * the field looked like it had no suggestions at all and the drop-down never opened.
+             * This pass-through keeps the adapter's list identical to {@link #predictions} and
+             * reports the real count, which is what makes the drop-down appear.
+             */
             @NonNull
             @Override
-            public android.view.View getView(int position, @Nullable android.view.View convertView,
-                                             @NonNull android.view.ViewGroup parent) {
-                android.view.View view = super.getView(position, convertView, parent);
-                if (view instanceof android.widget.TextView) {
-                    ((android.widget.TextView) view).setText(
-                            predictions.get(position).getFullText(null).toString());
+            public Filter getFilter() {
+                return new Filter() {
+                    @Override
+                    protected FilterResults performFiltering(CharSequence constraint) {
+                        FilterResults results = new FilterResults();
+                        results.values = predictions;
+                        results.count = predictions.size();
+                        return results;
+                    }
+
+                    @Override
+                    protected void publishResults(CharSequence constraint, FilterResults results) {
+                        notifyDataSetChanged();
+                    }
+                };
+            }
+
+            @NonNull
+            @Override
+            public View getView(int position, @Nullable View convertView,
+                                @NonNull ViewGroup parent) {
+                View view = convertView != null ? convertView
+                        : LayoutInflater.from(getContext()).inflate(
+                                android.R.layout.simple_list_item_2, parent, false);
+                AutocompletePrediction prediction = position >= 0 && position < predictions.size()
+                        ? predictions.get(position) : null;
+                TextView primary = view.findViewById(android.R.id.text1);
+                TextView secondary = view.findViewById(android.R.id.text2);
+                primary.setText(prediction == null ? "" : prediction.getPrimaryText(null));
+                if (secondary != null) {
+                    CharSequence detail = prediction == null
+                            ? null : prediction.getSecondaryText(null);
+                    secondary.setText(prediction == null ? ""
+                            : (detail == null || detail.length() == 0
+                            ? prediction.getFullText(null) : detail));
                 }
                 return view;
             }
@@ -166,10 +221,17 @@ public final class PlacesAutocomplete {
                             predictions.clear();
                             predictions.addAll(response.getAutocompletePredictions());
                             adapter.notifyDataSetChanged();
+                            // notifyDataSetChanged() opens the drop-down through the field's own
+                            // data-set observer; asking again covers the response landing while the
+                            // driver is still typing, which is the normal case for a slow lookup.
+                            if (!predictions.isEmpty() && field.hasFocus() && field.hasWindowFocus()) {
+                                field.showDropDown();
+                            }
                         })
                         .addOnFailureListener(e -> {
                             predictions.clear();
                             adapter.notifyDataSetChanged();
+                            listener.onLookupFailed(describe(e));
                         });
             }
         });
@@ -204,5 +266,13 @@ public final class PlacesAutocomplete {
                 listener.onPlaceSelected(selection);
             });
         });
+    }
+
+    /** A short, actionable reason a search returned nothing at all. */
+    @NonNull
+    private static String describe(@NonNull Exception e) {
+        String detail = e.getMessage() == null ? "" : e.getMessage().trim();
+        return "Place search is unavailable"
+                + (detail.isEmpty() ? " right now." : ": " + detail);
     }
 }

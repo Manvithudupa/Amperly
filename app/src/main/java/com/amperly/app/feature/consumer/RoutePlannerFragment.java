@@ -44,6 +44,7 @@ import com.amperly.app.ui.Ux;
 import com.amperly.app.ui.adapter.RouteStopAdapter;
 import com.google.android.material.chip.ChipGroup;
 import com.google.android.material.textfield.MaterialAutoCompleteTextView;
+import com.google.android.material.textfield.TextInputLayout;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -74,6 +75,7 @@ public class RoutePlannerFragment extends Fragment implements RouteStopAdapter.L
     private TextView directionsMetaText;
     private TextView directionsNoteText;
     private EditText destinationEdit;
+    private TextInputLayout destinationField;
     private EditText currentSocEdit;
     private EditText actualSocEdit;
     private LinearLayout assumptionsContainer;
@@ -128,6 +130,7 @@ public class RoutePlannerFragment extends Fragment implements RouteStopAdapter.L
 
         originText = view.findViewById(R.id.originText);
         destinationEdit = view.findViewById(R.id.destinationEdit);
+        destinationField = view.findViewById(R.id.destinationField);
         destinationResolvedText = view.findViewById(R.id.destinationResolvedText);
         currentSocEdit = view.findViewById(R.id.currentSocEdit);
         actualSocEdit = view.findViewById(R.id.actualSocEdit);
@@ -228,6 +231,7 @@ public class RoutePlannerFragment extends Fragment implements RouteStopAdapter.L
                         @Override
                         public void onPlaceSelected(@NonNull PlacesAutocomplete.Selection selection) {
                             destination = selection;
+                            destinationField.setError(null);
                             destinationResolvedText.setVisibility(View.VISIBLE);
                             destinationResolvedText.setText(getString(R.string.route_destination_resolved,
                                     selection.getAddress()));
@@ -236,7 +240,15 @@ public class RoutePlannerFragment extends Fragment implements RouteStopAdapter.L
                         @Override
                         public void onSelectionCleared() {
                             destination = null;
+                            destinationField.setError(null);
                             destinationResolvedText.setVisibility(View.GONE);
+                        }
+
+                        @Override
+                        public void onLookupFailed(@NonNull String message) {
+                            // Say why there is no suggestion list rather than leaving a field that
+                            // silently never completes.
+                            destinationField.setError(message);
                         }
                     });
         } else {
