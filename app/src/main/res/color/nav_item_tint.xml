@@ -2,11 +2,11 @@
 <!--
   Bottom navigation item colours.
 
-  Without this the bar fell back to a default tint that did not follow the theme, so the
-  selected item was hard to pick out. The checked state borrows the primary-container
-  "on" role, which is what the active indicator pill is drawn in.
+  The checked state is deep green sitting on the lime indicator pill; the resting state is
+  the muted ink used for secondary labels. Colour is never the only signal: the indicator
+  pill and the bolder label carry the state too.
 -->
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:alpha="1.0" android:color="?attr/colorOnPrimaryContainer" android:state_checked="true" />
-    <item android:alpha="1.0" android:color="?attr/colorOnSurfaceVariant" />
+    <item android:alpha="1.0" android:color="@color/amp_primary_dark" android:state_checked="true" />
+    <item android:alpha="1.0" android:color="@color/amp_muted" />
 </selector>

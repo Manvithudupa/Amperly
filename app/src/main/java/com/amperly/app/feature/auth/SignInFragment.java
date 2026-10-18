@@ -25,12 +25,12 @@ import com.google.android.material.button.MaterialButton;
 import com.google.android.material.progressindicator.LinearProgressIndicator;
 
 /**
- * Sign in, create an account, or drop into offline demo mode.
+ * Sign in or create an account.
  *
  * <p>Why this screen exists at all: every read and write in the app is authorised against
  * the signed-in Supabase account. With no session, Row Level Security returns no rows, so
  * the app would look empty — the screen is the difference between "nothing here" and a
- * working pilot.
+ * working pilot. There is no offline demo path: the server is the only source of truth.
  *
  * <p>The work happens on a background thread through {@code AmperlyRepository.background},
  * and every failure is caught inside {@link #attempt} so that the reason survives. Letting
@@ -45,10 +45,8 @@ public class SignInFragment extends Fragment {
     private TextView errorText;
     private TextView infoText;
     private TextView offlineNoteText;
-    private TextView demoNoteText;
     private MaterialButton signInButton;
     private MaterialButton createAccountButton;
-    private MaterialButton continueOfflineButton;
     private LinearProgressIndicator progress;
 
     @Nullable
@@ -68,20 +66,17 @@ public class SignInFragment extends Fragment {
         errorText = view.findViewById(R.id.signInErrorText);
         infoText = view.findViewById(R.id.signInInfoText);
         offlineNoteText = view.findViewById(R.id.signInOfflineNoteText);
-        demoNoteText = view.findViewById(R.id.signInDemoNoteText);
         signInButton = view.findViewById(R.id.signInButton);
         createAccountButton = view.findViewById(R.id.createAccountButton);
-        continueOfflineButton = view.findViewById(R.id.continueOfflineButton);
         progress = view.findViewById(R.id.signInProgress);
 
         boolean configured = serverConfigured();
+        // Without a configured project there is no account to authorise against, so the screen
+        // says exactly that instead of offering a local-only way in.
         offlineNoteText.setVisibility(configured ? View.GONE : View.VISIBLE);
-        demoNoteText.setVisibility(configured ? View.VISIBLE : View.GONE);
-        continueOfflineButton.setVisibility(configured ? View.VISIBLE : View.GONE);
 
         signInButton.setOnClickListener(v -> submit(false));
         createAccountButton.setOnClickListener(v -> submit(true));
-        continueOfflineButton.setOnClickListener(v -> continueOffline());
         passwordEdit.setOnEditorActionListener((v, actionId, event) -> {
             if (actionId == EditorInfo.IME_ACTION_DONE) {
                 submit(false);
@@ -124,12 +119,6 @@ public class SignInFragment extends Fragment {
         Context appContext = requireContext().getApplicationContext();
         setBusy(true, createAccount);
         repo.background(() -> attempt(appContext, email, password, createAccount), this::handle);
-    }
-
-    private void continueOffline() {
-        if (getActivity() instanceof MainActivity) {
-            ((MainActivity) getActivity()).startOfflineDemo();
-        }
     }
 
     // ------------------------------------------------------------- background
@@ -225,7 +214,6 @@ public class SignInFragment extends Fragment {
         passwordEdit.setEnabled(!busy);
         signInButton.setEnabled(!busy && configured);
         createAccountButton.setEnabled(!busy && configured);
-        continueOfflineButton.setEnabled(!busy);
         signInButton.setText(busy
                 ? (createAccount ? R.string.auth_creating : R.string.auth_signing_in)
                 : R.string.auth_sign_in);

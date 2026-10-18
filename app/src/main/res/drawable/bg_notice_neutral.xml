@@ -1,17 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Shared status-panel backgrounds.
+  Status panels.
 
-  These replace the raw "@color/amp_surface_variant" / "@color/amp_*_container"
-  backgrounds that used to be painted straight onto TextViews: those had square
-  corners and, worse, hardcoded LIGHT container colours, so in dark mode a dark
-  panel got light-mode text painted on it.
-
-  Referencing theme attributes here keeps the panel correct in both modes,
-  because the drawable is inflated with the view's themed context.
+  Referencing theme attributes keeps the panel correct in both modes, because the drawable
+  is inflated with the view's themed context.
 -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="rectangle">
-    <corners android:radius="@dimen/amp_card_radius" />
-    <solid android:color="?attr/colorSurfaceContainerHigh" />
+    <corners android:radius="14dp" />
+    <solid android:color="?attr/colorSurfaceContainer" />
 </shape>

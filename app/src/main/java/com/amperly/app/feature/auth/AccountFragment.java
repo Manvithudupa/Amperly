@@ -17,7 +17,6 @@ import com.amperly.app.MainActivity;
 import com.amperly.app.R;
 import com.amperly.app.core.security.AuthManager;
 import com.amperly.app.core.state.AppStateStore;
-import com.amperly.app.core.state.DemoMode;
 import com.amperly.app.data.local.entity.User;
 import com.amperly.app.data.remote.SupabaseAuth;
 import com.amperly.app.data.remote.SupabaseConfig;
@@ -28,10 +27,9 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 /**
  * The account page: who is signed in, what the sync engine is doing, and how to sign out.
  *
- * <p>It doubles as the honest status report for the two other modes the app can be in —
- * offline demo on a build with no project, and offline demo on a build that has one but
- * has not been signed in to — because "why is my data missing" is the question this screen
- * exists to answer.
+ * <p>It doubles as the honest status report for the cache: what has been pushed, what is
+ * still queued, and when the last pull happened — because "why is my data missing" is the
+ * question this screen exists to answer.
  */
 public class AccountFragment extends Fragment {
 
@@ -72,14 +70,14 @@ public class AccountFragment extends Fragment {
 
         boolean signedIn = SupabaseAuth.isSignedIn();
         boolean configured = SupabaseConfig.isConfigured() && !SupabaseConfig.looksLikeSecretKey();
-        boolean offlineDemo = DemoMode.isOfflineDemo(requireContext());
 
         signOutButton.setVisibility(signedIn ? View.VISIBLE : View.GONE);
         syncNowButton.setVisibility(signedIn ? View.VISIBLE : View.GONE);
+        // There is no demo mode to explain any more; the note only appears when a session has
+        // lapsed and the account page can no longer show real data.
         demoNoteText.setVisibility(signedIn ? View.GONE : View.VISIBLE);
         roleNoteText.setVisibility(signedIn ? View.VISIBLE : View.GONE);
-        accountSignInButton.setVisibility(
-                !signedIn && configured && offlineDemo ? View.VISIBLE : View.GONE);
+        accountSignInButton.setVisibility(!signedIn && configured ? View.VISIBLE : View.GONE);
 
         render(AuthManager.getInstance().getCurrentUser(), signedIn);
 

@@ -23,7 +23,14 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:text="GROW THE NETWORK"
+            android:textAppearance="@style/TextAppearance.Amperly.Eyebrow" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
             android:text="@string/host_register_title"
+            android:layout_marginTop="4dp"
             android:textAppearance="@style/TextAppearance.Amperly.ScreenTitle" />
 
         <!-- =========================================================== Location -->

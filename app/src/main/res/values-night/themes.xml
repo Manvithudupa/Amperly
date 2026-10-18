@@ -4,27 +4,14 @@
     <!--
       Only the genuine deltas live here.
 
-      The previous version redefined Base.Theme.Amperly *and* several card styles in night
-      mode. Redefining a style in values-night REPLACES it rather than merging, and the
-      card styles it set pointed at @color/amp_surface_variant — a light colour — which is
-      why dark mode showed near-white cards.
-
-      The palette itself now lives in values-night/colors.xml, so every role in
-      Base.Theme.Amperly resolves correctly in both modes and this file only needs to
-      adjust things that are not colours.
+      The palette itself lives in values-night/colors.xml, so every role in
+      Base.Theme.Amperly resolves correctly in both modes. Redefining a style in
+      values-night REPLACES it rather than merging, so nothing else is repeated here.
     -->
 
     <style name="Theme.Amperly" parent="Base.Theme.Amperly">
-        <!-- Dark surfaces mean light nav-bar icons would be invisible. -->
+        <!-- Dark surfaces mean light system-bar icons. -->
+        <item name="android:windowLightStatusBar" tools:targetApi="m">false</item>
         <item name="android:windowLightNavigationBar" tools:targetApi="o_mr1">false</item>
-
-        <!--
-          Material 3 uses a LIGHT primary in dark mode, so the light theme's white
-          "onPrimary" would be unreadable on it. These are the only three roles that
-          invert; everything else is driven by values-night/colors.xml.
-        -->
-        <item name="colorOnPrimary">@color/amp_primary_dark</item>
-        <item name="colorOnSecondary">@color/amp_on_secondary_container</item>
-        <item name="colorOnTertiary">@color/amp_on_tertiary_container</item>
     </style>
 </resources>

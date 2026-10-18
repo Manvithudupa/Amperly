@@ -25,8 +25,6 @@ import com.amperly.app.core.common.AppConstants;
 import com.amperly.app.core.nav.Navigator;
 import com.amperly.app.core.security.AuthManager;
 import com.amperly.app.core.state.AppStateStore;
-import com.amperly.app.core.state.DemoMode;
-import com.amperly.app.data.local.PilotDataSeeder;
 import com.amperly.app.data.local.entity.User;
 import com.amperly.app.data.remote.SupabaseAuth;
 import com.amperly.app.data.remote.SupabaseConfig;
@@ -48,7 +46,7 @@ import com.amperly.app.ui.Ux;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.chip.Chip;
 import com.google.android.material.chip.ChipGroup;
-import com.google.android.material.color.MaterialColors;
+import androidx.core.content.ContextCompat;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import java.util.List;
@@ -60,6 +58,10 @@ import java.util.List;
 public class MainActivity extends AppCompatActivity {
 
     private static final String TAG = "Amperly";
+
+    /** Remembers which account the on-device cache belongs to, so it is only wiped for a new one. */
+    private static final String PREFS = "amperly_session";
+    private static final String KEY_LAST_USER = "last_user_id";
 
     private BottomNavigationView bottomNavigationView;
     private TextView currentUserText;
@@ -112,7 +114,9 @@ public class MainActivity extends AppCompatActivity {
         } catch (Exception e) {
             Log.e(TAG, "Critical error in MainActivity onCreate: " + e.getMessage(), e);
             try {
-                startOfflineDemo();
+                // Never fall back to fabricated data: show the sign-in screen, which can
+                // explain that the account is what the data is authorised against.
+                showSignIn();
             } catch (Exception ignored) {}
         }
     }
@@ -165,28 +169,25 @@ public class MainActivity extends AppCompatActivity {
         if (mark == null) {
             return;
         }
+        // The mark sits on the lime brand square, so it is tinted with the ink that is
+        // guaranteed to read on lime rather than with colorOnPrimary.
         mark = mark.mutate();
-        mark.setTint(MaterialColors.getColor(toolbar,
-                com.google.android.material.R.attr.colorOnPrimary));
+        mark.setTint(ContextCompat.getColor(toolbar.getContext(), R.color.amp_on_lime));
         toolbar.setLogo(mark);
         toolbar.setLogoDescription(getString(R.string.app_name));
     }
 
     private void startBackend() {
         try {
-            if (!SupabaseConfig.isConfigured()) {
-                startOfflineDemo();
-                return;
-            }
-            if (SupabaseConfig.looksLikeSecretKey()) {
-                Log.e(TAG, "SUPABASE_PUBLISHABLE_KEY is a secret key. Sync is disabled; replace it "
-                        + "with the publishable key in local.properties.");
-                Ux.toast(this, getString(R.string.auth_secret_key));
-                startOfflineDemo();
-                return;
-            }
-            if (DemoMode.isOfflineDemo(this)) {
-                startOfflineDemo();
+            if (!SupabaseConfig.isConfigured() || SupabaseConfig.looksLikeSecretKey()) {
+                // The server is the only source of truth, so there is nothing to show without
+                // it. The sign-in screen states the problem instead of seeding a local pilot.
+                if (SupabaseConfig.looksLikeSecretKey()) {
+                    Log.e(TAG, "SUPABASE_PUBLISHABLE_KEY is a secret key. Sync is disabled; replace "
+                            + "it with the publishable key in local.properties.");
+                    Ux.toast(this, getString(R.string.auth_secret_key));
+                }
+                showSignIn();
                 return;
             }
             if (SupabaseAuth.hasStoredSession(this)) {
@@ -197,30 +198,12 @@ public class MainActivity extends AppCompatActivity {
                 showSignIn();
             }
         } catch (Exception e) {
-            Log.e(TAG, "Error starting backend, falling back to offline demo: " + e.getMessage());
-            startOfflineDemo();
+            Log.e(TAG, "Error starting backend: " + e.getMessage());
+            showSignIn();
         }
     }
 
-    public void startOfflineDemo() {
-        DemoMode.setOfflineDemo(this, true);
-        AuthManager.getInstance().startDemoSession();
-        if (roleStrip != null) roleStrip.setVisibility(View.VISIBLE);
-        // The screens are built only once the seed has committed. Building them first gave an
-        // empty Discover screen that never refreshed.
-        if (bottomNavigationView != null) bottomNavigationView.setVisibility(View.GONE);
-        PilotDataSeeder.seedPilotData(this, () -> {
-            if (isFinishing() || isDestroyed()) {
-                return;
-            }
-            if (bottomNavigationView != null) bottomNavigationView.setVisibility(View.VISIBLE);
-            applyRole(AppConstants.ROLE_CONSUMER);
-            invalidateOptionsMenu();
-        });
-    }
-
     public void showSignIn() {
-        DemoMode.setOfflineDemo(this, false);
         if (roleStrip != null) roleStrip.setVisibility(View.GONE);
         if (bottomNavigationView != null) bottomNavigationView.setVisibility(View.GONE);
         getSupportFragmentManager()
@@ -233,8 +216,6 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void onSignedIn(User user) {
-        boolean wasOfflineDemo = DemoMode.isOfflineDemo(this);
-        DemoMode.setOfflineDemo(this, false);
         AuthManager.getInstance().setCurrentUser(user);
         // The role strip stays available to signed-in users: the same account is a Consumer and a
         // Host, so switching capacity is a normal part of using the app, not a demo control.
@@ -248,7 +229,7 @@ public class MainActivity extends AppCompatActivity {
             // to every RLS policy. Say so instead of showing an app that looks broken.
             Ux.toast(this, getString(R.string.auth_profile_local_only));
         }
-        syncAfterSignIn(wasOfflineDemo);
+        syncAfterSignIn();
     }
 
     public void onSignedOut() {
@@ -276,21 +257,38 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    private void syncAfterSignIn(boolean discardDemoData) {
+    /**
+     * Pulls the account's data from Supabase after a sign-in.
+     *
+     * <p>Room is only a cache, so it is wiped when a DIFFERENT account signs in — otherwise one
+     * person's stations and reservations would linger under another person's session. The same
+     * account signing in again keeps its cache, which is what makes the app usable offline.
+     */
+    private void syncAfterSignIn() {
         repo.background(() -> {
-            if (discardDemoData) {
-                User currentUser = AuthManager.getInstance().getCurrentUser();
-                repo.clearLocalData();
-                if (currentUser != null) {
+            User currentUser = AuthManager.getInstance().getCurrentUser();
+            if (currentUser != null) {
+                String previousUserId = getSharedPreferences(PREFS, MODE_PRIVATE)
+                        .getString(KEY_LAST_USER, "");
+                if (!currentUser.getId().equals(previousUserId)) {
+                    repo.clearLocalData();
                     try {
                         repo.database().userDao().insert(currentUser);
                     } catch (Exception ignored) {}
+                    getSharedPreferences(PREFS, MODE_PRIVATE).edit()
+                            .putString(KEY_LAST_USER, currentUser.getId()).apply();
                 }
             }
             return SyncEngine.syncNow(this, repo.database());
         }, result -> {
             if (result != null) {
                 Log.i(TAG, "Signed-in sync: " + result.summary());
+                // The screens were built against an empty cache; rebuild so the pulled rows
+                // appear without the user having to leave and come back.
+                if (bottomNavigationView != null
+                        && bottomNavigationView.getVisibility() == View.VISIBLE) {
+                    buildNavigation(AuthManager.getInstance().getCurrentRole());
+                }
             }
         });
     }
@@ -434,6 +432,7 @@ public class MainActivity extends AppCompatActivity {
 
     /** Ends the session and wipes the local copy, exactly as the account page does. */
     private void performSignOut() {
+        getSharedPreferences(PREFS, MODE_PRIVATE).edit().remove(KEY_LAST_USER).apply();
         repo.background(() -> {
             SupabaseAuth.signOut(getApplicationContext());
             repo.clearLocalData();

@@ -21,10 +21,17 @@
         android:paddingBottom="@dimen/amp_space_xl">
 
         <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="PAYMENT COMPLETE"
+            android:textAppearance="@style/TextAppearance.Amperly.Eyebrow" />
+
+        <TextView
             android:id="@+id/receiptTitleText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/receipt_title"
+            android:layout_marginTop="4dp"
             android:textAppearance="@style/TextAppearance.Amperly.ScreenTitle" />
 
         <TextView

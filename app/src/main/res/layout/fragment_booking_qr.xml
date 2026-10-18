@@ -21,9 +21,16 @@
         android:paddingBottom="@dimen/amp_space_xl">
 
         <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="YOUR BOOKING"
+            android:textAppearance="@style/TextAppearance.Amperly.Eyebrow" />
+
+        <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/qr_title"
+            android:layout_marginTop="4dp"
             android:textAppearance="@style/TextAppearance.Amperly.ScreenTitle" />
 
         <!--

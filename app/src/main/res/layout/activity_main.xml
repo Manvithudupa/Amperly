@@ -8,33 +8,39 @@
     android:orientation="vertical">
 
     <!--
-      The app bar carries the brand colour. Its background deliberately covers the status
-      bar area too: MainActivity pads this view by the top window inset, and padding sits
-      INSIDE a view's background, so the colour extends behind the clock instead of
-      leaving a gap. Required because targetSdk 35 enforces edge-to-edge on Android 15.
+      The top bar is a light surface now, matching the prototype's white topbar: the lime
+      brand square and the serif wordmark carry the identity, not a coloured app bar.
+
+      Its background deliberately covers the status bar area too: MainActivity pads this
+      view by the top window inset, and padding sits INSIDE a view's background, so the
+      colour extends behind the clock instead of leaving a gap. Required because targetSdk
+      35 enforces edge-to-edge on Android 15.
     -->
     <com.google.android.material.appbar.AppBarLayout
         android:id="@+id/appBarLayout"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="?attr/colorPrimary"
+        android:background="?attr/colorSurfaceContainerLowest"
         app:elevation="0dp">
 
         <com.google.android.material.appbar.MaterialToolbar
             android:id="@+id/topToolbar"
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
-            android:background="?attr/colorPrimary"
-            app:subtitle="@string/pilot_subtitle"
-            app:subtitleTextColor="?attr/colorOnPrimary"
+            android:background="?attr/colorSurfaceContainerLowest"
             app:title="@string/app_name"
-            app:titleTextColor="?attr/colorOnPrimary" />
+            app:titleTextAppearance="@style/TextAppearance.Amperly.Wordmark"
+            app:titleTextColor="@color/amp_primary_dark" />
     </com.google.android.material.appbar.AppBarLayout>
 
+    <!-- Hairline under the bar: the prototype separates surfaces with a line, not a shadow. -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="?attr/colorOutlineVariant" />
+
     <!--
-      Role switch. This was a large tinted card pinned above every screen, which consumed
-      roughly 120dp of prime space on all 15 screens. It is now a slim, neutral strip that
-      reads as a mode selector rather than a demo control.
+      Role switch, drawn as a segmented control.
 
       The chips are built at runtime from the roles the account actually holds
       (see MainActivity#buildRoleChips), because an Amperly account is dual-role: Consumer and
@@ -44,7 +50,7 @@
         android:id="@+id/roleStrip"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="?attr/colorSurfaceContainerLow"
+        android:background="?android:attr/colorBackground"
         android:orientation="vertical"
         android:paddingStart="@dimen/amp_screen_padding"
         android:paddingTop="@dimen/amp_space_s"
@@ -54,32 +60,27 @@
         <HorizontalScrollView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:background="@drawable/bg_segment_track"
+            android:padding="4dp"
             android:scrollbars="none">
 
             <com.google.android.material.chip.ChipGroup
                 android:id="@+id/roleChipGroup"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                app:chipSpacingHorizontal="@dimen/amp_space_xs"
+                app:chipSpacingHorizontal="4dp"
                 app:singleLine="true"
                 app:singleSelection="true" />
         </HorizontalScrollView>
 
-        <LinearLayout
+        <TextView
+            android:id="@+id/currentUserText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/amp_space_xs"
-            android:orientation="horizontal">
-
-            <TextView
-                android:id="@+id/currentUserText"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:ellipsize="end"
-                android:maxLines="1"
-                android:textAppearance="@style/TextAppearance.Amperly.BodySmall" />
-        </LinearLayout>
+            android:layout_marginTop="@dimen/amp_space_s"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textAppearance="@style/TextAppearance.Amperly.Label" />
     </LinearLayout>
 
     <FrameLayout
@@ -93,7 +94,7 @@
         android:id="@+id/bottomNavigationView"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="?attr/colorSurfaceContainer"
+        android:background="?attr/colorSurfaceContainerLowest"
         app:elevation="0dp"
         app:itemActiveIndicatorStyle="@style/Widget.Amperly.NavIndicator"
         app:itemIconTint="@color/nav_item_tint"

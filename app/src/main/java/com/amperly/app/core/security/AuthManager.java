@@ -5,7 +5,6 @@ import androidx.annotation.Nullable;
 
 import com.amperly.app.core.common.AppConstants;
 import com.amperly.app.core.state.AppStateStore;
-import com.amperly.app.data.local.PilotDataSeeder;
 import com.amperly.app.data.local.entity.User;
 
 import java.util.ArrayList;
@@ -20,27 +19,22 @@ import java.util.List;
  * {@link #getCurrentUserId()} returns the same id in both modes, which is exactly what the
  * server expects — every host policy is written as {@code "hostId" = current_app_user_id()}.
  *
- * <p>The admin desk is the one exception. It is a platform-ops function that no ordinary account
- * can reach, so while the acting role is ADMIN the callers see the platform administrator's own
- * identity instead.
+ * <p>There is no offline demo identity. The account is always a real Supabase user resolved from
+ * the server, because every screen reads through Row Level Security and a fabricated local
+ * identity would only produce rows the server would never authorise.
  */
 public class AuthManager {
 
     private static volatile AuthManager INSTANCE;
 
-    /** The one account behind this session. */
+    /** The one account behind this session; null until a real sign-in completes. */
     private User account;
-
-    /**
-     * Platform operations identity, used only while the acting role is ADMIN. Seeded in offline
-     * demo mode so reviewers can open the admin desk; null once a real account signs in.
-     */
-    private User adminIdentity;
 
     private String currentRole = AppConstants.ROLE_CONSUMER;
 
     private AuthManager() {
-        startDemoSession();
+        AppStateStore.get().setRole(currentRole);
+        AppStateStore.get().setUserId("");
     }
 
     public static synchronized AuthManager getInstance() {
@@ -51,29 +45,11 @@ public class AuthManager {
     }
 
     /**
-     * Puts the seeded pilot identities back. Called when offline demo mode starts, and again if
-     * the user leaves demo mode and later returns to it.
-     */
-    public void startDemoSession() {
-        account = new User(PilotDataSeeder.USER_STUDENT, "Aarav Student", "aarav@abccollege.edu",
-                "+919876543211", AppConstants.ROLE_CONSUMER, null, "VERIFIED", false);
-        adminIdentity = new User(PilotDataSeeder.USER_PLATFORM_ADMIN, "Amperly Ops",
-                "admin@amperly.app", "+919876543299", AppConstants.ROLE_ADMIN, "Amperly",
-                "VERIFIED", false);
-        currentRole = AppConstants.ROLE_CONSUMER;
-        AppStateStore.get().setRole(currentRole);
-        AppStateStore.get().setUserId(getCurrentUserId());
-    }
-
-    /**
-     * The identity the current screen is acting as. Same account in Consumer and Host mode; the
-     * ops identity only while the admin desk is open.
+     * The identity the current screen is acting as. The account never changes with the role:
+     * only what it is allowed to see and do changes.
      */
     @Nullable
     public User getCurrentUser() {
-        if (AppConstants.ROLE_ADMIN.equals(currentRole) && adminIdentity != null) {
-            return adminIdentity;
-        }
         return account;
     }
 
@@ -85,8 +61,6 @@ public class AuthManager {
 
     public void setCurrentUser(@Nullable User user) {
         account = user;
-        // A real account is never shadowed by the seeded ops identity.
-        adminIdentity = null;
         currentRole = AppConstants.ROLE_CONSUMER;
         AppStateStore.get().setRole(currentRole);
         AppStateStore.get().setUserId(getCurrentUserId());
@@ -98,7 +72,6 @@ public class AuthManager {
      */
     public void clearCurrentUser() {
         account = null;
-        adminIdentity = null;
         currentRole = AppConstants.ROLE_CONSUMER;
         AppStateStore.get().setRole(currentRole);
         AppStateStore.get().setUserId("");
@@ -136,9 +109,6 @@ public class AuthManager {
             if (account.isPlatformAdmin() && !roles.contains(AppConstants.ROLE_ADMIN)) {
                 roles.add(AppConstants.ROLE_ADMIN);
             }
-        }
-        if (adminIdentity != null && !roles.contains(AppConstants.ROLE_ADMIN)) {
-            roles.add(AppConstants.ROLE_ADMIN);
         }
         return roles;
     }

@@ -1,10 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  The toolbar profile badge: the signed-in user's initials in a circle, reusing the same badge
-  drawable as the account page so the two read as the same identity.
-
-  Sized to a full toolbar action (44dp) with a readable monogram; an earlier 40dp disc with
-  TitleSmall text was too small to read or tap comfortably.
+  The toolbar profile badge: the signed-in user's initials on the lime brand square, so the
+  identity in the top bar reads as the same mark as the account page.
 -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/profileBadge"
@@ -21,7 +18,8 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="center"
-        android:textAppearance="@style/TextAppearance.Material3.TitleMedium"
-        android:textColor="?attr/colorOnPrimaryContainer"
+        android:fontFamily="@font/dm_sans"
+        android:textColor="@color/amp_on_lime"
+        android:textSize="13sp"
         android:textStyle="bold" />
 </FrameLayout>

@@ -17,7 +17,7 @@ The MVP is a **single-process Android application**. There is no live backend an
 |---|---|
 | Persistence | Room database (`AmperlyDatabase`, **v3, 23 entities + 23 DAOs**), the single source of truth |
 | Data access | One hub, `AmperlyRepository` (all DAO access, off-main-thread helpers) |
-| Demo data | `PilotDataSeeder` seeds the controlled pilot on first launch |
+| Data source | **Supabase is the only source of truth.** No pilot seeding and no offline demo identity: stations, vehicles, reservations and readings are rows the signed-in account is authorised to read through Row Level Security. When the account has no rows, the screens say so instead of inventing content |
 | Maps & navigation | **Google Maps SDK for Android** for the map, user-registered charger markers and in-app navigation; **Google Directions API** for road routes and turn-by-turn; **Google Place autocomplete** for destination and address entry. A missing key shows an actionable setup notice instead of a blank map. See §6 |
 | Payments | `PaymentManager` sandbox: authorize → capture/refund/release, idempotency keys, offline failure path |
 | Charger telemetry | None. Availability is schedule-, reservation- and host-update-based, and is labelled with a freshness timestamp |
@@ -284,12 +284,22 @@ interface. See `GOOGLE_NAVIGATION_MIGRATION.md` for the exact seam.
 
 ---
 
-## 7. Pilot data (`PilotDataSeeder`)
+## 7. Data model and the optional server-side demo seed
 
-Seeded once, on first launch:
+The app itself ships with **no demo data**. On first launch it shows the sign-in screen, and every
+screen after that reads the signed-in account's own rows from Supabase (Room is only the offline
+cache and write queue). Sign-up creates the `public.users` profile row through the `auth.users`
+trigger, so a brand-new account starts with empty lists and honest empty states.
+
+For local demonstrations only, `supabase/pilot_seed.sql` can be run **against the database** to
+insert the sample network below. It is a SQL script, not application code: nothing in the APK
+creates these rows, and skipping it is the normal case.
 
 **Users** — `user_campus_admin` (Host/Admin, ABC College), `user_student_1` (Consumer), `user_apt_association` (Host, GreenPark), `user_platform_admin` (platform Admin).
 **Vehicle** — `veh_101`, Tata Nexon EV Max, CCS2 DC + 7.2 kW AC, 96% health.
+
+Link the seed's auth users to the project with `supabase/link_pilot_users.sql` before signing in as
+one of them.
 
 **Stations**
 

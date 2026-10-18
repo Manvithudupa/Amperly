@@ -23,6 +23,7 @@ import com.amperly.app.core.location.LocationProvider;
 import com.amperly.app.core.map.MapPanel;
 import com.amperly.app.core.nav.Navigator;
 import com.amperly.app.core.security.AuthManager;
+import com.amperly.app.core.state.AppStateStore;
 import com.amperly.app.data.local.entity.ChargerStation;
 import com.amperly.app.data.local.entity.Vehicle;
 import com.amperly.app.data.repository.AmperlyRepository;
@@ -204,23 +205,44 @@ public class ChargerDiscoveryFragment extends Fragment implements StationAdapter
                 TextView statPrice = getView().findViewById(R.id.statBestPriceText);
                 TextView statRange = getView().findViewById(R.id.statRangeText);
 
-                int batteryPct = vehicle != null ? (int) vehicle.getBatteryHealthPercent() : 68;
-                if (heroBattery != null) heroBattery.setText(batteryPct + "% Vehicle Battery");
-                if (heroProgress != null) heroProgress.setProgress(batteryPct);
+                // The battery figure is the driver's own reading when they have given one,
+                // otherwise the planner's labelled estimate. It is never a hard-coded number,
+                // and battery HEALTH is not a state of charge — the two are different fields.
+                int batteryPct = AppStateStore.get().getCurrentSoc();
+                if (heroBattery != null) {
+                    heroBattery.setText(batteryPct >= 0
+                            ? getString(R.string.discovery_battery_value, batteryPct)
+                            : getString(R.string.discovery_battery_unknown));
+                }
+                if (heroProgress != null) {
+                    heroProgress.setProgress(Math.max(0, batteryPct));
+                }
                 if (statNearby != null) statNearby.setText(String.valueOf(allStations.size()));
 
-                double bestPrice = 999.0;
+                double bestPrice = -1;
                 for (ChargerStation s : allStations) {
-                    if (s.getPricePerKwh() < bestPrice && s.getPricePerKwh() > 0) {
+                    if (s.getPricePerKwh() > 0 && (bestPrice < 0 || s.getPricePerKwh() < bestPrice)) {
                         bestPrice = s.getPricePerKwh();
                     }
                 }
-                if (bestPrice < 900.0 && statPrice != null) {
-                    statPrice.setText(com.amperly.app.core.common.Formatters.money(bestPrice));
+                if (statPrice != null) {
+                    statPrice.setText(bestPrice > 0
+                            ? com.amperly.app.core.common.Formatters.money(bestPrice)
+                            : getString(R.string.discovery_no_price));
                 }
-                if (statRange != null && vehicle != null) {
-                    int estRange = (int) (batteryPct * vehicle.effectiveEfficiencyKmPerKwh() * 0.35);
-                    statRange.setText(estRange + " km");
+                if (statRange != null) {
+                    // Range above the reserve the vehicle profile asks us to keep, from the
+                    // vehicle's own usable capacity and efficiency — labelled as an estimate.
+                    if (vehicle != null && batteryPct >= 0) {
+                        int usableSoc = Math.max(0, batteryPct - Math.max(0,
+                                vehicle.getMinArrivalSocPercent()));
+                        int estRange = (int) Math.round(usableSoc / 100.0
+                                * vehicle.getBatteryCapacityKwh()
+                                * vehicle.effectiveEfficiencyKmPerKwh());
+                        statRange.setText(getString(R.string.discovery_range_value, estRange));
+                    } else {
+                        statRange.setText(getString(R.string.discovery_range_unknown));
+                    }
                 }
             }
 
@@ -343,8 +365,10 @@ public class ChargerDiscoveryFragment extends Fragment implements StationAdapter
                     @Override
                     public void onLocationUnavailable() {
                         if (isAdded()) {
+                            // No silent substitution of a fixed coordinate: the list simply
+                            // shows stations without a distance until a fix arrives.
                             Ux.toast(ChargerDiscoveryFragment.this,
-                                    "Current location is unavailable. Showing the pilot area instead.");
+                                    getString(R.string.map_location_unavailable));
                         }
                     }
                 });

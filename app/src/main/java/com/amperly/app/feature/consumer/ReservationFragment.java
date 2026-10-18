@@ -23,7 +23,6 @@ import com.amperly.app.core.common.Formatters;
 import com.amperly.app.core.nav.Navigator;
 import com.amperly.app.core.security.AuthManager;
 import com.amperly.app.core.state.AppStateStore;
-import com.amperly.app.data.local.PilotDataSeeder;
 import com.amperly.app.data.local.entity.ChargerPort;
 import com.amperly.app.data.local.entity.ChargerStation;
 import com.amperly.app.data.local.entity.CommunicationThread;

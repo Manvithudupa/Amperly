@@ -18,10 +18,17 @@
         android:paddingBottom="@dimen/amp_space_xl">
 
         <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="YOUR ACCOUNT"
+            android:textAppearance="@style/TextAppearance.Amperly.Eyebrow" />
+
+        <TextView
             android:id="@+id/accountTitleText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/account_title"
+            android:layout_marginTop="4dp"
             android:textAppearance="@style/TextAppearance.Amperly.ScreenTitle" />
 
         <!--

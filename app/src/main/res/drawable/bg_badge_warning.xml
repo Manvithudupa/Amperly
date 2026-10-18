@@ -1,10 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-  "NO METER" pill. This must not look like the green verified pill: a station that cannot
-  bill a paid energy session is a caveat, not a reassurance.
--->
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="rectangle">
-    <solid android:color="@color/amp_tertiary_container" />
-    <corners android:radius="100dp" />
+    <corners android:radius="8dp" />
+    <solid android:color="?attr/colorTertiaryContainer" />
 </shape>

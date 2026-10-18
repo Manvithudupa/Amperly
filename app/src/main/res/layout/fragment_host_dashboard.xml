@@ -22,11 +22,26 @@
         android:paddingBottom="@dimen/amp_space_xl">
 
         <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/amp_space_m"
+            android:text="HOST MODE"
+            android:textAppearance="@style/TextAppearance.Amperly.Eyebrow" />
+
+        <TextView
             android:id="@+id/hostNameText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
             android:text="@string/host_dashboard_title"
             android:textAppearance="@style/TextAppearance.Amperly.ScreenTitle" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="Your published chargers, what they earned, and who is booked in next."
+            android:textAppearance="@style/TextAppearance.Amperly.BodySmall" />
 
         <TextView
             android:layout_width="match_parent"

@@ -17,7 +17,6 @@ import com.amperly.app.core.common.AppConstants;
 import com.amperly.app.core.common.Formatters;
 import com.amperly.app.core.nav.Navigator;
 import com.amperly.app.core.security.AuthManager;
-import com.amperly.app.data.local.PilotDataSeeder;
 import com.amperly.app.data.local.entity.Notification;
 import com.amperly.app.data.local.entity.SafetyEvent;
 import com.amperly.app.data.local.entity.TrustedContact;
