@@ -143,7 +143,8 @@ security state is inferred from an intent the app did not originate.
 ## Deploying the database fixes
 
 The SQL guards are in `supabase/schema.sql` but are **not** applied to the hosted project by the
-app build. Run the file (or just sections 5b and 6) in the Supabase SQL editor once, then verify:
+app build. Run the file in the Supabase SQL editor once (the new triggers live at the end of
+section 5, *Settlement*, and their `revoke` statements follow them), then verify:
 
 ```sql
 select tgname from pg_trigger
