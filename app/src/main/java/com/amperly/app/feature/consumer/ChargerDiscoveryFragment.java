@@ -109,6 +109,11 @@ public class ChargerDiscoveryFragment extends Fragment implements StationAdapter
         adapter = new StationAdapter(this, null);
         recyclerView.setAdapter(adapter);
 
+        View updateVehicleBtn = view.findViewById(R.id.updateVehicleButton);
+        if (updateVehicleBtn != null) {
+            updateVehicleBtn.setOnClickListener(v -> Navigator.open(this, new VehicleProfileFragment(), "vehicle"));
+        }
+
         if (emptyStateActionButton != null) {
             emptyStateActionButton.setOnClickListener(v -> showAll());
         }
@@ -190,6 +195,35 @@ public class ChargerDiscoveryFragment extends Fragment implements StationAdapter
             if (contextText != null) {
                 contextText.setText(contextLine);
             }
+
+            if (getView() != null) {
+                TextView heroBattery = getView().findViewById(R.id.heroBatteryText);
+                com.google.android.material.progressindicator.LinearProgressIndicator heroProgress =
+                        getView().findViewById(R.id.heroBatteryProgress);
+                TextView statNearby = getView().findViewById(R.id.statNearbyCountText);
+                TextView statPrice = getView().findViewById(R.id.statBestPriceText);
+                TextView statRange = getView().findViewById(R.id.statRangeText);
+
+                int batteryPct = vehicle != null ? (int) vehicle.getBatteryHealthPercent() : 68;
+                if (heroBattery != null) heroBattery.setText(batteryPct + "% Vehicle Battery");
+                if (heroProgress != null) heroProgress.setProgress(batteryPct);
+                if (statNearby != null) statNearby.setText(String.valueOf(allStations.size()));
+
+                double bestPrice = 999.0;
+                for (ChargerStation s : allStations) {
+                    if (s.getPricePerKwh() < bestPrice && s.getPricePerKwh() > 0) {
+                        bestPrice = s.getPricePerKwh();
+                    }
+                }
+                if (bestPrice < 900.0 && statPrice != null) {
+                    statPrice.setText(com.amperly.app.core.common.Formatters.money(bestPrice));
+                }
+                if (statRange != null && vehicle != null) {
+                    int estRange = (int) (batteryPct * vehicle.effectiveEfficiencyKmPerKwh() * 0.35);
+                    statRange.setText(estRange + " km");
+                }
+            }
+
             adapter = new StationAdapter(this, vehicle);
             recyclerView.setAdapter(adapter);
             applyFilter();

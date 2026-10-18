@@ -11,38 +11,233 @@
         android:orientation="vertical"
         android:paddingBottom="@dimen/amp_space_xl">
 
-        <LinearLayout
+        <!-- ======================================================== Hero Card -->
+        <com.google.android.material.card.MaterialCardView
+            style="@style/Widget.Amperly.Card"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
+            android:layout_marginHorizontal="@dimen/amp_screen_padding"
+            android:layout_marginTop="@dimen/amp_space_m"
+            app:cardBackgroundColor="?attr/colorSurfaceContainer">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="@dimen/amp_space_m">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        style="@style/Widget.Amperly.Badge"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:background="@drawable/bg_badge"
+                        android:text="LIVE NETWORK"
+                        android:textColor="?attr/colorPrimary" />
+
+                    <TextView
+                        android:id="@+id/discoveryContextText"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="@dimen/amp_space_s"
+                        android:layout_weight="1"
+                        android:ellipsize="end"
+                        android:maxLines="1"
+                        android:textAppearance="@style/TextAppearance.Amperly.Label" />
+                </LinearLayout>
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/amp_space_s"
+                    android:text="Power up without the detour."
+                    android:textAppearance="@style/TextAppearance.Amperly.ScreenTitle" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:text="Find trusted community chargers that fit your car, route, and time."
+                    android:textAppearance="@style/TextAppearance.Amperly.BodySmall" />
+
+                <!-- Battery gauge subcard -->
+                <com.google.android.material.card.MaterialCardView
+                    style="@style/Widget.Amperly.Card"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/amp_space_m"
+                    app:cardBackgroundColor="?attr/colorSurfaceContainerHigh"
+                    app:strokeWidth="0dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:padding="@dimen/amp_space_s">
+
+                        <ImageView
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
+                            android:contentDescription="@null"
+                            android:src="@drawable/ic_session"
+                            app:tint="?attr/colorPrimary" />
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="@dimen/amp_space_s"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:id="@+id/heroBatteryText"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="68% Vehicle Battery"
+                                android:textAppearance="@style/TextAppearance.Amperly.BodyStrong" />
+
+                            <com.google.android.material.progressindicator.LinearProgressIndicator
+                                android:id="@+id/heroBatteryProgress"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="4dp"
+                                android:progress="68"
+                                app:trackCornerRadius="4dp"
+                                app:trackThickness="6dp" />
+                        </LinearLayout>
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/updateVehicleButton"
+                            style="@style/Widget.Amperly.Button.Text"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Vehicle" />
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- =================================================== Stat Cards Row -->
+        <HorizontalScrollView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/amp_space_s"
             android:paddingHorizontal="@dimen/amp_screen_padding"
-            android:paddingTop="@dimen/amp_space_m">
+            android:scrollbars="none">
 
-            <TextView
-                android:layout_width="match_parent"
+            <LinearLayout
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="@string/discovery_title"
-                android:textAppearance="@style/TextAppearance.Amperly.ScreenTitle" />
+                android:orientation="horizontal">
 
-            <!--
-              This one line replaces the old static "Compatible with your vehicle" subtitle: it
-              names the actual vehicle being matched against, or says plainly that none is set.
-            -->
-            <TextView
-                android:id="@+id/discoveryContextText"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/amp_space_xs"
-                android:textAppearance="@style/TextAppearance.Amperly.Body" />
+                <com.google.android.material.card.MaterialCardView
+                    style="@style/Widget.Amperly.Card"
+                    android:layout_width="140dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="@dimen/amp_space_s">
 
-            <TextView
-                android:id="@+id/resultCountText"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/amp_space_s"
-                android:textAppearance="@style/TextAppearance.Amperly.BodyStrong" />
-        </LinearLayout>
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="@dimen/amp_space_s">
 
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Nearby"
+                            android:textAppearance="@style/TextAppearance.Amperly.Label" />
+
+                        <TextView
+                            android:id="@+id/statNearbyCountText"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="18"
+                            android:textAppearance="@style/TextAppearance.Amperly.Metric" />
+
+                        <TextView
+                            android:id="@+id/statNearbyMetaText"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="chargers near you"
+                            android:textAppearance="@style/TextAppearance.Amperly.Label" />
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
+                <com.google.android.material.card.MaterialCardView
+                    style="@style/Widget.Amperly.Card"
+                    android:layout_width="140dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="@dimen/amp_space_s">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="@dimen/amp_space_s">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Best price"
+                            android:textAppearance="@style/TextAppearance.Amperly.Label" />
+
+                        <TextView
+                            android:id="@+id/statBestPriceText"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="₹11.80"
+                            android:textAppearance="@style/TextAppearance.Amperly.Metric" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="per kWh"
+                            android:textAppearance="@style/TextAppearance.Amperly.Label" />
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
+                <com.google.android.material.card.MaterialCardView
+                    style="@style/Widget.Amperly.Card"
+                    android:layout_width="140dp"
+                    android:layout_height="wrap_content">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="@dimen/amp_space_s">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Estimated range"
+                            android:textAppearance="@style/TextAppearance.Amperly.Label" />
+
+                        <TextView
+                            android:id="@+id/statRangeText"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="142 km"
+                            android:textAppearance="@style/TextAppearance.Amperly.Metric" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="with 10% reserve"
+                            android:textAppearance="@style/TextAppearance.Amperly.Label" />
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+            </LinearLayout>
+        </HorizontalScrollView>
+
+        <!-- ======================================================== Live Map -->
         <com.google.android.material.card.MaterialCardView
             style="@style/Widget.Amperly.Card.Map"
             android:layout_width="match_parent"
@@ -56,6 +251,7 @@
                 android:layout_height="match_parent" />
         </com.google.android.material.card.MaterialCardView>
 
+        <!-- Filter Chips -->
         <HorizontalScrollView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -115,10 +311,15 @@
             </com.google.android.material.chip.ChipGroup>
         </HorizontalScrollView>
 
-        <!--
-          Empty state. A bare "Nothing here yet" left the user with no next move, so when the
-          reason is a filter there is now a one-tap way back to the full list.
-        -->
+        <TextView
+            android:id="@+id/resultCountText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="@dimen/amp_screen_padding"
+            android:layout_marginTop="@dimen/amp_space_xs"
+            android:textAppearance="@style/TextAppearance.Amperly.BodyStrong" />
+
+        <!-- Empty State -->
         <LinearLayout
             android:id="@+id/emptyStateContainer"
             android:layout_width="match_parent"
@@ -145,6 +346,7 @@
                 android:visibility="gone" />
         </LinearLayout>
 
+        <!-- Stations List -->
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/stationsRecyclerView"
             android:layout_width="match_parent"
