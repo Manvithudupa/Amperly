@@ -7,7 +7,7 @@ import com.amperly.app.data.local.entity.Reservation;
 import com.amperly.app.data.local.entity.Vehicle;
 
 import java.util.Locale;
-import java.util.Random;
+import java.security.SecureRandom;
 
 /**
  * Reservation rules that do not depend on Android: conflict prevention, meter gating, published
@@ -126,9 +126,25 @@ public final class ReservationEngine {
                 round2(total * 1.2));
     }
 
+    /**
+     * A booking code is a bearer credential: the host checks the car in by looking it up.
+     *
+     * <p>A four-digit code drawn from {@code java.util.Random} was both guessable in 9,000
+     * attempts and predictable from the previous code. This draws six characters from a
+     * 31-symbol alphabet with {@link SecureRandom} — about 30 bits — while staying easy to
+     * read aloud and type. The ambiguous characters I, L, O, 0 and 1 are left out.
+     */
+    private static final char[] CODE_ALPHABET =
+            "ABCDEFGHJKMNPQRSTUVWXYZ23456789".toCharArray();
+    private static final int CODE_LENGTH = 6;
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
+
     public static String buildBookingCode() {
-        int number = 1000 + new Random().nextInt(9000);
-        return "AMP-" + number;
+        StringBuilder code = new StringBuilder("AMP-");
+        for (int i = 0; i < CODE_LENGTH; i++) {
+            code.append(CODE_ALPHABET[SECURE_RANDOM.nextInt(CODE_ALPHABET.length)]);
+        }
+        return code.toString();
     }
 
     public static String bookingQrPayload(Reservation reservation) {

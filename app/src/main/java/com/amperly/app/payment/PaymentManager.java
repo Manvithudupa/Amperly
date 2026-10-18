@@ -3,9 +3,9 @@ package com.amperly.app.payment;
 import com.amperly.app.core.common.AppConstants;
 import com.amperly.app.data.local.entity.Payment;
 
-import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Sandbox payment gateway wrapper (the prototype uses Razorpay-style test mode semantics).
@@ -38,7 +38,12 @@ public class PaymentManager {
     /** Test hook: flip the gateway offline to prove the failure path. */
     private static volatile boolean gatewayAvailable = true;
 
-    private static final Set<String> processedKeys = new HashSet<>();
+    /**
+     * Idempotency keys already authorized. Concurrent, because the repository runs work on a
+     * pool: a plain HashSet could let two simultaneous retries both pass the contains() check
+     * and place two holds on one booking.
+     */
+    private static final Set<String> processedKeys = ConcurrentHashMap.newKeySet();
 
     public static void setGatewayAvailable(boolean available) {
         gatewayAvailable = available;
@@ -48,7 +53,7 @@ public class PaymentManager {
         return gatewayAvailable;
     }
 
-    public static void resetIdempotencyCache() {
+    public static synchronized void resetIdempotencyCache() {
         processedKeys.clear();
     }
 
@@ -56,8 +61,13 @@ public class PaymentManager {
      * Authorizes the estimated amount before a reservation is confirmed. Retrying with the same
      * idempotency key returns the original authorization instead of charging twice.
      */
-    public static PaymentResult authorize(String consumerId, String hostId, String reservationId,
-                                          double amount, String idempotencyKey) {
+    /**
+     * Serialised on purpose: checking and then recording an idempotency key must be one
+     * atomic step, or a retry that races the original can authorize twice.
+     */
+    public static synchronized PaymentResult authorize(String consumerId, String hostId,
+                                                        String reservationId, double amount,
+                                                        String idempotencyKey) {
         long now = System.currentTimeMillis();
 
         if (idempotencyKey != null && processedKeys.contains(idempotencyKey)) {

@@ -1285,6 +1285,8 @@ declare
     v_total        double precision;
     v_payment      text;
     v_now          bigint;
+    v_evidence_start double precision;
+    v_evidence_end   double precision;
 begin
     select r."consumerId", r."stationId", r."stationName", r."portId"
       into v_consumer, v_station, v_station_name, v_port
@@ -1322,6 +1324,24 @@ begin
     if p_end_meter_kwh < p_start_meter_kwh then
         raise exception 'The ending meter reading (%) is below the starting reading (%).',
             p_end_meter_kwh, p_start_meter_kwh;
+    end if;
+
+    -- If the host recorded meter evidence for this session, the settled figures must be
+    -- the recorded ones. The caller supplies the readings, and a caller who owes the money
+    -- must never be able to settle for less than the evidence shows. meter_readings is
+    -- host-write-only, so a row here is evidence rather than an app-supplied number.
+    select mr."startMeterKwh", mr."endMeterKwh"
+      into v_evidence_start, v_evidence_end
+      from public.meter_readings mr
+     where mr."sessionId" = p_session_id
+     order by mr."timestampMs" desc
+     limit 1;
+
+    if v_evidence_start is not null then
+        if abs(v_evidence_start - p_start_meter_kwh) > 0.01
+           or abs(v_evidence_end - p_end_meter_kwh) > 0.01 then
+            raise exception 'The readings do not match the meter evidence recorded by the host.';
+        end if;
     end if;
 
     v_start  := public.round2(p_start_meter_kwh);
@@ -1725,9 +1745,123 @@ create trigger prevent_billing_tampering
     for each row execute function public.prevent_billing_tampering();
 
 
--- Neither of these is API surface: one is called by the trigger above, the other
--- is a scoring helper. Strip the default PUBLIC execute grant.
+-- The UPDATE trigger above cannot see a row that is created already settled. An API
+-- caller could therefore POST a charging_sessions row with its own energyCharge and
+-- totalPaid, which would corrupt host revenue and the analytics built on it. Opening a
+-- session (status IN_PROGRESS, money at zero) stays allowed; only finalize_charging_session()
+-- may create a settled one.
+create or replace function public.prevent_session_billing_on_insert()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+    if public.is_trusted_sql_context() then
+        return new;
+    end if;
+
+    if coalesce(new."verifiedKwhConsumed", 0) <> 0
+       or coalesce(new."energyCharge", 0)     <> 0
+       or coalesce(new."serviceFee", 0)       <> 0
+       or coalesce(new."gatewayFee", 0)       <> 0
+       or coalesce(new."totalPaid", 0)        <> 0
+       or new."invoiceId" is not null then
+        raise exception 'A settled session is written by finalize_charging_session(), not by the app.';
+    end if;
+
+    return new;
+end;
+$$;
+
+drop trigger if exists prevent_session_billing_on_insert on public.charging_sessions;
+create trigger prevent_session_billing_on_insert
+    before insert on public.charging_sessions
+    for each row execute function public.prevent_session_billing_on_insert();
+
+
+-- A consumer may update their own payment row — but the RLS policy is row-level, so it
+-- cannot say "and not the amount". Without this trigger the consumer who owes the money
+-- is also the one who can write capturedAmount, refundedAmount and status, which is a
+-- self-refund. Capture, refund and release belong to the settlement functions, which run
+-- as the table owner and are therefore trusted here.
+create or replace function public.prevent_payment_tampering()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+    if public.is_trusted_sql_context() then
+        return new;
+    end if;
+
+    if tg_op = 'INSERT' then
+        if coalesce(new."capturedAmount", 0)       <> 0
+           or coalesce(new."refundedAmount", 0)    <> 0
+           or coalesce(new."lateCancellationFee", 0) <> 0 then
+            raise exception 'A payment authorization is created by authorize_payment(), not by the app.';
+        end if;
+        return new;
+    end if;
+
+    if new."capturedAmount"        is distinct from old."capturedAmount"
+       or new."refundedAmount"     is distinct from old."refundedAmount"
+       or new."lateCancellationFee" is distinct from old."lateCancellationFee"
+       or new.status               is distinct from old.status then
+        raise exception 'Capture, refund and release are settlement actions, not app writes.';
+    end if;
+
+    return new;
+end;
+$$;
+
+drop trigger if exists prevent_payment_tampering on public.payments;
+create trigger prevent_payment_tampering
+    before insert or update on public.payments
+    for each row execute function public.prevent_payment_tampering();
+
+
+-- Both parties move a reservation's status (check-in by the host, cancellation by the
+-- consumer), so the UPDATE policy has to stay. The slot, the port and the price were chosen
+-- when the booking was made, though: letting either party rewrite them afterwards would
+-- allow jumping the queue or rewriting what was authorised. They are pinned here instead.
+create or replace function public.prevent_reservation_tampering()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+    if public.is_trusted_sql_context() or public.is_platform_admin() then
+        return new;
+    end if;
+
+    if new."startTimeMs"    is distinct from old."startTimeMs"
+       or new."endTimeMs"    is distinct from old."endTimeMs"
+       or new."portId"       is distinct from old."portId"
+       or new."stationId"    is distinct from old."stationId"
+       or new."consumerId"   is distinct from old."consumerId"
+       or new."pricePerKwh"  is distinct from old."pricePerKwh"
+       or new."serviceFee"   is distinct from old."serviceFee"
+       or new."gatewayFee"   is distinct from old."gatewayFee"
+       or new."bookingCode"  is distinct from old."bookingCode" then
+        raise exception 'A reservation slot, port and price are fixed when the booking is made.';
+    end if;
+
+    return new;
+end;
+$$;
+
+drop trigger if exists prevent_reservation_tampering on public.reservations;
+create trigger prevent_reservation_tampering
+    before update on public.reservations
+    for each row execute function public.prevent_reservation_tampering();
+
+
+-- None of these is API surface: they are called by triggers, or are internal helpers.
+-- Strip the default PUBLIC execute grant.
 revoke all on function public.prevent_billing_tampering() from public;
+revoke all on function public.prevent_session_billing_on_insert() from public;
+revoke all on function public.prevent_payment_tampering() from public;
+revoke all on function public.prevent_reservation_tampering() from public;
 revoke all on function public.round2(double precision) from public;
 
 -- ---------------------------------------------------------------------------

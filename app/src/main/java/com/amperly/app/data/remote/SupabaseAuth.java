@@ -2,14 +2,18 @@ package com.amperly.app.data.remote;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.util.Log;
 
 import androidx.annotation.Nullable;
+import androidx.security.crypto.EncryptedSharedPreferences;
+import androidx.security.crypto.MasterKey;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
 import java.io.IOException;
+import java.security.GeneralSecurityException;
 
 import okhttp3.MediaType;
 import okhttp3.RequestBody;
@@ -23,15 +27,25 @@ import retrofit2.Response;
  * {@code AmperlyRepository.background(...)}, so blocking here keeps the calling style
  * consistent instead of stacking callbacks on top of an executor.
  *
- * <p>SESSION STORAGE: tokens live in app-private {@link SharedPreferences}. That is
- * readable on a rooted device. A production build should use
- * {@code EncryptedSharedPreferences} (androidx.security:security-crypto) or the Android
- * Keystore; it is left out here to avoid adding a dependency the rest of the app does
- * not otherwise need.
+ * <p>SESSION STORAGE: access and refresh tokens are bearer credentials — whoever holds them
+ * is the account. They are therefore written to {@link EncryptedSharedPreferences}, whose
+ * key lives in the Android Keystore (AES-256-GCM for values, AES-256-SIV for keys), rather
+ * than to a plain XML file that a backup or a rooted device could read. If the Keystore is
+ * unavailable the app fails closed and asks the user to sign in again; it never silently
+ * downgrades to plaintext.
  */
 public final class SupabaseAuth {
 
-    private static final String PREFS = "amperly_supabase_session";
+    /** Encrypted store. The name is new so a legacy plaintext file is migrated, not reused. */
+    private static final String PREFS = "amperly_supabase_session_secure";
+
+    /** The pre-encryption file name, read once so existing installs stay signed in. */
+    private static final String LEGACY_PREFS = "amperly_supabase_session";
+
+    private static final String TAG = "SupabaseAuth";
+
+    private static final Object PREFS_LOCK = new Object();
+    private static volatile SharedPreferences cachedPrefs;
     private static final String KEY_ACCESS = "access_token";
     private static final String KEY_REFRESH = "refresh_token";
     private static final String KEY_EXPIRES_AT = "expires_at_ms";
@@ -265,14 +279,89 @@ public final class SupabaseAuth {
     }
 
     private static void clear(Context context) {
-        prefs(context).edit().clear().apply();
+        try {
+            prefs(context).edit().clear().apply();
+        } catch (RuntimeException ignored) {
+            // A broken Keystore must not trap the user in a signed-in state.
+        }
+        // Also remove the pre-encryption file, if this device still has one.
+        try {
+            context.getApplicationContext()
+                    .getSharedPreferences(LEGACY_PREFS, Context.MODE_PRIVATE)
+                    .edit().clear().apply();
+        } catch (RuntimeException ignored) {
+        }
         SupabaseClient.setAccessToken(null);
         SupabaseClient.setAppUserId(null);
     }
 
+    /**
+     * The Keystore-backed preference file, created once and cached.
+     *
+     * <p>Throws rather than returning a plaintext file when the Keystore cannot be used:
+     * storing a bearer token unencrypted after a security failure is worse than asking the
+     * user to sign in again.
+     */
     private static SharedPreferences prefs(Context context) {
-        return context.getApplicationContext()
-                .getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+        SharedPreferences existing = cachedPrefs;
+        if (existing != null) {
+            return existing;
+        }
+        synchronized (PREFS_LOCK) {
+            if (cachedPrefs != null) {
+                return cachedPrefs;
+            }
+            Context app = context.getApplicationContext();
+            try {
+                MasterKey masterKey = new MasterKey.Builder(app)
+                        .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+                        .build();
+                SharedPreferences secure = EncryptedSharedPreferences.create(
+                        app,
+                        PREFS,
+                        masterKey,
+                        EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                        EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM);
+                migrateLegacySession(app, secure);
+                cachedPrefs = secure;
+                Log.i(TAG, "Session storage is encrypted with a Keystore-backed key.");
+                return secure;
+            } catch (GeneralSecurityException | IOException e) {
+                // Never fall back to a plaintext file: a bearer token written in the clear
+                // after a security failure is worse than requiring a fresh sign-in.
+                Log.e(TAG, "Secure session storage unavailable; refusing to store tokens.", e);
+                throw new IllegalStateException(
+                        "Secure session storage is unavailable on this device.", e);
+            }
+        }
+    }
+
+    /**
+     * Copies a session written by an older build into the encrypted store, then wipes the
+     * plaintext copy. Without this, updating the app would sign everyone out.
+     */
+    private static void migrateLegacySession(Context app, SharedPreferences secure) {
+        if (secure.getString(KEY_ACCESS, null) != null) {
+            return;
+        }
+        try {
+            SharedPreferences legacy = app.getSharedPreferences(LEGACY_PREFS,
+                    Context.MODE_PRIVATE);
+            String access = legacy.getString(KEY_ACCESS, null);
+            if (access == null || access.isEmpty()) {
+                return;
+            }
+            secure.edit()
+                    .putString(KEY_ACCESS, access)
+                    .putString(KEY_REFRESH, legacy.getString(KEY_REFRESH, null))
+                    .putString(KEY_USER_ID, legacy.getString(KEY_USER_ID, null))
+                    .putString(KEY_EMAIL, legacy.getString(KEY_EMAIL, null))
+                    .putLong(KEY_EXPIRES_AT, legacy.getLong(KEY_EXPIRES_AT, 0L))
+                    .apply();
+            legacy.edit().clear().apply();
+        } catch (RuntimeException ignored) {
+            // A migration failure leaves the legacy file for the next attempt.
+        }
     }
 
     private static void requireConfigured() throws Failure {

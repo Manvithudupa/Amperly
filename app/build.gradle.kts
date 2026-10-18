@@ -98,8 +98,8 @@ android {
         applicationId = "com.amperly.app"
         minSdk = 24
         targetSdk = 35
-        versionCode = 6
-        versionName = "3.0.0"
+        versionCode = 7
+        versionName = "3.0.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -157,6 +157,11 @@ dependencies {
     // Room Database
     implementation("androidx.room:room-runtime:2.6.1")
     annotationProcessor("androidx.room:room-compiler:2.6.1")
+
+    // Encrypted storage for the Supabase session tokens (Keystore-backed AES-256-GCM).
+    // A plain SharedPreferences file is readable from a backup or a rooted device; these
+    // tokens are bearer credentials, so they are encrypted at rest instead.
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
 
     // Lists & lifecycle-aware UI
     implementation("androidx.recyclerview:recyclerview:1.3.2")

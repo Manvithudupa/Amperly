@@ -132,7 +132,10 @@ public class MainActivity extends AppCompatActivity {
         if (intent != null && intent.getData() != null) {
             android.net.Uri data = intent.getData();
             if ("amperly".equals(data.getScheme()) && "auth-callback".equals(data.getHost())) {
-                Ux.toast(this, "Email Confirmed Successfully! Welcome to Amperly.");
+                // Any installed app can fire this custom scheme, so the intent is treated as
+                // "the user came back", never as proof that an address was confirmed. The
+                // real confirmation is the session GoTrue issues at sign-in.
+                Ux.toast(this, getString(R.string.auth_callback_return));
             }
         }
     }

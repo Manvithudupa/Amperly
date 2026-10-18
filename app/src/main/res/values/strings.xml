@@ -349,6 +349,7 @@
     <string name="auth_no_profile">Unable to initialize user profile. Please try again.</string>
     <string name="auth_offline_note">No Amperly server is configured on this build. Add SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY to local.properties, then rebuild — every screen reads live data from that project, so there is nothing to show without it.</string>
     <string name="auth_signed_in_as">Signed in as</string>
+    <string name="auth_callback_return">Back in Amperly. Sign in to continue — a confirmed address cannot be assumed from the link alone.</string>
     <string name="auth_secret_key">Invalid configuration detected. Please check app configuration.</string>
     <string name="auth_profile_offline">Unable to load profile. Please check your connection and try again.</string>
     <string name="auth_profile_local_only">Signed in, but the server has not accepted your profile row yet. It stays queued and is retried on the next sync. If it keeps failing, re-run supabase/schema.sql.</string>
