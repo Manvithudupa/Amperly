@@ -6,6 +6,7 @@ import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.FrameLayout;
 import android.widget.TextView;
 
 import androidx.activity.OnBackPressedCallback;
@@ -102,9 +103,13 @@ public class MainActivity extends AppCompatActivity {
 
             Toolbar toolbar = findViewById(R.id.topToolbar);
             setSupportActionBar(toolbar);
-            // The wordmark in the custom lock-up is the title. Left alone, the support action
-            // bar would also draw the activity label beside it, spelling the brand twice.
-            toolbar.setTitle("");
+            // The wordmark in the custom lock-up is the title. An empty toolbar title is not
+            // enough: AppCompat restores the activity label, which drew "Amperly" beside the
+            // lock-up and pushed it into the middle of the bar. Turning the title off is what
+            // actually removes it.
+            if (getSupportActionBar() != null) {
+                getSupportActionBar().setDisplayShowTitleEnabled(false);
+            }
             makeToolbarHome(toolbar);
 
             bottomNavigationView = findViewById(R.id.bottomNavigationView);
@@ -391,7 +396,17 @@ public class MainActivity extends AppCompatActivity {
         profileBadgeView = badge;
         renderProfileBadge();
         badge.setOnClickListener(this::showProfileMenu);
-        return badge;
+
+        // Toolbar action views ignore their own layout margin, so the chip used to sit flush
+        // against the right edge. A holder whose padding is part of its measured width keeps
+        // the gutter without hard-coding it into the chip.
+        FrameLayout holder = new FrameLayout(this);
+        int end = Math.round(getResources().getDisplayMetrics().density * 8);
+        holder.setPadding(0, 0, end, 0);
+        holder.addView(badge, new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                FrameLayout.LayoutParams.MATCH_PARENT));
+        return holder;
     }
 
     /**
@@ -620,8 +635,10 @@ public class MainActivity extends AppCompatActivity {
             menu.add(0, R.id.nav_host_add_station, 1, R.string.nav_add_station).setIcon(R.drawable.ic_add);
             menu.add(0, R.id.nav_host_chat, 2, R.string.nav_chat).setIcon(R.drawable.ic_chat);
             bottomNavigationView.setOnItemSelectedListener(item -> loadHostScreen(item.getItemId()));
+            // Selecting the item runs the listener above, which loads the screen. Calling
+            // loadRoot here as well built a second fragment and detached the first one while its
+            // map was still being attached — the crash this method used to cause on sign-in.
             bottomNavigationView.setSelectedItemId(R.id.nav_host_dashboard);
-            loadRoot(new HostDashboardFragment(), "host_dashboard");
             return;
         }
 
@@ -629,7 +646,6 @@ public class MainActivity extends AppCompatActivity {
             menu.add(0, R.id.nav_admin, 0, R.string.nav_admin).setIcon(R.drawable.ic_admin);
             bottomNavigationView.setOnItemSelectedListener(item -> loadAdminScreen(item.getItemId()));
             bottomNavigationView.setSelectedItemId(R.id.nav_admin);
-            loadRoot(new AdminDashboardFragment(), "admin_dashboard");
             return;
         }
 
@@ -640,7 +656,6 @@ public class MainActivity extends AppCompatActivity {
         menu.add(0, R.id.nav_safety, 4, R.string.nav_safety).setIcon(R.drawable.ic_safety);
         bottomNavigationView.setOnItemSelectedListener(item -> loadConsumerScreen(item.getItemId()));
         bottomNavigationView.setSelectedItemId(R.id.nav_discover);
-        loadRoot(new ChargerDiscoveryFragment(), "discover");
     }
 
     private boolean loadConsumerScreen(int itemId) {

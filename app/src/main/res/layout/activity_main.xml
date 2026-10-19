@@ -106,7 +106,7 @@
         android:paddingBottom="@dimen/amp_space_s">
 
         <HorizontalScrollView
-            android:layout_width="match_parent"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:background="@drawable/bg_segment_track"
             android:padding="4dp"

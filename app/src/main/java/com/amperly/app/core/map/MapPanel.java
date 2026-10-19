@@ -91,6 +91,12 @@ public final class MapPanel {
             return;
         }
         container.post(() -> {
+            // The screen may have been replaced before this ran (a tab switch, a back press).
+            // Touching getChildFragmentManager() on a detached fragment throws, and the crash
+            // lands on the main thread with no screen left to catch it.
+            if (!parent.isAdded() || container.getParent() == null) {
+                return;
+            }
             MapPanel existing = PANELS.get(container);
             if (existing != null) {
                 callback.onReady(existing);
@@ -106,6 +112,9 @@ public final class MapPanel {
             }
             final SupportMapFragment mapFragment = fragment;
             mapFragment.getMapAsync(googleMap -> {
+                if (!parent.isAdded()) {
+                    return;
+                }
                 if (googleMap == null) {
                     showSetupNotice(parent, container);
                     return;
