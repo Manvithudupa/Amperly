@@ -27,6 +27,7 @@ import com.amperly.app.core.location.LocationProvider;
 import com.amperly.app.core.map.MapPanel;
 import com.amperly.app.core.nav.GoogleNavigationProvider;
 import com.amperly.app.core.nav.NavigationProvider;
+import com.amperly.app.core.places.GoogleGeocoder;
 import com.amperly.app.core.places.PlacesAutocomplete;
 import com.amperly.app.core.routing.DirectionsRoute;
 import com.amperly.app.core.routing.GoogleDirectionsClient;
@@ -67,6 +68,7 @@ public class RoutePlannerFragment extends Fragment implements RouteStopAdapter.L
 
     private AmperlyRepository repo;
     private TextView originText;
+    private TextView originDetailText;
     private TextView destinationResolvedText;
     private TextView summaryText;
     private TextView confidenceText;
@@ -129,6 +131,7 @@ public class RoutePlannerFragment extends Fragment implements RouteStopAdapter.L
         repo = AmperlyRepository.getInstance(requireContext());
 
         originText = view.findViewById(R.id.originText);
+        originDetailText = view.findViewById(R.id.originDetailText);
         destinationEdit = view.findViewById(R.id.destinationEdit);
         destinationField = view.findViewById(R.id.destinationField);
         destinationResolvedText = view.findViewById(R.id.destinationResolvedText);
@@ -270,7 +273,8 @@ public class RoutePlannerFragment extends Fragment implements RouteStopAdapter.L
                 originLat = latitude;
                 originLng = longitude;
                 mapOriginPicking = false;
-                originText.setText(String.format(Locale.US, "Map pin (%.5f, %.5f)", latitude, longitude));
+                originText.setText(R.string.route_start_map_pin);
+                describeOrigin(latitude, longitude);
                 planRoute();
             });
         });
@@ -305,8 +309,8 @@ public class RoutePlannerFragment extends Fragment implements RouteStopAdapter.L
                         }
                         originLat = latitude;
                         originLng = longitude;
-                        originText.setText(getString(R.string.route_start_current)
-                                + String.format(Locale.US, "  (%.5f, %.5f)", latitude, longitude));
+                        originText.setText(R.string.route_start_current);
+                        describeOrigin(latitude, longitude);
                         planRoute();
                     }
 
@@ -319,8 +323,44 @@ public class RoutePlannerFragment extends Fragment implements RouteStopAdapter.L
                 });
     }
 
+    /**
+     * Puts the place name under the origin, instead of a raw coordinate pair.
+     *
+     * <p>The fix is already known — the lookup only names it. So the line shows "looking up the
+     * address" while Google answers, then the formatted address, and falls back to saying it is
+     * a GPS position. It never blocks routing and never invents a place name.
+     */
+    private void describeOrigin(double latitude, double longitude) {
+        if (originDetailText == null) {
+            return;
+        }
+        originDetailText.setVisibility(View.VISIBLE);
+        originDetailText.setText(R.string.route_start_locating_address);
+
+        GoogleGeocoder.reverseGeocode(latitude, longitude, new GoogleGeocoder.Callback() {
+            @Override
+            public void onAddress(@NonNull String formattedAddress) {
+                if (!isAdded() || originDetailText == null) {
+                    return;
+                }
+                originDetailText.setText(getString(R.string.route_start_address, formattedAddress));
+            }
+
+            @Override
+            public void onError(@NonNull String message) {
+                if (!isAdded() || originDetailText == null) {
+                    return;
+                }
+                originDetailText.setText(R.string.route_start_gps_only);
+            }
+        });
+    }
+
     private void showOriginUnavailable() {
         originText.setText(R.string.route_start_unavailable);
+        if (originDetailText != null) {
+            originDetailText.setVisibility(View.GONE);
+        }
         View pick = getView() == null ? null : getView().findViewById(R.id.setOriginOnMapButton);
         if (pick != null) {
             pick.setVisibility(View.VISIBLE);

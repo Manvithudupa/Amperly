@@ -2,6 +2,7 @@ package com.amperly.app.feature.auth;
 
 import android.content.Context;
 import android.os.Bundle;
+import android.text.TextUtils;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -11,6 +12,7 @@ import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.Fragment;
 
 import com.amperly.app.MainActivity;
@@ -21,8 +23,11 @@ import com.amperly.app.data.local.entity.User;
 import com.amperly.app.data.remote.SupabaseAuth;
 import com.amperly.app.data.remote.SupabaseConfig;
 import com.amperly.app.data.repository.AmperlyRepository;
+import com.amperly.app.ui.Ux;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+import com.google.android.material.textfield.TextInputEditText;
+import com.google.android.material.textfield.TextInputLayout;
 
 /**
  * The account page: who is signed in, what the sync engine is doing, and how to sign out.
@@ -30,17 +35,25 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder;
  * <p>It doubles as the honest status report for the cache: what has been pushed, what is
  * still queued, and when the last pull happened — because "why is my data missing" is the
  * question this screen exists to answer.
+ *
+ * <p>The display name is the one profile field the account owns. It is edited here and saved
+ * through {@link AmperlyRepository#updateDisplayName}, which writes Room first and queues the
+ * server change, so a rename made offline is not lost.
  */
 public class AccountFragment extends Fragment {
 
     private AmperlyRepository repo;
+
     private LinearLayout detailContainer;
     private View avatarBadge;
     private TextView avatarText;
-    private TextView subtitleText;
+    private TextView nameText;
+    private TextView emailText;
+    private TextView authorityText;
     private TextView syncStatusText;
     private TextView demoNoteText;
     private TextView roleNoteText;
+    private MaterialButton editNameButton;
     private MaterialButton accountSignInButton;
     private MaterialButton syncNowButton;
     private MaterialButton signOutButton;
@@ -60,10 +73,13 @@ public class AccountFragment extends Fragment {
         detailContainer = view.findViewById(R.id.accountDetailContainer);
         avatarBadge = view.findViewById(R.id.accountAvatarBadge);
         avatarText = view.findViewById(R.id.accountAvatarText);
-        subtitleText = view.findViewById(R.id.accountSubtitleText);
+        nameText = view.findViewById(R.id.accountNameText);
+        emailText = view.findViewById(R.id.accountEmailText);
+        authorityText = view.findViewById(R.id.accountAuthorityText);
         syncStatusText = view.findViewById(R.id.accountSyncStatusText);
         demoNoteText = view.findViewById(R.id.accountDemoNoteText);
         roleNoteText = view.findViewById(R.id.accountRoleNoteText);
+        editNameButton = view.findViewById(R.id.editNameButton);
         accountSignInButton = view.findViewById(R.id.accountSignInButton);
         syncNowButton = view.findViewById(R.id.syncNowButton);
         signOutButton = view.findViewById(R.id.signOutButton);
@@ -81,6 +97,7 @@ public class AccountFragment extends Fragment {
 
         render(AuthManager.getInstance().getCurrentUser(), signedIn);
 
+        editNameButton.setOnClickListener(v -> showEditNameDialog());
         syncNowButton.setOnClickListener(v -> syncNow());
         signOutButton.setOnClickListener(v -> confirmSignOut());
         accountSignInButton.setOnClickListener(v -> {
@@ -93,6 +110,7 @@ public class AccountFragment extends Fragment {
     @Override
     public void onResume() {
         super.onResume();
+        render(AuthManager.getInstance().getCurrentUser(), SupabaseAuth.isSignedIn());
         loadSyncStatus();
     }
 
@@ -119,17 +137,24 @@ public class AccountFragment extends Fragment {
         if (user == null) {
             // No account, so no monogram to draw — an empty badge would just be a blank disc.
             avatarBadge.setVisibility(View.GONE);
-            subtitleText.setText(R.string.account_demo_mode);
+            editNameButton.setVisibility(View.GONE);
+            authorityText.setVisibility(View.GONE);
+            nameText.setText(R.string.account_demo_mode);
+            emailText.setText("");
             return;
         }
 
         avatarBadge.setVisibility(View.VISIBLE);
-        avatarText.setText(initialsOf(user.getName()));
-        subtitleText.setText(signedIn
-                ? getString(R.string.auth_signed_in_as) + " " + user.getName()
-                : getString(R.string.account_demo_mode));
+        editNameButton.setVisibility(signedIn ? View.VISIBLE : View.GONE);
+        authorityText.setVisibility(View.VISIBLE);
 
-        addRow(getString(R.string.account_name), user.getName());
+        avatarText.setText(initialsOf(user.getName()));
+        nameText.setText(displayNameOf(user));
+        emailText.setText(TextUtils.isEmpty(user.getEmail())
+                ? getString(R.string.account_email) + " —"
+                : user.getEmail());
+        authorityText.setText(AuthManager.authorityLabel(user));
+
         addRow(getString(R.string.account_email), user.getEmail());
         addRow(getString(R.string.account_role), AuthManager.authorityLabel(user));
         addRow(getString(R.string.account_organization), user.getOrganizationName());
@@ -138,8 +163,8 @@ public class AccountFragment extends Fragment {
     }
 
     /**
-     * A label above its value. Built in code rather than declared, so the six rows stay
-     * identical instead of drifting apart in XML.
+     * A label above its value. Built in code rather than declared, so the rows stay identical
+     * instead of drifting apart in XML.
      */
     private void addRow(String label, @Nullable String value) {
         Context context = requireContext();
@@ -149,7 +174,7 @@ public class AccountFragment extends Fragment {
         row.setOrientation(LinearLayout.VERTICAL);
         LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        rowParams.topMargin = (int) (density * 10);
+        rowParams.topMargin = (int) (density * 12);
         row.setLayoutParams(rowParams);
 
         TextView labelView = new TextView(context);
@@ -158,12 +183,20 @@ public class AccountFragment extends Fragment {
         row.addView(labelView);
 
         TextView valueView = new TextView(context);
-        valueView.setText(value == null || value.trim().isEmpty() ? "—" : value);
+        valueView.setText(TextUtils.isEmpty(value) || value.trim().isEmpty() ? "—" : value);
         valueView.setTextAppearance(R.style.TextAppearance_Amperly_BodyStrong);
         valueView.setGravity(Gravity.START);
         row.addView(valueView);
 
         detailContainer.addView(row);
+    }
+
+    @NonNull
+    private String displayNameOf(@Nullable User user) {
+        if (user == null || TextUtils.isEmpty(user.getName())) {
+            return getString(R.string.account_name);
+        }
+        return user.getName();
     }
 
     /**
@@ -191,6 +224,75 @@ public class AccountFragment extends Fragment {
     }
 
     // ------------------------------------------------------------------ actions
+
+    /**
+     * Opens the rename dialog.
+     *
+     * <p>The positive button is wired by hand rather than through {@code setPositiveButton}, so
+     * an empty name keeps the dialog open and points at the field instead of dismissing and
+     * silently doing nothing.
+     */
+    private void showEditNameDialog() {
+        User user = AuthManager.getInstance().getCurrentUser();
+        if (user == null) {
+            return;
+        }
+
+        View content = LayoutInflater.from(requireContext())
+                .inflate(R.layout.dialog_edit_name, null, false);
+        TextInputLayout field = content.findViewById(R.id.editNameField);
+        TextInputEditText input = content.findViewById(R.id.editNameInput);
+        input.setText(user.getName());
+        input.setSelection(input.length());
+
+        AlertDialog dialog = new MaterialAlertDialogBuilder(requireContext())
+                .setTitle(R.string.account_edit_name_title)
+                .setView(content)
+                .setNegativeButton(R.string.action_cancel, null)
+                .setPositiveButton(R.string.action_save, null)
+                .create();
+
+        dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+                .setOnClickListener(v -> {
+                    String name = input.getText() == null
+                            ? "" : input.getText().toString().trim();
+                    if (name.isEmpty()) {
+                        field.setError(getString(R.string.account_edit_name_empty));
+                        return;
+                    }
+                    field.setError(null);
+                    dialog.dismiss();
+                    saveName(name);
+                }));
+        dialog.show();
+        input.requestFocus();
+    }
+
+    /** Writes the name locally, queues the server change, then repaints the page and the bar. */
+    private void saveName(@NonNull String name) {
+        User user = AuthManager.getInstance().getCurrentUser();
+        if (user == null) {
+            return;
+        }
+        editNameButton.setEnabled(false);
+
+        repo.background(() -> repo.updateDisplayName(user, name), updated -> {
+            if (!isAdded()) {
+                return;
+            }
+            editNameButton.setEnabled(true);
+            if (updated == null) {
+                Ux.toast(requireContext(), getString(R.string.account_name_update_failed));
+                return;
+            }
+            render(updated, SupabaseAuth.isSignedIn());
+            if (getActivity() instanceof MainActivity) {
+                ((MainActivity) getActivity()).refreshProfileBadge();
+            }
+            Ux.toast(requireContext(), getString(R.string.account_edit_name_saved));
+            loadSyncStatus();
+        });
+    }
 
     private void syncNow() {
         syncNowButton.setEnabled(false);

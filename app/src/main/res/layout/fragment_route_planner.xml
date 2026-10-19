@@ -69,6 +69,20 @@
                     android:text="@string/route_start_locating"
                     android:textAppearance="@style/TextAppearance.Amperly.BodyStrong" />
 
+                <!--
+                  The place name for the fix, resolved by Google reverse geocoding. A coordinate
+                  pair is a debugging detail, not something a driver should have to read; when the
+                  lookup fails the line says it is a GPS position rather than inventing a place.
+                -->
+                <TextView
+                    android:id="@+id/originDetailText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:text="@string/route_start_locating_address"
+                    android:textAppearance="@style/TextAppearance.Amperly.Label"
+                    android:visibility="gone" />
+
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/setOriginOnMapButton"
                     style="@style/Widget.Amperly.Button.Text"

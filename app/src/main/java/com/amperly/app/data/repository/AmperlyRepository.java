@@ -392,6 +392,40 @@ public class AmperlyRepository {
         });
     }
 
+    /**
+     * Renames the signed-in account, locally and on the server.
+     *
+     * <p>The local row is written first and the server change is queued, like every other write
+     * in the app, so a rename made offline still sticks and is pushed on the next sync rather
+     * than being silently lost.
+     *
+     * <p>Only {@code id} and {@code name} are sent. The {@code users_update_self_or_admin} policy
+     * lets a person update their own row, while {@code prevent_privilege_escalation} refuses any
+     * change to role, blocked state or verification — none of which this payload carries.
+     *
+     * <p>Must be called off the main thread (Room); the caller gets the updated entity back.
+     */
+    @Nullable
+    public User updateDisplayName(@Nullable User user, @Nullable String newName) {
+        if (user == null) {
+            return null;
+        }
+        String name = newName == null ? "" : newName.trim();
+        if (name.isEmpty()) {
+            return null;
+        }
+
+        user.setName(name);
+        db.userDao().update(user);
+
+        Map<String, Object> row = new LinkedHashMap<>();
+        row.put("id", user.getId());
+        row.put("name", name);
+        SyncEngine.enqueuePayload(db, "users", user.getId(), row);
+        requestAutoSync();
+        return user;
+    }
+
     // ------------------------------------------------------------- vehicles
 
     public LiveData<Vehicle> observeVehicle(String userId) {

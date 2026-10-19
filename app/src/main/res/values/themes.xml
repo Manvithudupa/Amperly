@@ -402,6 +402,24 @@
         <item name="cornerSize">50%</item>
     </style>
 
+    <!--
+      Nav labels: DM Sans at 10-11sp, the weight difference carrying the selected state.
+      The prototype's sidebar uses the same idea — a darker, bolder label on a lime pill —
+      just rotated to a bottom bar for a phone.
+    -->
+
+    <style name="TextAppearance.Amperly.NavLabel" parent="TextAppearance.Material3.LabelSmall">
+        <item name="android:fontFamily">@font/dm_sans</item>
+        <item name="android:textSize">10sp</item>
+        <item name="android:textStyle">normal</item>
+        <item name="android:letterSpacing">0.01</item>
+    </style>
+
+    <style name="TextAppearance.Amperly.NavLabel.Active" parent="TextAppearance.Amperly.NavLabel">
+        <item name="android:textSize">10sp</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
     <style name="Widget.Amperly.NavIndicator"
         parent="Widget.Material3.BottomNavigationView.ActiveIndicator">
         <item name="shapeAppearance">@style/ShapeAppearance.Amperly.NavIndicator</item>

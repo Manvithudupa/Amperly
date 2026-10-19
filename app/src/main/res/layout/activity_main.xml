@@ -8,8 +8,10 @@
     android:orientation="vertical">
 
     <!--
-      The top bar is a light surface now, matching the prototype's white topbar: the lime
-      brand square and the serif wordmark carry the identity, not a coloured app bar.
+      The top bar is the prototype's white bar, not a coloured app bar: the lime brand
+      square with the bolt, then the serif wordmark with the lime full stop. The identity is
+      drawn as a lock-up so the mark and the name read as one object, exactly as they do in
+      the prototype's topbar.
 
       Its background deliberately covers the status bar area too: MainActivity pads this
       view by the top window inset, and padding sits INSIDE a view's background, so the
@@ -26,15 +28,58 @@
         <com.google.android.material.appbar.MaterialToolbar
             android:id="@+id/topToolbar"
             android:layout_width="match_parent"
-            android:layout_height="?attr/actionBarSize"
+            android:layout_height="64dp"
             android:background="?attr/colorSurfaceContainerLowest"
-            app:title="@string/app_name"
-            app:titleTextAppearance="@style/TextAppearance.Amperly.Wordmark"
-            app:titleTextColor="@color/amp_primary_dark" />
+            app:contentInsetStart="16dp"
+            app:contentInsetStartWithNavigation="0dp">
+
+            <!-- Brand lock-up. Tapping it goes home; the profile chip sits in the actions. -->
+            <LinearLayout
+                android:id="@+id/brandLockup"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingTop="4dp"
+                android:paddingBottom="4dp">
+
+                <FrameLayout
+                    android:layout_width="30dp"
+                    android:layout_height="30dp"
+                    android:background="@drawable/bg_brand_mark">
+
+                    <ImageView
+                        android:layout_width="17dp"
+                        android:layout_height="17dp"
+                        android:layout_gravity="center"
+                        android:contentDescription="@null"
+                        android:src="@drawable/ic_brand_mark"
+                        app:tint="@color/amp_on_lime" />
+                </FrameLayout>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="9dp"
+                    android:text="@string/brand_wordmark"
+                    android:textAppearance="@style/TextAppearance.Amperly.Wordmark" />
+
+                <View
+                    android:layout_width="5dp"
+                    android:layout_height="5dp"
+                    android:layout_marginStart="2dp"
+                    android:layout_marginTop="8dp"
+                    android:background="@drawable/bg_dot_lime" />
+            </LinearLayout>
+        </com.google.android.material.appbar.MaterialToolbar>
     </com.google.android.material.appbar.AppBarLayout>
 
     <!-- Hairline under the bar: the prototype separates surfaces with a line, not a shadow. -->
     <View
+        android:id="@+id/appBarDivider"
         android:layout_width="match_parent"
         android:layout_height="1dp"
         android:background="?attr/colorOutlineVariant" />
@@ -45,6 +90,9 @@
       The chips are built at runtime from the roles the account actually holds
       (see MainActivity#buildRoleChips), because an Amperly account is dual-role: Consumer and
       Host are always offered together and Admin only appears for platform operations.
+
+      The signed-in person's name and capacity live in the top bar's profile chip rather than
+      as a line of text here, so the bar answers "who am I acting as" in one place.
     -->
     <LinearLayout
         android:id="@+id/roleStrip"
@@ -72,15 +120,6 @@
                 app:singleLine="true"
                 app:singleSelection="true" />
         </HorizontalScrollView>
-
-        <TextView
-            android:id="@+id/currentUserText"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/amp_space_s"
-            android:ellipsize="end"
-            android:maxLines="1"
-            android:textAppearance="@style/TextAppearance.Amperly.Label" />
     </LinearLayout>
 
     <FrameLayout
@@ -89,15 +128,25 @@
         android:layout_height="0dp"
         android:layout_weight="1" />
 
-    <!-- Padded by the bottom window inset at runtime so its surface fills the gesture bar. -->
+    <!--
+      Padded by the bottom window inset at runtime so its surface fills the gesture bar.
+      Its background draws the hairline that separates the bar from the content, so the line
+      disappears with the bar on the sign-in screen instead of floating there on its own.
+    -->
     <com.google.android.material.bottomnavigation.BottomNavigationView
         android:id="@+id/bottomNavigationView"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="?attr/colorSurfaceContainerLowest"
+        android:background="@drawable/bg_bottom_nav"
         app:elevation="0dp"
         app:itemActiveIndicatorStyle="@style/Widget.Amperly.NavIndicator"
+        app:itemHorizontalTranslationEnabled="false"
+        app:itemIconSize="22dp"
         app:itemIconTint="@color/nav_item_tint"
+        app:itemPaddingBottom="8dp"
+        app:itemPaddingTop="8dp"
+        app:itemTextAppearanceActive="@style/TextAppearance.Amperly.NavLabel.Active"
+        app:itemTextAppearanceInactive="@style/TextAppearance.Amperly.NavLabel"
         app:itemTextColor="@color/nav_item_tint"
         app:labelVisibilityMode="labeled" />
 

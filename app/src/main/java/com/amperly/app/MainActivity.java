@@ -1,6 +1,5 @@
 package com.amperly.app;
 
-import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -9,9 +8,9 @@ import android.view.MenuItem;
 import android.view.View;
 import android.widget.TextView;
 
+import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.appcompat.content.res.AppCompatResources;
 import androidx.appcompat.widget.PopupMenu;
 import androidx.appcompat.widget.Toolbar;
 import androidx.core.graphics.Insets;
@@ -46,7 +45,6 @@ import com.amperly.app.ui.Ux;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.chip.Chip;
 import com.google.android.material.chip.ChipGroup;
-import androidx.core.content.ContextCompat;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import java.util.List;
@@ -64,8 +62,15 @@ public class MainActivity extends AppCompatActivity {
     private static final String KEY_LAST_USER = "last_user_id";
 
     private BottomNavigationView bottomNavigationView;
-    private TextView currentUserText;
     private ChipGroup roleChipGroup;
+
+    /** The profile trigger in the top bar, kept so its name and role can be re-rendered. */
+    private View profileBadgeView;
+
+    /** The shell's chrome, hidden on the sign-in screen so its own brand header is the only one. */
+    private View appBarLayout;
+    private View appBarDivider;
+    private View fragmentContainer;
     private View roleStrip;
 
     private AmperlyRepository repo;
@@ -86,15 +91,28 @@ public class MainActivity extends AppCompatActivity {
 
             repo = AmperlyRepository.getInstance(this);
 
+            // Registers the back handling before any screen can be shown, so a gesture made
+            // straight after launch is never answered by the system finishing the activity.
+            getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+                @Override
+                public void handleOnBackPressed() {
+                    handleBack();
+                }
+            });
+
             Toolbar toolbar = findViewById(R.id.topToolbar);
             setSupportActionBar(toolbar);
-            applyBrandMark(toolbar);
+            // The wordmark in the custom lock-up is the title. Left alone, the support action
+            // bar would also draw the activity label beside it, spelling the brand twice.
+            toolbar.setTitle("");
             makeToolbarHome(toolbar);
 
             bottomNavigationView = findViewById(R.id.bottomNavigationView);
-            currentUserText = findViewById(R.id.currentUserText);
             roleChipGroup = findViewById(R.id.roleChipGroup);
             roleStrip = findViewById(R.id.roleStrip);
+            appBarLayout = findViewById(R.id.appBarLayout);
+            appBarDivider = findViewById(R.id.appBarDivider);
+            fragmentContainer = findViewById(R.id.fragment_container);
 
             if (roleChipGroup != null) {
                 roleChipGroup.setOnCheckedStateChangeListener((group, checkedIds) -> {
@@ -121,6 +139,50 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * Back, from either the gesture or the navigation bar.
+     *
+     * <p>Three levels, in order: the fragment stack (station details → reservation → booking),
+     * the role's home screen (a tab, the account page or another root-level page), and finally
+     * the system, which leaves the app. Without the middle level every root-level page — the
+     * account page, a tab, a host screen — left the app on the first gesture, because those
+     * pages replace the container rather than stacking on it.
+     */
+    private void handleBack() {
+        FragmentManager manager = getSupportFragmentManager();
+        if (manager.getBackStackEntryCount() > 0) {
+            manager.popBackStack();
+            return;
+        }
+        if (isAtHomeScreen() || bottomNavigationView == null
+                || bottomNavigationView.getVisibility() != View.VISIBLE) {
+            // Home is the top of the in-app stack: leaving it leaves the app, as expected.
+            finish();
+            return;
+        }
+        goHome();
+    }
+
+    /** True when the container already shows the current role's home screen (or sign-in). */
+    private boolean isAtHomeScreen() {
+        Fragment current = getSupportFragmentManager()
+                .findFragmentById(R.id.fragment_container);
+        if (current == null) {
+            return true;
+        }
+        if (current instanceof SignInFragment) {
+            return true;
+        }
+        String role = AuthManager.getInstance().getCurrentRole();
+        if (AppConstants.ROLE_HOST.equals(role)) {
+            return current instanceof HostDashboardFragment;
+        }
+        if (AppConstants.ROLE_ADMIN.equals(role)) {
+            return current instanceof AdminDashboardFragment;
+        }
+        return current instanceof ChargerDiscoveryFragment;
+    }
+
     @Override
     protected void onNewIntent(android.content.Intent intent) {
         super.onNewIntent(intent);
@@ -140,6 +202,20 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * Shows or hides the top bar.
+     *
+     * <p>Hidden only on sign-in, where the page carries its own brand lock-up; drawing both
+     * would spell the brand twice, one above the other. The container is asked for fresh insets
+     * so its top padding follows the change instead of waiting for the next configuration pass.
+     */
+    private void setChromeVisible(boolean visible) {
+        int visibility = visible ? View.VISIBLE : View.GONE;
+        if (appBarLayout != null) appBarLayout.setVisibility(visibility);
+        if (appBarDivider != null) appBarDivider.setVisibility(visibility);
+        if (fragmentContainer != null) ViewCompat.requestApplyInsets(fragmentContainer);
+    }
+
     private void applyWindowInsets() {
         View appBar = findViewById(R.id.appBarLayout);
         if (appBar != null) {
@@ -149,6 +225,18 @@ public class MainActivity extends AppCompatActivity {
             ViewCompat.setOnApplyWindowInsetsListener(appBar, (view, windowInsets) -> {
                 Insets bars = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars());
                 view.setPadding(appBarStart, appBarTop + bars.top, appBarEnd, view.getPaddingBottom());
+                return windowInsets;
+            });
+        }
+
+        // The sign-in screen has no app bar, so the container takes the status-bar inset itself
+        // in that state; otherwise the page would slide under the clock.
+        if (fragmentContainer != null) {
+            ViewCompat.setOnApplyWindowInsetsListener(fragmentContainer, (view, windowInsets) -> {
+                Insets bars = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars());
+                boolean chromeVisible = appBarLayout != null
+                        && appBarLayout.getVisibility() == View.VISIBLE;
+                view.setPadding(0, chromeVisible ? 0 : bars.top, 0, 0);
                 return windowInsets;
             });
         }
@@ -164,20 +252,6 @@ public class MainActivity extends AppCompatActivity {
                 return windowInsets;
             });
         }
-    }
-
-    private void applyBrandMark(Toolbar toolbar) {
-        if (toolbar == null) return;
-        Drawable mark = AppCompatResources.getDrawable(this, R.drawable.ic_brand_mark);
-        if (mark == null) {
-            return;
-        }
-        // The mark sits on the lime brand square, so it is tinted with the ink that is
-        // guaranteed to read on lime rather than with colorOnPrimary.
-        mark = mark.mutate();
-        mark.setTint(ContextCompat.getColor(toolbar.getContext(), R.color.amp_on_lime));
-        toolbar.setLogo(mark);
-        toolbar.setLogoDescription(getString(R.string.app_name));
     }
 
     private void startBackend() {
@@ -209,6 +283,7 @@ public class MainActivity extends AppCompatActivity {
     public void showSignIn() {
         if (roleStrip != null) roleStrip.setVisibility(View.GONE);
         if (bottomNavigationView != null) bottomNavigationView.setVisibility(View.GONE);
+        setChromeVisible(false);
         getSupportFragmentManager()
                 .popBackStack(null, FragmentManager.POP_BACK_STACK_INCLUSIVE);
         getSupportFragmentManager()
@@ -224,6 +299,7 @@ public class MainActivity extends AppCompatActivity {
         // Host, so switching capacity is a normal part of using the app, not a demo control.
         if (roleStrip != null) roleStrip.setVisibility(View.VISIBLE);
         if (bottomNavigationView != null) bottomNavigationView.setVisibility(View.VISIBLE);
+        setChromeVisible(true);
         applyRole(AppConstants.ROLE_CONSUMER);
         invalidateOptionsMenu();
         Ux.toast(this, getString(R.string.auth_signed_in_as) + " " + user.getName());
@@ -312,11 +388,46 @@ public class MainActivity extends AppCompatActivity {
      */
     private View buildProfileBadge() {
         View badge = LayoutInflater.from(this).inflate(R.layout.view_profile_button, null);
-        TextView initials = badge.findViewById(R.id.profileBadgeText);
-        User user = AuthManager.getInstance().getCurrentUser();
-        initials.setText(initialsOf(user == null ? null : user.getName()));
+        profileBadgeView = badge;
+        renderProfileBadge();
         badge.setOnClickListener(this::showProfileMenu);
         return badge;
+    }
+
+    /**
+     * Paints the monogram, the name and the current capacity into the top bar.
+     *
+     * <p>Called again after a rename and after a role switch, so the bar never shows a stale
+     * name or the wrong capacity. The menu is not invalidated: replacing the action view while
+     * its popup is open would detach the view the popup is anchored to.
+     */
+    private void renderProfileBadge() {
+        if (profileBadgeView == null) {
+            return;
+        }
+        AuthManager auth = AuthManager.getInstance();
+        User user = auth.getCurrentUser();
+
+        TextView initials = profileBadgeView.findViewById(R.id.profileBadgeText);
+        TextView nameText = profileBadgeView.findViewById(R.id.profileNameText);
+        TextView roleText = profileBadgeView.findViewById(R.id.profileRoleText);
+
+        if (initials != null) {
+            initials.setText(initialsOf(user == null ? null : user.getName()));
+        }
+        if (nameText != null) {
+            nameText.setText(user == null
+                    ? getString(R.string.account_signed_in)
+                    : user.getName());
+        }
+        if (roleText != null) {
+            roleText.setText(AuthManager.roleLabel(auth.getCurrentRole()));
+        }
+    }
+
+    /** Re-renders the top-bar identity after the account page renames the signed-in person. */
+    public void refreshProfileBadge() {
+        renderProfileBadge();
     }
 
     private void showProfileMenu(View anchor) {
@@ -465,9 +576,7 @@ public class MainActivity extends AppCompatActivity {
         }
         buildRoleChips(target);
         AppStateStore.get().setUserId(auth.getCurrentUserId());
-        if (currentUserText != null) {
-            currentUserText.setText(auth.describeCurrentUser());
-        }
+        renderProfileBadge();
         buildNavigation(target);
     }
 

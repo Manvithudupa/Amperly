@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Amperly</string>
+    <!-- The wordmark is set in Fraunces with a lime full stop drawn beside it. -->
+    <string name="brand_wordmark" translatable="false">amperly</string>
     <string name="app_tagline">Reserve, access and pay for existing EV chargers</string>
     <string name="pilot_subtitle">Hyperlocal EV Charger Platform</string>
 
@@ -146,6 +148,10 @@
     <string name="route_start_label">Starting point</string>
     <string name="route_start_locating">Finding your current location…</string>
     <string name="route_start_current">Your current location</string>
+    <string name="route_start_locating_address">Looking up the address…</string>
+    <string name="route_start_address">%1$s · GPS active</string>
+    <string name="route_start_gps_only">GPS position · address unavailable</string>
+    <string name="route_start_map_pin">Map pin chosen</string>
     <string name="route_start_pick_on_map">Set start on the map</string>
     <string name="route_start_unavailable">Current location is unavailable. Tap the map to set your starting point, or turn on location and try again.</string>
     <string name="route_start_map_hint">Tap the map to set your starting point.</string>
@@ -356,8 +362,19 @@
 
     <!-- Account -->
     <string name="account_title">Account</string>
+    <string name="account_kicker">Your account</string>
+    <string name="account_description">The person behind the session, and how your data reaches the server.</string>
     <string name="account_profile">Profile</string>
     <string name="account_name">Name</string>
+    <string name="account_edit_name">Edit name</string>
+    <string name="account_edit_name_title">Your display name</string>
+    <string name="account_edit_name_body">This is the name hosts and drivers see on bookings and messages.</string>
+    <string name="account_edit_name_hint">Display name</string>
+    <string name="account_edit_name_empty">Enter a name before saving.</string>
+    <string name="account_edit_name_saved">Name updated.</string>
+    <string name="account_edit_name_queued">Name saved. It will reach the server on the next sync.</string>
+    <string name="account_details">Personal details</string>
+    <string name="account_signed_in">Signed in</string>
     <string name="account_email">Email</string>
     <string name="account_role">Can act as</string>
     <string name="account_organization">Organization</string>
@@ -371,6 +388,7 @@
     <string name="account_demo_note">Running on local demo data.</string>
     <string name="account_role_note">Every Amperly account can charge and host. Switch between Consumer and Host from the strip at the top of any screen.</string>
     <string name="account_synced">Sync finished: %1$s</string>
+    <string name="account_name_update_failed">Could not save the name on this device. Try again.</string>
 
     <!-- Map (Google Maps SDK for Android; the key is injected at build time) -->
     <string name="map_title">Map</string>
