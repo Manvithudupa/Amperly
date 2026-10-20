@@ -10,6 +10,7 @@ import androidx.annotation.Nullable;
 import androidx.lifecycle.LiveData;
 
 import com.amperly.app.core.common.AppConstants;
+import com.amperly.app.core.security.AuthManager;
 import com.amperly.app.data.local.AmperlyDatabase;
 import com.amperly.app.data.local.entity.AndroidAutoSession;
 import com.amperly.app.data.local.entity.AvailabilitySchedule;
