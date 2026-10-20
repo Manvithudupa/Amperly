@@ -418,6 +418,9 @@ public class AmperlyRepository {
         user.setName(name);
         db.userDao().update(user);
 
+        // Also update the AuthManager's user object so the UI reflects the change immediately
+        AuthManager.getInstance().setCurrentUser(user);
+
         Map<String, Object> row = new LinkedHashMap<>();
         row.put("id", user.getId());
         row.put("name", name);
