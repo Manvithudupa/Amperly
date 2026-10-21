@@ -254,9 +254,22 @@ public final class SupabaseRest {
         Response<ResponseBody> get() throws IOException;
     }
 
+    /**
+     * Sends one request, renewing the session as needed.
+     *
+     * <p>The token is renewed before the request when it is about to expire, and once more
+     * if the server answers 401 — a session that outlived its hour must not turn every
+     * save into a permission error until the app restarts. A second 401 is reported as it
+     * is, because retrying a token the server refuses is pointless.
+     */
     private static Response<ResponseBody> call(CallSupplier supplier) {
+        SupabaseAuth.ensureFreshSession();
         try {
-            return supplier.get();
+            Response<ResponseBody> response = supplier.get();
+            if (response.code() == 401 && SupabaseAuth.renewAfterRejection()) {
+                return supplier.get();
+            }
+            return response;
         } catch (IOException ioException) {
             // code 0 marks a transport failure, which is always retryable.
             throw new RestException(0, "Could not reach Supabase: " + ioException.getMessage(),

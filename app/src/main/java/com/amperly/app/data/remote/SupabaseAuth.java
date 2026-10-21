@@ -45,6 +45,14 @@ public final class SupabaseAuth {
     private static final String TAG = "SupabaseAuth";
 
     private static final Object PREFS_LOCK = new Object();
+
+    /** Serialises token renewal: Supabase rotates the refresh token on every use. */
+    private static final Object RENEW_LOCK = new Object();
+
+    /** Remembered so a request can renew an expiring token without a screen passing it in. */
+    @Nullable
+    private static volatile Context appContext;
+
     private static volatile SharedPreferences cachedPrefs;
     private static final String KEY_ACCESS = "access_token";
     private static final String KEY_REFRESH = "refresh_token";
@@ -128,6 +136,13 @@ public final class SupabaseAuth {
         return SupabaseClient.isReady();
     }
 
+    /** Remembers the application context for {@link #ensureFreshSession()}. */
+    public static void attach(Context context) {
+        if (context != null) {
+            appContext = context.getApplicationContext();
+        }
+    }
+
     /** True once a session has been loaded into {@link SupabaseClient}. */
     public static boolean isSignedIn() {
         return SupabaseClient.authHeader() != null;
@@ -143,6 +158,7 @@ public final class SupabaseAuth {
     public static Session signIn(Context context, String email, String password)
             throws Failure {
         requireConfigured();
+        attach(context);
         JsonObject body = new JsonObject();
         body.addProperty("email", email == null ? "" : email.trim());
         body.addProperty("password", password == null ? "" : password);
@@ -163,6 +179,7 @@ public final class SupabaseAuth {
     public static Session signUp(Context context, String email, String password)
             throws Failure {
         requireConfigured();
+        attach(context);
         JsonObject body = new JsonObject();
         body.addProperty("email", email == null ? "" : email.trim());
         body.addProperty("password", password == null ? "" : password);
@@ -202,6 +219,7 @@ public final class SupabaseAuth {
         if (!SupabaseClient.isReady()) {
             return null;
         }
+        attach(context);
         SharedPreferences prefs = prefs(context);
         String access = prefs.getString(KEY_ACCESS, null);
         if (access == null || access.isEmpty()) {
@@ -228,6 +246,7 @@ public final class SupabaseAuth {
 
     public static Session refresh(Context context) throws Failure {
         requireConfigured();
+        attach(context);
         SharedPreferences prefs = prefs(context);
         String refreshToken = prefs.getString(KEY_REFRESH, null);
         if (refreshToken == null || refreshToken.isEmpty()) {
@@ -259,6 +278,60 @@ public final class SupabaseAuth {
             // the user stuck in a signed-in state.
         }
         clear(context);
+    }
+
+    /**
+     * Renews the access token when it is about to expire.
+     *
+     * <p>A Supabase session lasts one hour. Without this, every write made after that hour
+     * was refused with HTTP 401 until the app was restarted, because the only place that
+     * refreshed was session restore at launch. Safe to call before any request: it does
+     * nothing while the token is still valid, and it never throws.
+     */
+    public static void ensureFreshSession() {
+        renewSession(false);
+    }
+
+    /**
+     * Renews after the server refused the current token, even when the stored expiry says
+     * it should still be valid (a token can be revoked or rotated elsewhere).
+     *
+     * @return true when a fresh token was obtained and the request is worth retrying once.
+     */
+    public static boolean renewAfterRejection() {
+        return renewSession(true);
+    }
+
+    private static boolean renewSession(boolean forced) {
+        Context context = appContext;
+        if (context == null || !SupabaseClient.isReady()) {
+            return false;
+        }
+        synchronized (RENEW_LOCK) {
+            try {
+                SharedPreferences prefs = prefs(context);
+                String refreshToken = prefs.getString(KEY_REFRESH, null);
+                if (refreshToken == null || refreshToken.isEmpty()) {
+                    return false;
+                }
+                long expiresAt = prefs.getLong(KEY_EXPIRES_AT, 0L);
+                if (!forced && (expiresAt <= 0
+                        || System.currentTimeMillis() + REFRESH_MARGIN_MS < expiresAt)) {
+                    return false;
+                }
+                refresh(context);
+                Log.i(TAG, "Access token renewed before expiring.");
+                return true;
+            } catch (Failure failure) {
+                // A dead refresh token means the user has to sign in again; the caller's
+                // own request will then fail with the server's 401 and say so.
+                Log.w(TAG, "Could not renew the session: " + failure.getMessage());
+                return false;
+            } catch (RuntimeException e) {
+                Log.w(TAG, "Could not renew the session: " + e, e);
+                return false;
+            }
+        }
     }
 
     // ------------------------------------------------------------------ internal
