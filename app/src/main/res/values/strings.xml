@@ -45,6 +45,13 @@
     <string name="discovery_shown">%1$d charger(s) · %2$s</string>
     <string name="discovery_battery_value">%1$d%%</string>
     <string name="discovery_battery_unknown">Not set</string>
+    <string name="discovery_battery_caption">vehicle battery \u00b7 tap to set</string>
+    <string name="discovery_battery_caption_known">vehicle battery \u00b7 tap to change</string>
+    <string name="discovery_set_battery_title">Set your battery</string>
+    <string name="discovery_set_battery_message">Enter the battery percentage shown on your vehicle dashboard. It is kept for 12 hours and is never guessed.</string>
+    <string name="discovery_set_battery_hint">Battery %</string>
+    <string name="discovery_set_battery_saved">Battery set to %1$d%%</string>
+    <string name="discovery_set_battery_invalid">Battery percentage must be between 0 and 100.</string>
     <string name="discovery_no_price">\u2014</string>
     <string name="discovery_range_value">%1$d km</string>
     <string name="discovery_range_unknown">\u2014</string>

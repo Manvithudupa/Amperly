@@ -2,9 +2,11 @@ package com.amperly.app.feature.consumer;
 
 import android.Manifest;
 import android.os.Bundle;
+import android.text.InputType;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.TextView;
 
@@ -24,6 +26,7 @@ import com.amperly.app.core.map.MapPanel;
 import com.amperly.app.core.nav.Navigator;
 import com.amperly.app.core.security.AuthManager;
 import com.amperly.app.core.state.AppStateStore;
+import com.amperly.app.core.state.SocStore;
 import com.amperly.app.data.local.entity.ChargerStation;
 import com.amperly.app.data.local.entity.Vehicle;
 import com.amperly.app.data.repository.AmperlyRepository;
@@ -113,6 +116,13 @@ public class ChargerDiscoveryFragment extends Fragment implements StationAdapter
         View updateVehicleBtn = view.findViewById(R.id.updateVehicleButton);
         if (updateVehicleBtn != null) {
             updateVehicleBtn.setOnClickListener(v -> Navigator.open(this, new VehicleProfileFragment(), "vehicle"));
+        }
+
+        // The battery card is the driver's own reading: there is nowhere else to state it, and
+        // the app will not invent a number for them.
+        View batteryCard = view.findViewById(R.id.heroBatteryCard);
+        if (batteryCard != null) {
+            batteryCard.setOnClickListener(v -> promptForBattery());
         }
 
         if (emptyStateActionButton != null) {
@@ -214,6 +224,12 @@ public class ChargerDiscoveryFragment extends Fragment implements StationAdapter
                             ? getString(R.string.discovery_battery_value, batteryPct)
                             : getString(R.string.discovery_battery_unknown));
                 }
+                TextView heroCaption = getView().findViewById(R.id.heroBatteryCaption);
+                if (heroCaption != null) {
+                    heroCaption.setText(batteryPct >= 0
+                            ? R.string.discovery_battery_caption_known
+                            : R.string.discovery_battery_caption);
+                }
                 if (heroProgress != null) {
                     heroProgress.setProgress(Math.max(0, batteryPct));
                 }
@@ -260,6 +276,48 @@ public class ChargerDiscoveryFragment extends Fragment implements StationAdapter
                 });
             });
         });
+    }
+
+    /** Asks for the dashboard reading and keeps it for this account. */
+    private void promptForBattery() {
+        if (!isAdded()) {
+            return;
+        }
+        final EditText input = new EditText(requireContext());
+        input.setInputType(InputType.TYPE_CLASS_NUMBER);
+        input.setHint(getString(R.string.discovery_set_battery_hint));
+        int current = AppStateStore.get().getCurrentSoc();
+        if (current >= 0) {
+            input.setText(String.valueOf(current));
+            input.setSelection(input.getText().length());
+        }
+        new androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                .setTitle(R.string.discovery_set_battery_title)
+                .setMessage(R.string.discovery_set_battery_message)
+                .setView(input)
+                .setNegativeButton(R.string.action_close, null)
+                .setPositiveButton(R.string.action_save, (dialog, which) -> saveBattery(input))
+                .show();
+    }
+
+    private void saveBattery(@NonNull EditText input) {
+        String text = input.getText().toString().trim();
+        int soc;
+        try {
+            soc = Integer.parseInt(text);
+        } catch (NumberFormatException e) {
+            soc = -1;
+        }
+        if (soc < 0 || soc > 100) {
+            Ux.toast(this, getString(R.string.discovery_set_battery_invalid));
+            return;
+        }
+        AppStateStore.get().applySocCorrection(AppStateStore.get().getCurrentSoc(), soc);
+        SocStore.save(requireContext(), AuthManager.getInstance().getCurrentUserId(), soc);
+        Ux.toast(this, getString(R.string.discovery_set_battery_saved, soc));
+        // Reloading redraws the hero, the range estimate and the compatibility labels with
+        // the new reading rather than leaving the old figure on screen.
+        loadStations();
     }
 
     private void applyFilter() {

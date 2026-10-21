@@ -33,6 +33,7 @@ import com.amperly.app.core.routing.DirectionsRoute;
 import com.amperly.app.core.routing.GoogleDirectionsClient;
 import com.amperly.app.core.security.AuthManager;
 import com.amperly.app.core.state.AppStateStore;
+import com.amperly.app.core.state.SocStore;
 import com.amperly.app.data.local.entity.ChargerStation;
 import com.amperly.app.data.local.entity.RoutePlan;
 import com.amperly.app.data.local.entity.RouteStop;
@@ -471,6 +472,7 @@ public class RoutePlannerFragment extends Fragment implements RouteStopAdapter.L
             AppStateStore store = AppStateStore.get();
             store.setVehicle(vehicle);
             store.setEstimatedSoc(startSoc);
+            SocStore.save(getContext(), userId, startSoc);
             store.setActivePlan(plan);
             store.setLastPlanResult(result);
             store.setUserId(userId);
@@ -691,6 +693,8 @@ public class RoutePlannerFragment extends Fragment implements RouteStopAdapter.L
 
     private void renderRecalculation(SoCEstimatorEngine.RecalculationResult result, int previousEstimate) {
         AppStateStore.get().applySocCorrection(previousEstimate, result.getActualDashboardSoc());
+        SocStore.save(requireContext(), AuthManager.getInstance().getCurrentUserId(),
+                result.getActualDashboardSoc());
         AppStateStore.get().setLastRecalculationSummary(result.getExplanation());
         AppStateStore.get().setNoSafeChargerMessage(result.getWarningMessage() == null ? ""
                 : result.getWarningMessage());

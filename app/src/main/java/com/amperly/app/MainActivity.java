@@ -25,6 +25,7 @@ import com.amperly.app.core.common.AppConstants;
 import com.amperly.app.core.nav.Navigator;
 import com.amperly.app.core.security.AuthManager;
 import com.amperly.app.core.state.AppStateStore;
+import com.amperly.app.core.state.SocStore;
 import com.amperly.app.data.local.entity.User;
 import com.amperly.app.data.remote.SupabaseAuth;
 import com.amperly.app.data.remote.SupabaseConfig;
@@ -300,6 +301,12 @@ public class MainActivity extends AppCompatActivity {
 
     public void onSignedIn(User user) {
         AuthManager.getInstance().setCurrentUser(user);
+        // The battery reading the driver last confirmed survives a restart. Without this the
+        // home screen said "Not set" on every launch, even after they had entered it.
+        int storedSoc = SocStore.load(this, user.getId());
+        if (storedSoc >= 0 && AppStateStore.get().getCurrentSoc() < 0) {
+            AppStateStore.get().setEstimatedSoc(storedSoc);
+        }
         // The role strip stays available to signed-in users: the same account is a Consumer and a
         // Host, so switching capacity is a normal part of using the app, not a demo control.
         if (roleStrip != null) roleStrip.setVisibility(View.VISIBLE);

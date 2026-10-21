@@ -26,7 +26,9 @@ import com.amperly.app.core.nav.Navigator;
 import com.amperly.app.core.nav.RouteProgress;
 import com.amperly.app.core.routing.DirectionsRoute;
 import com.amperly.app.core.routing.GoogleDirectionsClient;
+import com.amperly.app.core.security.AuthManager;
 import com.amperly.app.core.state.AppStateStore;
+import com.amperly.app.core.state.SocStore;
 import com.amperly.app.ui.Ux;
 
 import java.text.SimpleDateFormat;
@@ -287,6 +289,7 @@ public class InAppNavigationFragment extends Fragment {
                         return;
                     }
                     AppStateStore.get().applySocCorrection(AppStateStore.get().getCurrentSoc(), soc);
+                    SocStore.save(getContext(), AuthManager.getInstance().getCurrentUserId(), soc);
                     AppStateStore.get().setLastRecalculationSummary(
                             "Dashboard value " + soc + "% is now authoritative for the remaining trip.");
                     recalculateFromPosition();

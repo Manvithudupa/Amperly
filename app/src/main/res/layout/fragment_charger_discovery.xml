@@ -73,12 +73,17 @@
                     android:textColor="@color/amp_on_hero_muted"
                     android:textSize="12sp" />
 
-                <!-- Battery readout, inset on a translucent surface like the prototype -->
+                <!-- Battery readout, inset on a translucent surface like the prototype.
+                     Tapping it is how the driver states their own battery level. -->
                 <LinearLayout
+                    android:id="@+id/heroBatteryCard"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="@dimen/amp_space_m"
                     android:background="@drawable/bg_hero_battery"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:foreground="?attr/selectableItemBackground"
                     android:gravity="center_vertical"
                     android:orientation="horizontal"
                     android:padding="@dimen/amp_space_m">
@@ -100,10 +105,11 @@
                             android:textStyle="bold" />
 
                         <TextView
+                            android:id="@+id/heroBatteryCaption"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:fontFamily="@font/dm_sans"
-                            android:text="vehicle battery"
+                            android:text="@string/discovery_battery_caption"
                             android:textColor="@color/amp_on_hero_muted"
                             android:textSize="10sp" />
 
