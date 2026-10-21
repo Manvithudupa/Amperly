@@ -32,13 +32,13 @@ import com.google.android.material.textfield.TextInputLayout;
 /**
  * The account page: who is signed in, what the sync engine is doing, and how to sign out.
  *
- * <p>It doubles as the honest status report for the cache: what has been pushed, what is
- * still queued, and when the last pull happened — because "why is my data missing" is the
+ * <p>It doubles as the honest status report for the backend: when the last pull happened and
+ * why the last save did not reach the database — because "why is my data missing" is the
  * question this screen exists to answer.
  *
  * <p>The display name is the one profile field the account owns. It is edited here and saved
- * through {@link AmperlyRepository#updateDisplayName}, which writes Room first and queues the
- * server change, so a rename made offline is not lost.
+ * through {@link AmperlyRepository#updateDisplayName}, which writes Room and sends the change
+ * to the server in the same call.
  */
 public class AccountFragment extends Fragment {
 
@@ -113,9 +113,9 @@ public class AccountFragment extends Fragment {
     /**
      * Reads the sync state off the main thread.
      *
-     * <p>{@code statusSummary} counts rows in the outbox and Room refuses queries on the main
-     * thread, so it cannot be read inline. The label keeps its previous text until the answer
-     * arrives rather than flashing empty.
+     * <p>{@code statusSummary} reads the stored pull cursor and the last write error, which is
+     * cheap but still not work for the main thread. The label keeps its previous text until the
+     * answer arrives rather than flashing empty.
      */
     private void loadSyncStatus() {
         repo.background(() -> repo.syncStatus(), status -> {
@@ -264,7 +264,7 @@ public class AccountFragment extends Fragment {
         input.requestFocus();
     }
 
-    /** Writes the name locally, queues the server change, then repaints the page and the bar. */
+    /** Writes the name locally, sends it to the server, then repaints the page and the bar. */
     private void saveName(@NonNull String name) {
         User user = AuthManager.getInstance().getCurrentUser();
         if (user == null) {

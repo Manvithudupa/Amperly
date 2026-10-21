@@ -13,11 +13,9 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.amperly.app.R;
-import com.amperly.app.core.common.AppConstants;
 import com.amperly.app.core.common.Formatters;
 import com.amperly.app.core.nav.Navigator;
 import com.amperly.app.core.security.AuthManager;
-import com.amperly.app.data.local.entity.Notification;
 import com.amperly.app.data.local.entity.SafetyEvent;
 import com.amperly.app.data.local.entity.TrustedContact;
 import com.amperly.app.data.repository.AmperlyRepository;
@@ -143,15 +141,8 @@ public class SafetySOSFragment extends Fragment implements ContactAdapter.Listen
                     com.amperly.app.core.state.AppStateStore.get().getActiveReservationId(),
                     "SOS", false, null, 0, System.currentTimeMillis());
             repo.saveSafetyEvent(event);
-
-            for (com.amperly.app.data.local.entity.User admin : repo.getAllUsersSync()) {
-                if (AppConstants.ROLE_ADMIN.equals(admin.getRole())) {
-                    repo.saveNotification(new Notification(UUID.randomUUID().toString(), admin.getId(),
-                            "SOS triggered", "Consumer " + userId + " triggered SOS during reservation "
-                            + com.amperly.app.core.state.AppStateStore.get().getActiveReservationId() + ".",
-                            false, System.currentTimeMillis()));
-                }
-            }
+            // The SOS event itself is the record an administrator reads. A notification owned
+            // by another user cannot be inserted under Row Level Security, so none is written.
             return Boolean.TRUE;
         }, ok -> {
             sosStatusText.setText(getString(R.string.safety_sos_active));

@@ -181,9 +181,9 @@ longer allowed to *store* one. The billing transitions go through
 | `freeze_dispute_payout` | admin | Holds the host's payout |
 | `apply_host_enforcement` | admin | Records the enforcement action and pauses the station when the policy calls for it |
 
-Each one checks who is calling before it writes, and the app queues the call in
-the same outbox it uses for row edits, so an offline device still settles in
-order once it reconnects.
+Each one checks who is calling before it writes, and the app calls it directly
+from the save that needs it. There is no offline queue: a call that fails is
+reported in the account screen's sync status instead of being replayed later.
 
 Three things to keep in mind:
 
@@ -192,9 +192,9 @@ Three things to keep in mind:
   whose `current_user` is neither `anon` nor `authenticated` as trusted. If the
   functions ended up owned by some other role, RLS would apply to their writes
   too and settlements would fail.
-- **A stale write is refused, not lost.** A queued row from a build that still
-  wrote payments or invoices directly is rejected by RLS and stays in the outbox;
-  clearing it (sign out, or `SyncEngine.reset`) drops those entries.
+- **A refused write is reported, not queued.** The app holds no offline write
+  queue, so a row the server refuses is logged and shown in the account screen's
+  sync status; the local copy in Room stays but is not re-sent.
 - **The server's figure is the one that counts.** After a settlement, pull so the
   locally computed amounts are replaced by the server's.
 
@@ -221,12 +221,11 @@ are ignored by the app's JSON parser:
   incremental sync possible. Do not remove it, and do not edit it from the app.
 
 `"authUserId"` is why sections 1b and 1c exist. The column has no counterpart on
-the Room entity, so a row queued from the entity alone would arrive without it and
+the Room entity, so a row built from the entity alone would arrive without it and
 `users_insert_self` would refuse the insert. The app still creates its own profile
 row on first sign-in, as a fallback for a project where those sections have not
-been applied yet, and it sends that row through `SyncEngine.enqueuePayload` — a
-queued payload is pushed to PostgREST byte for byte, so the server-only column
-survives and a refused insert is retried instead of dropped.
+been applied yet, and it sends that row straight to PostgREST with the server-only
+column included.
 
 ---
 

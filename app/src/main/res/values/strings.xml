@@ -358,7 +358,7 @@
     <string name="auth_callback_return">Back in Amperly. Sign in to continue — a confirmed address cannot be assumed from the link alone.</string>
     <string name="auth_secret_key">Invalid configuration detected. Please check app configuration.</string>
     <string name="auth_profile_offline">Unable to load profile. Please check your connection and try again.</string>
-    <string name="auth_profile_local_only">Signed in, but the server has not accepted your profile row yet. It stays queued and is retried on the next sync. If it keeps failing, re-run supabase/schema.sql.</string>
+    <string name="auth_profile_local_only">Signed in, but the server has not accepted your profile row yet, so some saves may be refused. Sign out and in again; if it keeps happening, re-run supabase/schema.sql.</string>
 
     <!-- Account -->
     <string name="account_title">Account</string>
@@ -372,7 +372,6 @@
     <string name="account_edit_name_hint">Display name</string>
     <string name="account_edit_name_empty">Enter a name before saving.</string>
     <string name="account_edit_name_saved">Name updated.</string>
-    <string name="account_edit_name_queued">Name saved. It will reach the server on the next sync.</string>
     <string name="account_details">Personal details</string>
     <string name="account_signed_in">Signed in</string>
     <string name="account_email">Email</string>

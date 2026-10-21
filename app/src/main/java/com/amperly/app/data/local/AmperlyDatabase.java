@@ -25,7 +25,6 @@ import com.amperly.app.data.local.dao.ReservationDao;
 import com.amperly.app.data.local.dao.RoutePlanDao;
 import com.amperly.app.data.local.dao.RouteStopDao;
 import com.amperly.app.data.local.dao.SafetyEventDao;
-import com.amperly.app.data.local.dao.SyncOutboxDao;
 import com.amperly.app.data.local.dao.TripEstimateDao;
 import com.amperly.app.data.local.dao.TrustedContactDao;
 import com.amperly.app.data.local.dao.UserDao;
@@ -49,7 +48,6 @@ import com.amperly.app.data.local.entity.Reservation;
 import com.amperly.app.data.local.entity.RoutePlan;
 import com.amperly.app.data.local.entity.RouteStop;
 import com.amperly.app.data.local.entity.SafetyEvent;
-import com.amperly.app.data.local.entity.SyncOutboxEntry;
 import com.amperly.app.data.local.entity.TripEstimate;
 import com.amperly.app.data.local.entity.TrustedContact;
 import com.amperly.app.data.local.entity.User;
@@ -61,9 +59,8 @@ import com.amperly.app.data.local.entity.Vehicle;
         Invoice.class, Payment.class, Dispute.class, Report.class, SafetyEvent.class,
         TrustedContact.class, BatteryUpdate.class, HostEnforcementAction.class,
         Notification.class, ChatMessage.class, CommunicationThread.class, RoutePlan.class,
-        RouteStop.class, TripEstimate.class, AndroidAutoSession.class,
-        SyncOutboxEntry.class
-}, version = 3, exportSchema = false)
+        RouteStop.class, TripEstimate.class, AndroidAutoSession.class
+}, version = 4, exportSchema = false)
 public abstract class AmperlyDatabase extends RoomDatabase {
 
     private static volatile AmperlyDatabase INSTANCE;
@@ -91,9 +88,6 @@ public abstract class AmperlyDatabase extends RoomDatabase {
     public abstract RouteStopDao routeStopDao();
     public abstract TripEstimateDao tripEstimateDao();
     public abstract AndroidAutoSessionDao androidAutoSessionDao();
-
-    /** Pending remote writes. Local-only: never itself synced. */
-    public abstract SyncOutboxDao syncOutboxDao();
 
     public static AmperlyDatabase getInstance(Context context) {
         if (INSTANCE == null) {

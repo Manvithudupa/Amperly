@@ -33,7 +33,6 @@ import com.amperly.app.core.security.AuthManager;
 import com.amperly.app.data.local.entity.AvailabilitySchedule;
 import com.amperly.app.data.local.entity.ChargerPort;
 import com.amperly.app.data.local.entity.ChargerStation;
-import com.amperly.app.data.local.entity.Notification;
 import com.amperly.app.data.local.entity.User;
 import com.amperly.app.data.repository.AmperlyRepository;
 import com.amperly.app.engine.meter.MeterSimulator;
@@ -309,14 +308,8 @@ public class RegisterStationFragment extends Fragment {
             repo.savePorts(ports);
             repo.saveSchedules(schedules);
             MeterSimulator.setReading(stationId, 100.0 + (Math.random() * 50.0));
-
-            for (User admin : repo.getAllUsersSync()) {
-                if (AppConstants.ROLE_ADMIN.equals(admin.getRole())) {
-                    repo.saveNotification(new Notification(UUID.randomUUID().toString(), admin.getId(),
-                            "Station awaiting verification", name + " was submitted by " + host.getName()
-                            + " (" + meterLevel + ").", false, System.currentTimeMillis()));
-                }
-            }
+            // The station is the record the admin queue reads; no cross-user notification is
+            // written, because the notifications policy only accepts rows owned by the caller.
             return stationId;
         }, id -> {
             if (!isAdded() || id == null) {

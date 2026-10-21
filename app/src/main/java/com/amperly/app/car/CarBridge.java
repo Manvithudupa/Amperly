@@ -225,13 +225,15 @@ public final class CarBridge {
             String reservationId = UUID.randomUUID().toString();
             String code = ReservationEngine.buildBookingCode();
             payment.setReservationId(reservationId);
-            repo.authorizePayment(payment, stationId);
 
             Reservation reservation = new Reservation(reservationId, userId, stationId, station.getName(),
                     slot.getPortId(), slot.getPortLabel(), code, slot.getStartMs(), slot.getEndMs(),
                     AppConstants.STATUS_RESERVED, station.getPricePerKwh(), station.getServiceFee(),
                     station.getGatewayFee(), 0.0, true, payment.getId(), 0, 0, System.currentTimeMillis());
+            // authorize_payment resolves the booking server-side, so the reservation is written
+            // first.
             repo.saveReservation(reservation);
+            repo.authorizePayment(payment, stationId);
             AppStateStore.get().setActiveReservation(reservation);
             AppStateStore.get().setLastBookingCode(code);
             return "Reserved " + slot.getPortLabel() + " at " + station.getName() + " · code " + code;

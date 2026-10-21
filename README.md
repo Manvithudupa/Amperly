@@ -23,7 +23,7 @@ The MVP is a **single-process Android application**. There is no live backend an
 | Charger telemetry | None. Availability is schedule-, reservation- and host-update-based, and is labelled with a freshness timestamp |
 | Meter data | `MeterSimulator` / manual entry, always labelled **Demo meter** or **manually entered** |
 | Cloud | Optional Supabase/Postgres backend (`supabase/`). When `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` are set it becomes the source of truth; when they are absent the app runs fully on-device. A trigger on `auth.users` gives every account its `public.users` profile — the row Row Level Security resolves the caller through |
-| Sync | Room stays the read cache and the offline write queue: a `sync_outbox` table plus `SyncEngine` push local changes and pull everything changed on the server. Pushing is automatic — every local write starts a coalesced push immediately, so a saved row reaches the database without the user pressing anything — and there is no manual sync control |
+| Sync | Room is the read cache only. Every save is written straight to Supabase by `SyncEngine` in the same task, so there is no outbox to drain and no manual sync control; `SyncEngine.syncNow` pulls rows changed since a per-table cursor so server-side and other-device changes appear in the app |
 
 `AmperlyDatabase` uses `fallbackToDestructiveMigration()`, so a schema change resets local demo data instead of migrating it.
 
@@ -287,8 +287,8 @@ interface. See `GOOGLE_NAVIGATION_MIGRATION.md` for the exact seam.
 ## 7. Data model and the optional server-side demo seed
 
 The app itself ships with **no demo data**. On first launch it shows the sign-in screen, and every
-screen after that reads the signed-in account's own rows from Supabase (Room is only the offline
-cache and write queue). Sign-up creates the `public.users` profile row through the `auth.users`
+screen after that reads the signed-in account's own rows from Supabase (Room is only the read
+cache; saves are written straight to the database). Sign-up creates the `public.users` profile row through the `auth.users`
 trigger, so a brand-new account starts with empty lists and honest empty states.
 
 For local demonstrations only, `supabase/pilot_seed.sql` can be run **against the database** to
@@ -363,7 +363,7 @@ Also seeded: full weekly availability schedules, two completed sessions with inv
 | Compile/target SDK | 35 (minSdk 24) |
 | UI | Material 3 components, `viewBinding`, RecyclerView, custom `Widget.Amperly.*` styles + `values-night` theme |
 | Car UI | Android for Cars App Library (`androidx.car.app:app:1.4.0`), Charging + Navigation categories, navigation template |
-| Persistence | Room (`room-runtime 2.6.1`) — 23 entities, 24 DAOs (incl. the sync outbox) |
+| Persistence | Room (`room-runtime 2.6.1`) — 23 entities, 23 DAOs; local read cache only, with no offline write queue |
 | Backend (optional) | Supabase — Postgres with Row Level Security, PostgREST data API and GoTrue auth, over Retrofit/OkHttp. See [`supabase/README.md`](supabase/README.md) |
 | Maps | **Google Maps SDK for Android** (`play-services-maps`) |
 | Places | **Google Places SDK for Android** (`places`) + Geocoding API |

@@ -295,27 +295,25 @@ public class ReservationFragment extends Fragment implements ReservationAdapter.
             String bookingCode = ReservationEngine.buildBookingCode();
             Payment payment = paymentResult.getPayment();
             payment.setReservationId(reservationId);
-            repo.authorizePayment(payment, station.getId());
 
             Reservation reservation = new Reservation(reservationId, userId, station.getId(),
                     station.getName(), port.getId(), AvailabilityEngine.portLabel(port), bookingCode,
                     slot.getStartMs(), slot.getEndMs(), AppConstants.STATUS_RESERVED,
                     station.getPricePerKwh(), station.getServiceFee(), station.getGatewayFee(), 0.0,
                     station.supportsPaidEnergyBilling(), payment.getId(), 0, 0, System.currentTimeMillis());
+            // The reservation has to exist on the server before authorize_payment runs: that
+            // function looks the booking up to decide who may hold the authorization.
             repo.saveReservation(reservation);
+            repo.authorizePayment(payment, station.getId());
 
             User consumer = AuthManager.getInstance().getCurrentUser();
             User host = repo.getUserSync(station.getHostId());
             CommunicationThread thread = ChatManager.createThread(reservation, consumer, host);
             repo.saveThread(thread);
 
-            if (host != null) {
-                repo.saveNotification(new Notification(UUID.randomUUID().toString(), host.getId(),
-                        "New reservation", (consumer == null ? "A consumer" : consumer.getName())
-                        + " reserved " + AvailabilityEngine.portLabel(port) + " for "
-                        + Formatters.dayAndSlot(slot.getStartMs(), slot.getEndMs()) + ".", false,
-                        System.currentTimeMillis()));
-            }
+            // Only the booking consumer's notification is written. `notifications` is scoped to
+            // its owner by Row Level Security, so a notification addressed to the host was
+            // refused by the server on every attempt; it never reached the database.
             repo.saveNotification(new Notification(UUID.randomUUID().toString(), userId,
                     "Reservation confirmed", bookingCode + " at " + station.getName()
                     + ". Show the booking code at the entrance.", false, System.currentTimeMillis()));

@@ -2,84 +2,63 @@ package com.amperly.app.data.remote;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.util.Log;
 
 import androidx.annotation.Nullable;
 
+import com.amperly.app.core.common.Formatters;
 import com.amperly.app.data.local.AmperlyDatabase;
-import com.amperly.app.data.local.entity.SyncOutboxEntry;
 import com.google.gson.Gson;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 
 import java.util.List;
-import java.util.UUID;
 
 /**
- * Postgres is the source of truth; Room is the read cache and the offline write queue.
+ * The app's connection to Supabase.
  *
- * <p>Every local write lands in Room and leaves a row in {@code sync_outbox}. A sync is
- * then:
+ * <p>Postgres is the source of truth. A save writes straight to the server through
+ * {@link #save}, {@link #patch}, {@link #delete} or {@link #call}; there is no offline queue,
+ * so a write either reaches the database or is reported. Room keeps the copy that was read
+ * back.
  *
- * <ol>
- *   <li><b>Push</b> — drain the outbox oldest-first, so a device that was offline for a
- *       while reconciles in the order the user made the changes.</li>
- *   <li><b>Pull</b> — page through each table's rows where
- *       {@code serverUpdatedAt > cursor}, and upsert them into Room. The cursor is kept
- *       per table, so a pull only ever transfers what changed.</li>
- * </ol>
- *
- * <p>Push runs before pull on purpose: if a row were pulled first, a local edit that has
- * not been sent yet would be silently overwritten by the older server copy.
- *
- * <p>Known limitation: deletions are only synced from the device that made them. There is
- * no tombstone table, so a row deleted on another device will reappear on this one until
- * something writes it again. The domain avoids hard deletes (statuses are used instead),
- * which is what makes that acceptable here.
+ * <p>{@link #syncNow} is the read direction. It pages each table forward from its per-table
+ * cursor and upserts the changed rows into Room, so another device's changes — and the rows
+ * the settlement functions write on the server — appear in the app.
  */
 public final class SyncEngine {
 
+    private static final String TAG = "SyncEngine";
     private static final String CURSOR_PREFS = "amperly_sync_cursors";
     private static final String KEY_LAST_SYNC_MS = "__lastSyncMs";
     private static final String KEY_LAST_ERROR = "__lastError";
 
-    private static final int PUSH_BATCH = 100;
     private static final int MAX_PULL_PAGES = 20;
     private static final Gson GSON = new Gson();
 
     private SyncEngine() {
     }
 
-    /** The outcome of one sync pass, for the UI to report honestly. */
+    /** The outcome of one pull, for the UI to report honestly. */
     public static final class Result {
         public final boolean ran;
-        public final int pushed;
-        public final int failed;
         public final int pulled;
         @Nullable
         public final String message;
 
-        Result(boolean ran, int pushed, int failed, int pulled, @Nullable String message) {
+        Result(boolean ran, int pulled, @Nullable String message) {
             this.ran = ran;
-            this.pushed = pushed;
-            this.failed = failed;
             this.pulled = pulled;
             this.message = message;
         }
 
         static Result skipped(String message) {
-            return new Result(false, 0, 0, 0, message);
+            return new Result(false, 0, message);
         }
 
         public String summary() {
             if (!ran) {
                 return message == null ? "Sync did not run." : message;
             }
-            if (failed > 0) {
-                return pushed + " pushed, " + pulled + " pulled, " + failed
-                        + " could not be sent and will be retried.";
-            }
-            return pushed + " pushed, " + pulled + " pulled.";
+            return pulled + " pulled.";
         }
     }
 
@@ -87,233 +66,82 @@ public final class SyncEngine {
         return SupabaseRest.isReady();
     }
 
-    // ------------------------------------------------------------------ enqueue
+    // ------------------------------------------------------------------- write
+    // These run on the repository's write thread, in the same task as the Room write, so a
+    // save is sent as soon as it is made. Failures propagate to the caller, which records
+    // them for the account screen rather than queueing the change for later.
 
-    /**
-     * Queues a call to a Postgres function.
-     *
-     * <p>Used for the settlement transitions (payment capture, session completion,
-     * cancellation, dispute resolution) where the change must be produced by the
-     * server's own logic rather than by copying a locally edited row onto a table.
-     *
-     * <p>The function name is stored in the table-name column and {@code dedupeKey} in
-     * the row-id column, so two calls for the same subject collapse into the latest one
-     * exactly as two edits of the same row do.
-     */
-    public static void enqueueRpc(AmperlyDatabase db, String functionName, String dedupeKey,
-                                  Object args) {
-        if (!isEnabled()) {
-            return;
-        }
-        String entryId = UUID.randomUUID().toString();
-        SyncOutboxEntry entry = new SyncOutboxEntry(entryId, functionName, dedupeKey,
-                SyncOutboxEntry.OP_RPC, GSON.toJson(args), System.currentTimeMillis(), 0, null);
-        db.syncOutboxDao().insert(entry);
-        db.syncOutboxDao().dropOtherEntriesFor(functionName, dedupeKey, entryId);
-    }
-
-    /**
-     * Queues an entity for push. Called from the repository immediately after the Room
-     * write, so the local change is durable even if the network never comes back.
-     */
-    public static void enqueue(AmperlyDatabase db, String tableName, Object entity,
-                               String operation) {
-        if (!isEnabled()) {
+    /** Inserts or replaces one row. */
+    public static void save(String tableName, Object entity) {
+        if (!isEnabled() || entity == null) {
             return;
         }
         SyncTables.Table table = SyncTables.byName(tableName);
         if (table == null) {
             return;
         }
-        String payload = SyncOutboxEntry.OP_DELETE.equals(operation)
-                ? null : GSON.toJson(entity, table.type);
-        String rowId = extractId(payload);
-        if (rowId == null) {
-            // Without a primary key the server cannot address the row; refuse to queue
-            // rather than send something that cannot be applied.
-            return;
-        }
-        String entryId = UUID.randomUUID().toString();
-        SyncOutboxEntry entry = new SyncOutboxEntry(entryId, tableName, rowId, operation,
-                payload, System.currentTimeMillis(), 0, null);
-        db.syncOutboxDao().insert(entry);
-        // Collapse earlier pending changes for the same row down to this one.
-        db.syncOutboxDao().dropOtherEntriesFor(tableName, rowId, entryId);
+        SupabaseRest.upsertJson(table.name, GSON.toJson(entity, table.type));
     }
 
     /**
-     * Queues a row whose stored shape is not the entity the app keeps locally.
+     * Updates columns of an existing row, addressed by its primary key.
      *
-     * <p>The account profile is the case that needs this. {@code public.users} carries
-     * {@code "authUserId"} — a server-only column with no field on the Room {@code User} —
-     * and {@code users_insert_self} refuses an insert where it is not {@code auth.uid()}.
-     * Queueing the entity would queue a row the server is guaranteed to reject, which is how
-     * a freshly signed-in account ended up with no profile at all and, with it, no write of
-     * any kind being accepted anywhere in the app.
+     * <p>A PATCH, not an upsert: an upsert is an INSERT ... ON CONFLICT and is also checked
+     * against the table's INSERT policy, which a partial change cannot satisfy.
      */
-    public static void enqueuePayload(AmperlyDatabase db, String tableName, String rowId,
-                                      Object payload) {
+    public static void patch(String tableName, String rowId, Object payload) {
         if (!isEnabled() || payload == null || rowId == null || rowId.isEmpty()) {
             return;
         }
-        if (SyncTables.byName(tableName) == null) {
+        SyncTables.Table table = SyncTables.byName(tableName);
+        if (table == null) {
             return;
         }
-        String entryId = UUID.randomUUID().toString();
-        SyncOutboxEntry entry = new SyncOutboxEntry(entryId, tableName, rowId,
-                SyncOutboxEntry.OP_UPSERT, GSON.toJson(payload), System.currentTimeMillis(),
-                0, null);
-        db.syncOutboxDao().insert(entry);
-        // Collapse earlier pending writes for the same row down to this one.
-        db.syncOutboxDao().dropOtherEntriesFor(tableName, rowId, entryId);
+        SupabaseRest.updateById(table.name, rowId, GSON.toJson(payload));
     }
 
-    /**
-     * Queues an update of an existing row, applied as a PATCH on the server.
-     *
-     * <p>Used for a change that only touches some columns of a row that is already there. An
-     * upsert would work online, but it is also checked against the table's INSERT policy; a
-     * partial payload — a renamed profile, for example — does not carry the columns that policy
-     * needs, so the server refused the whole write. An update must only have to satisfy the
-     * UPDATE policy.
-     */
-    public static void enqueueUpdate(AmperlyDatabase db, String tableName, String rowId,
-                                     Object payload) {
-        if (!isEnabled() || payload == null || rowId == null || rowId.isEmpty()) {
+    public static void delete(String tableName, String rowId) {
+        if (!isEnabled() || rowId == null || rowId.isEmpty()) {
             return;
         }
-        if (SyncTables.byName(tableName) == null) {
+        SyncTables.Table table = SyncTables.byName(tableName);
+        if (table == null) {
             return;
         }
-        String entryId = UUID.randomUUID().toString();
-        SyncOutboxEntry entry = new SyncOutboxEntry(entryId, tableName, rowId,
-                SyncOutboxEntry.OP_UPDATE, GSON.toJson(payload), System.currentTimeMillis(),
-                0, null);
-        db.syncOutboxDao().insert(entry);
-        // Collapse earlier pending writes for the same row down to this one.
-        db.syncOutboxDao().dropOtherEntriesFor(tableName, rowId, entryId);
+        SupabaseRest.deleteById(table.name, rowId);
     }
 
-    @Nullable
-    private static String extractId(@Nullable String payloadJson) {
-        if (payloadJson == null) {
-            return null;
+    /** Runs a Postgres function, for the settlement transitions. */
+    public static void call(String functionName, @Nullable Object args) {
+        if (!isEnabled() || functionName == null || functionName.isEmpty()) {
+            return;
         }
-        try {
-            JsonElement parsed = JsonParser.parseString(payloadJson);
-            if (!parsed.isJsonObject()) {
-                return null;
-            }
-            JsonObject json = parsed.getAsJsonObject();
-            JsonElement id = json.get("id");
-            return id == null || id.isJsonNull() || !id.isJsonPrimitive()
-                    ? null : id.getAsString();
-        } catch (RuntimeException ignored) {
-            return null;
-        }
+        SupabaseRest.rpc(functionName, args);
     }
 
-    // ------------------------------------------------------------------ sync
+    // -------------------------------------------------------------------- pull
 
     public static Result syncNow(Context context, AmperlyDatabase db) {
         if (!SupabaseRest.isReady()) {
             return Result.skipped("Supabase is not configured — running on the device only.");
         }
         if (!SupabaseAuth.isSignedIn()) {
-            return Result.skipped("Not signed in to Supabase, so nothing was synced.");
+            return Result.skipped("Not signed in to Supabase, so nothing was pulled.");
         }
 
-        int pushed = 0;
-        int failed = 0;
-        int pulled = 0;
-
+        int pulled;
         try {
-            int[] pushOutcome = push(db);
-            pushed = pushOutcome[0];
-            failed = pushOutcome[1];
-
             pulled = pull(context, db);
         } catch (SupabaseRest.RestException restException) {
             recordError(context, restException.getMessage());
-            return new Result(true, pushed, failed, pulled,
-                    "Sync stopped: " + restException.getMessage());
+            return new Result(true, 0, "Sync stopped: " + restException.getMessage());
         } catch (RuntimeException unexpected) {
             recordError(context, unexpected.getMessage());
-            return new Result(true, pushed, failed, pulled,
-                    "Sync stopped unexpectedly: " + unexpected.getMessage());
+            return new Result(true, 0, "Sync stopped unexpectedly: " + unexpected.getMessage());
         }
 
         recordSuccess(context);
-        return new Result(true, pushed, failed, pulled, null);
-    }
-
-    /** Drains the outbox. Returns {pushed, failed}. */
-    private static int[] push(AmperlyDatabase db) {
-        int pushed = 0;
-        int failed = 0;
-        List<SyncOutboxEntry> pending = db.syncOutboxDao().getPending(PUSH_BATCH);
-
-        for (SyncOutboxEntry entry : pending) {
-            try {
-                if (entry.isRpc()) {
-                    // A function call, not a row write. It is checked before the table
-                    // lookup below, because a function name is not a table name and would
-                    // otherwise be dropped as an unknown table.
-                    JsonElement payload = entry.getPayloadJson() == null
-                            ? null : JsonParser.parseString(entry.getPayloadJson());
-                    SupabaseRest.rpc(entry.getTableName(), payload);
-                    db.syncOutboxDao().deleteById(entry.getId());
-                    pushed++;
-                    continue;
-                }
-
-                SyncTables.Table table = SyncTables.byName(entry.getTableName());
-                if (table == null) {
-                    // A table this build does not know about — most likely left over from an
-                    // older install. Drop it rather than retrying forever.
-                    db.syncOutboxDao().deleteById(entry.getId());
-                    continue;
-                }
-                if (entry.isDelete()) {
-                    SupabaseRest.deleteById(table.name, entry.getRowId());
-                } else if (entry.isUpdate()) {
-                    String payload = entry.getPayloadJson();
-                    if (payload == null || payload.isEmpty()) {
-                        db.syncOutboxDao().recordFailure(entry.getId(),
-                                "Queued update had no payload and was not sent.");
-                        failed++;
-                        continue;
-                    }
-                    SupabaseRest.updateById(table.name, entry.getRowId(), payload);
-                } else {
-                    String payload = entry.getPayloadJson();
-                    if (payload == null || payload.isEmpty()) {
-                        // Nothing was queued to send. Record it rather than dropping the entry,
-                        // so a change can never disappear without a trace.
-                        db.syncOutboxDao().recordFailure(entry.getId(),
-                                "Queued row had no payload and was not sent.");
-                        failed++;
-                        continue;
-                    }
-                    // Send the payload exactly as it was queued. Decoding it back into the
-                    // entity and re-encoding would silently drop every column the Room entity
-                    // does not model, and users."authUserId" — required by users_insert_self —
-                    // is one of them.
-                    SupabaseRest.upsertJson(table.name, payload);
-                }
-                db.syncOutboxDao().deleteById(entry.getId());
-                pushed++;
-            } catch (SupabaseRest.RestException restException) {
-                db.syncOutboxDao().recordFailure(entry.getId(), restException.getMessage());
-                failed++;
-                if (restException.getCode() == 0) {
-                    // Transport is down. Stop draining so the remaining entries keep
-                    // their original order instead of failing one by one.
-                    break;
-                }
-            }
-        }
-        return new int[]{pushed, failed};
+        return new Result(true, pulled, null);
     }
 
     /** Pages every table forward from its stored cursor. */
@@ -350,13 +178,9 @@ public final class SyncEngine {
         return pulled;
     }
 
-    // ------------------------------------------------------------------ state
+    // ------------------------------------------------------------------- state
 
-    public static int pendingCount(AmperlyDatabase db) {
-        return db.syncOutboxDao().countPending();
-    }
-
-    /** Human-readable state for the UI: what is queued, when it last worked, what broke. */
+    /** Human-readable state for the UI: when the last pull worked, and what broke. */
     public static String statusSummary(Context context, AmperlyDatabase db) {
         if (!isEnabled()) {
             return "Device only — no Supabase project configured.";
@@ -364,30 +188,33 @@ public final class SyncEngine {
         if (!SupabaseAuth.isSignedIn()) {
             return "Supabase is configured but nobody is signed in.";
         }
-        int pending = pendingCount(db);
-        int failedEntries = db.syncOutboxDao().countFailed();
         long lastSync = cursors(context).getLong(KEY_LAST_SYNC_MS, 0L);
         String lastError = cursors(context).getString(KEY_LAST_ERROR, null);
 
         StringBuilder summary = new StringBuilder();
-        summary.append(pending == 0 ? "All changes synced" : pending + " change(s) queued");
-        if (failedEntries > 0) {
-            summary.append(" · ").append(failedEntries).append(" failing");
-        }
-        if (lastSync > 0) {
-            summary.append(" · last sync ")
-                    .append(com.amperly.app.core.common.Formatters.agoFromNow(lastSync));
-        }
+        summary.append(lastSync > 0
+                ? "Synced " + Formatters.agoFromNow(lastSync)
+                : "Not synced yet");
         if (lastError != null && !lastError.isEmpty()) {
             summary.append(" · ").append(lastError);
         }
         return summary.toString();
     }
 
-    /** Clears cursors and the outbox — used when signing out so one user's queue is not pushed as the next. */
-    public static void reset(Context context, AmperlyDatabase db) {
+    /**
+     * Records a failed write so the account screen can say so instead of leaving the user
+     * believing a save reached the database when it did not. The local copy stays in Room.
+     */
+    public static void recordWriteError(Context context, @Nullable String message) {
+        String text = message == null || message.trim().isEmpty()
+                ? "Last save did not reach the server." : message;
+        Log.w(TAG, text);
+        recordError(context, text);
+    }
+
+    /** Clears the pull cursors — used on sign-out so the next account reads from scratch. */
+    public static void reset(Context context) {
         cursors(context).edit().clear().apply();
-        db.syncOutboxDao().clear();
     }
 
     private static void recordSuccess(Context context) {
