@@ -20,6 +20,7 @@ import androidx.room.PrimaryKey;
 public class SyncOutboxEntry {
 
     public static final String OP_UPSERT = "UPSERT";
+    public static final String OP_UPDATE = "UPDATE";
     public static final String OP_DELETE = "DELETE";
     /**
      * A call to a Postgres function rather than a row write. The function name is held
@@ -79,6 +80,11 @@ public class SyncOutboxEntry {
 
     public boolean isDelete() {
         return OP_DELETE.equals(operation);
+    }
+
+    /** An update of an existing row, sent as a PATCH rather than an upsert. */
+    public boolean isUpdate() {
+        return OP_UPDATE.equals(operation);
     }
 
     public boolean isRpc() {

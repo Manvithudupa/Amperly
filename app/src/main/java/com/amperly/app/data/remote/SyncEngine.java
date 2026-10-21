@@ -168,6 +168,32 @@ public final class SyncEngine {
         db.syncOutboxDao().dropOtherEntriesFor(tableName, rowId, entryId);
     }
 
+    /**
+     * Queues an update of an existing row, applied as a PATCH on the server.
+     *
+     * <p>Used for a change that only touches some columns of a row that is already there. An
+     * upsert would work online, but it is also checked against the table's INSERT policy; a
+     * partial payload — a renamed profile, for example — does not carry the columns that policy
+     * needs, so the server refused the whole write. An update must only have to satisfy the
+     * UPDATE policy.
+     */
+    public static void enqueueUpdate(AmperlyDatabase db, String tableName, String rowId,
+                                     Object payload) {
+        if (!isEnabled() || payload == null || rowId == null || rowId.isEmpty()) {
+            return;
+        }
+        if (SyncTables.byName(tableName) == null) {
+            return;
+        }
+        String entryId = UUID.randomUUID().toString();
+        SyncOutboxEntry entry = new SyncOutboxEntry(entryId, tableName, rowId,
+                SyncOutboxEntry.OP_UPDATE, GSON.toJson(payload), System.currentTimeMillis(),
+                0, null);
+        db.syncOutboxDao().insert(entry);
+        // Collapse earlier pending writes for the same row down to this one.
+        db.syncOutboxDao().dropOtherEntriesFor(tableName, rowId, entryId);
+    }
+
     @Nullable
     private static String extractId(@Nullable String payloadJson) {
         if (payloadJson == null) {
@@ -250,6 +276,15 @@ public final class SyncEngine {
                 }
                 if (entry.isDelete()) {
                     SupabaseRest.deleteById(table.name, entry.getRowId());
+                } else if (entry.isUpdate()) {
+                    String payload = entry.getPayloadJson();
+                    if (payload == null || payload.isEmpty()) {
+                        db.syncOutboxDao().recordFailure(entry.getId(),
+                                "Queued update had no payload and was not sent.");
+                        failed++;
+                        continue;
+                    }
+                    SupabaseRest.updateById(table.name, entry.getRowId(), payload);
                 } else {
                     String payload = entry.getPayloadJson();
                     if (payload == null || payload.isEmpty()) {

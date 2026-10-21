@@ -192,6 +192,28 @@ public final class SupabaseRest {
     }
 
     /**
+     * Updates an existing row in place, addressed by its primary key.
+     *
+     * <p>A PATCH is not the same request as an upsert: it is checked only against the table's
+     * UPDATE policy, whereas an upsert is an INSERT ... ON CONFLICT and is therefore also
+     * checked against the INSERT policy for the row proposed for insertion. Sending a partial
+     * change — a renamed profile is the case in point — through an upsert meant
+     * {@code users_insert_self} was evaluated against a row without the columns it requires,
+     * and PostgREST refused the whole statement.
+     */
+    public static void updateById(String table, String id, String payloadJson) {
+        Map<String, String> filter = new HashMap<>();
+        filter.put("id", "eq." + id);
+        Response<ResponseBody> response = call(() ->
+                SupabaseClient.postgrest()
+                        .update(table, filter, RequestBody.create(payloadJson, JSON),
+                                SupabaseClient.authHeader())
+                        .execute());
+        String body = read(response);
+        requireSuccess(response, body, "Updating " + table);
+    }
+
+    /**
      * Calls a Postgres function exposed at {@code /rest/v1/rpc/<function>} and returns
      * whatever JSON it produced.
      *

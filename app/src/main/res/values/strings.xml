@@ -381,13 +381,11 @@
     <string name="account_verification">Verification</string>
     <string name="account_id">Account ID</string>
     <string name="account_sync">Sync</string>
-    <string name="account_sync_now">Sync now</string>
     <string name="account_sign_out">Sign out</string>
     <string name="account_sign_out_confirm">Sign out of Amperly?</string>
     <string name="account_demo_mode">Offline demo mode</string>
     <string name="account_demo_note">Running on local demo data.</string>
     <string name="account_role_note">Every Amperly account can charge and host. Switch between Consumer and Host from the strip at the top of any screen.</string>
-    <string name="account_synced">Sync finished: %1$s</string>
     <string name="account_name_update_failed">Could not save the name on this device. Try again.</string>
 
     <!-- Map (Google Maps SDK for Android; the key is injected at build time) -->

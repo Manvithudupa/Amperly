@@ -55,7 +55,6 @@ public class AccountFragment extends Fragment {
     private TextView roleNoteText;
     private MaterialButton editNameButton;
     private MaterialButton accountSignInButton;
-    private MaterialButton syncNowButton;
     private MaterialButton signOutButton;
 
     @Nullable
@@ -81,14 +80,12 @@ public class AccountFragment extends Fragment {
         roleNoteText = view.findViewById(R.id.accountRoleNoteText);
         editNameButton = view.findViewById(R.id.editNameButton);
         accountSignInButton = view.findViewById(R.id.accountSignInButton);
-        syncNowButton = view.findViewById(R.id.syncNowButton);
         signOutButton = view.findViewById(R.id.signOutButton);
 
         boolean signedIn = SupabaseAuth.isSignedIn();
         boolean configured = SupabaseConfig.isConfigured() && !SupabaseConfig.looksLikeSecretKey();
 
         signOutButton.setVisibility(signedIn ? View.VISIBLE : View.GONE);
-        syncNowButton.setVisibility(signedIn ? View.VISIBLE : View.GONE);
         // There is no demo mode to explain any more; the note only appears when a session has
         // lapsed and the account page can no longer show real data.
         demoNoteText.setVisibility(signedIn ? View.GONE : View.VISIBLE);
@@ -98,7 +95,6 @@ public class AccountFragment extends Fragment {
         render(AuthManager.getInstance().getCurrentUser(), signedIn);
 
         editNameButton.setOnClickListener(v -> showEditNameDialog());
-        syncNowButton.setOnClickListener(v -> syncNow());
         signOutButton.setOnClickListener(v -> confirmSignOut());
         accountSignInButton.setOnClickListener(v -> {
             if (getActivity() instanceof MainActivity) {
@@ -291,21 +287,6 @@ public class AccountFragment extends Fragment {
             }
             Ux.toast(requireContext(), getString(R.string.account_edit_name_saved));
             loadSyncStatus();
-        });
-    }
-
-    private void syncNow() {
-        syncNowButton.setEnabled(false);
-        repo.syncNow(result -> {
-            if (!isAdded()) {
-                return;
-            }
-            syncNowButton.setEnabled(true);
-            if (result == null) {
-                loadSyncStatus();
-            } else {
-                syncStatusText.setText(getString(R.string.account_synced, result.summary()));
-            }
         });
     }
 

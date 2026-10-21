@@ -77,15 +77,16 @@ public class AmperlyRepository {
      */
     private volatile boolean profileWriteFailed;
 
-    /**
-     * Set while a background push is already scheduled. Writes arrive in bursts — a profile save
-     * followed by its child rows — and one sync is enough for the whole burst.
-     */
-    private final java.util.concurrent.atomic.AtomicBoolean autoSyncScheduled =
+    /** Set while a push is in flight, so a burst of writes produces one sync at a time. */
+    private final java.util.concurrent.atomic.AtomicBoolean syncRunning =
             new java.util.concurrent.atomic.AtomicBoolean(false);
 
-    /** How long to wait after the last local write before pushing, so a burst becomes one sync. */
-    private static final long AUTO_SYNC_DEBOUNCE_MS = 900L;
+    /**
+     * Set when a write arrives while a push is already running. The running push drains the
+     * outbox once more before it finishes, so a save made mid-sync can never be left queued.
+     */
+    private final java.util.concurrent.atomic.AtomicBoolean syncRequestedAgain =
+            new java.util.concurrent.atomic.AtomicBoolean(false);
 
     private AmperlyRepository(Context context) {
         db = AmperlyDatabase.getInstance(context);
@@ -143,7 +144,8 @@ public class AmperlyRepository {
     // ------------------------------------------------------------------- sync
     // Room is always written first and the change is queued for Supabase in the same
     // pass, so the UI never waits on the network and a change cannot be lost while the
-    // device is offline. SyncEngine drains the queue later.
+    // device is offline. The queue is then drained straight away, on a background thread, so a
+    // saved row is in the database without the user having to trigger a sync.
 
     private void syncUpsert(String table, Object entity) {
         SyncEngine.enqueue(db, table, entity, SyncOutboxEntry.OP_UPSERT);
@@ -175,44 +177,53 @@ public class AmperlyRepository {
     }
 
     /**
-     * Pushes queued changes to the server shortly after a local write, so a saved profile reaches
-     * the backend without the user having to press anything. Bursts are coalesced: several writes
-     * made together produce a single sync.
+     * Pushes queued changes to the server immediately after a local write, so pressing Save is
+     * enough: the row is in the database before the user leaves the screen.
      *
-     * <p>Room is still written first and the outbox still makes each change durable, so a device
-     * that is offline simply retries on the next write (or on the next explicit sync) rather than
-     * losing the change. When the backend is not configured this is a no-op.
+     * <p>Room is written first and the outbox makes each change durable, so the push runs on a
+     * background thread and a device that is offline keeps the change queued for the next write
+     * instead of losing it. A write made while a push is already running asks that push for one
+     * more pass, which is what keeps a burst of saves from leaving the last one behind.
+     *
+     * <p>When the backend is not configured this is a no-op.
      */
     public void requestAutoSync() {
         if (!SyncEngine.isEnabled()) {
             return;
         }
-        if (!autoSyncScheduled.compareAndSet(false, true)) {
+        syncRequestedAgain.set(true);
+        if (!syncRunning.compareAndSet(false, true)) {
             return;
         }
-        mainHandler.postDelayed(() -> {
-            autoSyncScheduled.set(false);
-            executor.execute(() -> {
+        executor.execute(this::drainOutbox);
+    }
+
+    /** Drains the outbox until no write has arrived since the pass started. */
+    private void drainOutbox() {
+        try {
+            while (syncRequestedAgain.getAndSet(false)) {
                 try {
                     SyncEngine.syncNow(appContext, db);
                 } catch (Exception e) {
-                    // Left queued on purpose: the next write, or the account screen's sync button,
-                    // will pick it up again.
-                    Log.w(TAG, "Automatic sync failed and will retry later: " + e.getMessage());
+                    // Left queued on purpose: the next save retries it.
+                    Log.w(TAG, "Automatic sync failed and will retry on the next save: "
+                            + e.getMessage());
+                    break;
                 }
-            });
-        }, AUTO_SYNC_DEBOUNCE_MS);
+            }
+        } finally {
+            syncRunning.set(false);
+            // A write can land between the loop's last check and the flag being cleared above.
+            if (syncRequestedAgain.get() && syncRunning.compareAndSet(false, true)) {
+                executor.execute(this::drainOutbox);
+            }
+        }
     }
 
     private static Map<String, Object> singleArg(String key, Object value) {
         Map<String, Object> args = new LinkedHashMap<>();
         args.put(key, value);
         return args;
-    }
-
-    /** Pushes queued local changes, then pulls everything that changed on the server. */
-    public void syncNow(Callback<SyncEngine.Result> callback) {
-        background(() -> SyncEngine.syncNow(appContext, db), callback);
     }
 
     /** Honest one-line sync state for the UI: queued, failing, last success. */
@@ -388,8 +399,11 @@ public class AmperlyRepository {
 
     public void updateUser(User user) {
         run(() -> {
-            db.userDao().update(user);
-            syncUpsert("users", user);
+            db.userDao().insert(user);
+            // An update, not an upsert: users_insert_self would be checked against the
+            // proposed insert row and refuse a change that is only meant to update.
+            SyncEngine.enqueueUpdate(db, "users", user.getId(), user);
+            requestAutoSync();
         });
     }
 
@@ -417,15 +431,19 @@ public class AmperlyRepository {
         }
 
         user.setName(name);
-        db.userDao().update(user);
+        // insert(REPLACE) rather than update(): the row is written even if it is somehow not
+        // in Room yet, so the local copy can never be the reason a rename appears to vanish.
+        db.userDao().insert(user);
 
         // Also update the AuthManager's user object so the UI reflects the change immediately
         AuthManager.getInstance().setCurrentUser(user);
 
+        // A rename only changes one column of a row that already exists, so it is queued as an
+        // update (PATCH). Sending it as an upsert made the server evaluate users_insert_self
+        // against a half-filled insert row, which it refused — the name stayed on the device.
         Map<String, Object> row = new LinkedHashMap<>();
-        row.put("id", user.getId());
         row.put("name", name);
-        SyncEngine.enqueuePayload(db, "users", user.getId(), row);
+        SyncEngine.enqueueUpdate(db, "users", user.getId(), row);
         requestAutoSync();
         return user;
     }

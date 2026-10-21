@@ -23,7 +23,7 @@ The MVP is a **single-process Android application**. There is no live backend an
 | Charger telemetry | None. Availability is schedule-, reservation- and host-update-based, and is labelled with a freshness timestamp |
 | Meter data | `MeterSimulator` / manual entry, always labelled **Demo meter** or **manually entered** |
 | Cloud | Optional Supabase/Postgres backend (`supabase/`). When `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` are set it becomes the source of truth; when they are absent the app runs fully on-device. A trigger on `auth.users` gives every account its `public.users` profile — the row Row Level Security resolves the caller through |
-| Sync | Room stays the read cache and the offline write queue: a `sync_outbox` table plus `SyncEngine` push local changes and pull everything changed on the server. Pushing is automatic — every local write schedules a coalesced push shortly after it — so a saved profile reaches the backend without the user pressing anything; the account screen's **Sync now** remains for a manual push/pull |
+| Sync | Room stays the read cache and the offline write queue: a `sync_outbox` table plus `SyncEngine` push local changes and pull everything changed on the server. Pushing is automatic — every local write starts a coalesced push immediately, so a saved row reaches the database without the user pressing anything — and there is no manual sync control |
 
 `AmperlyDatabase` uses `fallbackToDestructiveMigration()`, so a schema change resets local demo data instead of migrating it.
 

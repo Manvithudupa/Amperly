@@ -200,14 +200,6 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="@dimen/amp_space_xs"
                     android:textAppearance="@style/TextAppearance.Amperly.Body" />
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/syncNowButton"
-                    style="@style/Widget.Amperly.Button.Tonal"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="@dimen/amp_space_m"
-                    android:text="@string/account_sync_now" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
