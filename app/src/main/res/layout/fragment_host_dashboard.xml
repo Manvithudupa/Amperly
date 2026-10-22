@@ -1,182 +1,113 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Host dashboard.
-
-  The four headline numbers used to be applied the StatTile style on a plain
-  LinearLayout, so they rendered as nothing: the style sets layout_width=0dp, and
-  there was no layout_weight, and a LinearLayout cannot draw a card background
-  anyway. They are now MaterialCardViews that each take an equal share of their
-  row, which is what the style was always meant to express.
+  Host dashboard. Three numbers at the top, then the chargers, next bookings and sessions —
+  all as divided rows rather than a grid of cards.
 -->
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/hostScrollView"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="@color/amp_background"
     android:fillViewport="true">
 
     <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="@dimen/amp_screen_padding"
-        android:paddingBottom="@dimen/amp_space_xl">
+        style="@style/Widget.Amperly.ScreenBody"
+        android:paddingTop="@dimen/amp_space_l">
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/amp_space_m"
-            android:text="HOST MODE"
-            android:textAppearance="@style/TextAppearance.Amperly.Eyebrow" />
+            android:text="@string/nav_dashboard"
+            android:textAppearance="@style/TextAppearance.Amperly.Display" />
 
         <TextView
             android:id="@+id/hostNameText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:text="@string/host_dashboard_title"
-            android:textAppearance="@style/TextAppearance.Amperly.ScreenTitle" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:text="Your published chargers, what they earned, and who is booked in next."
+            android:layout_marginTop="@dimen/amp_space_xs"
             android:textAppearance="@style/TextAppearance.Amperly.BodySmall" />
 
+        <!-- Three numbers, one baseline. Utilization follows as a sentence. -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/amp_space_l"
+            android:baselineAligned="false"
+            android:orientation="horizontal">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/statsSessionsText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFeatureSettings="tnum"
+                    android:textAppearance="@style/TextAppearance.Amperly.Metric" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/analytics_sessions_short"
+                    android:textAppearance="@style/TextAppearance.Amperly.Label" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/statsEnergyText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFeatureSettings="tnum"
+                    android:textAppearance="@style/TextAppearance.Amperly.Metric" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/analytics_energy_short"
+                    android:textAppearance="@style/TextAppearance.Amperly.Label" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/statsRevenueText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFeatureSettings="tnum"
+                    android:textAppearance="@style/TextAppearance.Amperly.Metric" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/analytics_revenue_short"
+                    android:textAppearance="@style/TextAppearance.Amperly.Label" />
+            </LinearLayout>
+        </LinearLayout>
+
         <TextView
+            android:id="@+id/statsUtilizationText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/amp_space_m"
-            android:text="@string/host_section_performance"
-            android:textAppearance="@style/TextAppearance.Amperly.SectionTitle" />
-
-        <!-- ====================================================== Headline stats -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/amp_space_xs"
-            android:baselineAligned="false"
-            android:orientation="horizontal">
-
-            <com.google.android.material.card.MaterialCardView
-                style="@style/Widget.Amperly.StatTile"
-                android:layout_width="0dp"
-                android:layout_height="@dimen/amp_stat_tile_height"
-                android:layout_weight="1">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:gravity="center_vertical"
-                    android:orientation="vertical"
-                    android:padding="@dimen/amp_space_s">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/analytics_sessions_completed"
-                        android:textAppearance="@style/TextAppearance.Amperly.Label" />
-
-                    <TextView
-                        android:id="@+id/statsSessionsText"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:textAppearance="@style/TextAppearance.Amperly.Metric" />
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
-
-            <com.google.android.material.card.MaterialCardView
-                style="@style/Widget.Amperly.StatTile"
-                android:layout_width="0dp"
-                android:layout_height="@dimen/amp_stat_tile_height"
-                android:layout_weight="1">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:gravity="center_vertical"
-                    android:orientation="vertical"
-                    android:padding="@dimen/amp_space_s">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/analytics_energy_delivered"
-                        android:textAppearance="@style/TextAppearance.Amperly.Label" />
-
-                    <TextView
-                        android:id="@+id/statsEnergyText"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:textAppearance="@style/TextAppearance.Amperly.Metric" />
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
-        </LinearLayout>
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:baselineAligned="false"
-            android:orientation="horizontal">
-
-            <com.google.android.material.card.MaterialCardView
-                style="@style/Widget.Amperly.StatTile"
-                android:layout_width="0dp"
-                android:layout_height="@dimen/amp_stat_tile_height"
-                android:layout_weight="1">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:gravity="center_vertical"
-                    android:orientation="vertical"
-                    android:padding="@dimen/amp_space_s">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/analytics_utilization"
-                        android:textAppearance="@style/TextAppearance.Amperly.Label" />
-
-                    <TextView
-                        android:id="@+id/statsUtilizationText"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:textAppearance="@style/TextAppearance.Amperly.Metric" />
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
-
-            <com.google.android.material.card.MaterialCardView
-                style="@style/Widget.Amperly.StatTile"
-                android:layout_width="0dp"
-                android:layout_height="@dimen/amp_stat_tile_height"
-                android:layout_weight="1">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:gravity="center_vertical"
-                    android:orientation="vertical"
-                    android:padding="@dimen/amp_space_s">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/analytics_revenue"
-                        android:textAppearance="@style/TextAppearance.Amperly.Label" />
-
-                    <TextView
-                        android:id="@+id/statsRevenueText"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:textAppearance="@style/TextAppearance.Amperly.Metric" />
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
-        </LinearLayout>
+            android:layout_marginTop="@dimen/amp_space_s"
+            android:fontFeatureSettings="tnum"
+            android:textAppearance="@style/TextAppearance.Amperly.BodySmall" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/registerNewStationButton"
-            style="@style/Widget.Amperly.Button"
+            style="@style/Widget.Amperly.Button.Tonal"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/amp_space_m"
@@ -191,19 +122,10 @@
             android:text="@string/host_no_stations"
             android:visibility="gone" />
 
-        <!-- ==================================================== Your chargers -->
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:layout_marginTop="@dimen/amp_space_l"
-            android:background="?attr/colorOutlineVariant" />
-
+        <!-- Chargers -->
         <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/amp_space_m"
-            android:text="@string/details_ports"
-            android:textAppearance="@style/TextAppearance.Amperly.SectionTitle" />
+            style="@style/Widget.Amperly.SectionTitle"
+            android:text="@string/details_ports" />
 
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/stationsRecyclerView"
@@ -211,19 +133,11 @@
             android:layout_height="wrap_content"
             android:nestedScrollingEnabled="false" />
 
-        <!-- ===================================================== Reservations -->
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:layout_marginTop="@dimen/amp_space_l"
-            android:background="?attr/colorOutlineVariant" />
-
+        <!-- Bookings -->
         <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/amp_space_m"
-            android:text="@string/host_tab_reservations"
-            android:textAppearance="@style/TextAppearance.Amperly.SectionTitle" />
+            android:id="@+id/hostBookingsSection"
+            style="@style/Widget.Amperly.SectionTitle"
+            android:text="@string/host_tab_reservations" />
 
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/reservationsRecyclerView"
@@ -231,19 +145,10 @@
             android:layout_height="wrap_content"
             android:nestedScrollingEnabled="false" />
 
-        <!-- ========================================================= Sessions -->
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:layout_marginTop="@dimen/amp_space_l"
-            android:background="?attr/colorOutlineVariant" />
-
+        <!-- Sessions -->
         <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/amp_space_m"
-            android:text="@string/host_tab_sessions"
-            android:textAppearance="@style/TextAppearance.Amperly.SectionTitle" />
+            style="@style/Widget.Amperly.SectionTitle"
+            android:text="@string/host_tab_sessions" />
 
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/sessionsRecyclerView"
@@ -251,19 +156,10 @@
             android:layout_height="wrap_content"
             android:nestedScrollingEnabled="false" />
 
-        <!-- ======================================================== Analytics -->
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:layout_marginTop="@dimen/amp_space_l"
-            android:background="?attr/colorOutlineVariant" />
-
+        <!-- Analytics -->
         <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/amp_space_m"
-            android:text="@string/host_tab_analytics"
-            android:textAppearance="@style/TextAppearance.Amperly.SectionTitle" />
+            style="@style/Widget.Amperly.SectionTitle"
+            android:text="@string/host_tab_analytics" />
 
         <LinearLayout
             android:id="@+id/analyticsContainer"

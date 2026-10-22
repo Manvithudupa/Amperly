@@ -1,77 +1,87 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!--
-      Night palette for the prototype's design language.
-
-      The rule is the same as in light mode, only inverted: cards are one step LIGHTER than
-      the background, so the white-card-on-paper hierarchy survives. Every surface role used
-      by the theme is defined here so the night theme never falls back to a light colour.
+      Night theme: soft charcoal with a green cast, never pure black and never neon.
+      Cards sit one step lighter than the background, so the paper/card hierarchy survives.
     -->
 
-    <!-- In dark mode lime becomes the primary, because it is the only tone that carries
-         against a near-black background. Its "on" colour is dark green, never white. -->
-    <color name="amp_primary">#9CE96A</color>
-    <color name="amp_primary_dark">#7ED24E</color>
-    <color name="amp_primary_light">#B6F28F</color>
-    <color name="amp_primary_container">#23422F</color>
-    <color name="amp_on_primary_container">#DCF6CC</color>
+    <!-- Surfaces -->
+    <color name="amp_background">#151A17</color>
+    <color name="amp_surface">#1E2521</color>
+    <color name="amp_surface_variant">#2A322C</color>
+    <color name="amp_surface_sunken">#111613</color>
+    <color name="amp_divider">#333D36</color>
+    <color name="amp_outline">#46524A</color>
 
-    <color name="amp_lime">#9CE96A</color>
-    <color name="amp_lime_deep">#B6F28F</color>
-    <color name="amp_lime_soft">#223528</color>
-    <color name="amp_lime_tint">#1B2A20</color>
-    <color name="amp_on_lime">#163F34</color>
+    <!-- Ink -->
+    <color name="amp_ink">#E9EFE9</color>
+    <color name="amp_ink_secondary">#A9B7AD</color>
+    <color name="amp_ink_on_dark">#FFFFFF</color>
 
-    <color name="amp_secondary">#B8DDFF</color>
-    <color name="amp_secondary_container">#1B3A52</color>
-    <color name="amp_on_secondary_container">#CFE7FF</color>
+    <!-- Primary: softened mint green; its "on" colour is dark so white is never used on it -->
+    <color name="amp_primary">#6FD0B6</color>
+    <color name="amp_primary_dark">#8FE0C9</color>
+    <color name="amp_primary_tint">#22352E</color>
+    <color name="amp_on_primary">#0C2B24</color>
+    <color name="amp_on_primary_tint">#C7EFE3</color>
 
-    <color name="amp_tertiary">#FFC876</color>
-    <color name="amp_tertiary_container">#3E2C15</color>
-    <color name="amp_on_tertiary_container">#FFE3BB</color>
+    <!-- Energy: softened amber -->
+    <color name="amp_energy">#F0B65A</color>
+    <color name="amp_energy_deep">#F0B65A</color>
+    <color name="amp_energy_tint">#3A2F1B</color>
+    <color name="amp_on_energy">#241A08</color>
 
-    <color name="amp_error">#FF8F7C</color>
-    <color name="amp_error_container">#4A1A14</color>
-    <color name="amp_on_error_container">#FFDAD6</color>
+    <!-- Status -->
+    <color name="amp_available">#7FD39A</color>
+    <color name="amp_available_tint">#20342A</color>
+    <color name="amp_busy">#E8B25F</color>
+    <color name="amp_busy_ink">#F0C27C</color>
+    <color name="amp_busy_tint">#382C18</color>
+    <color name="amp_error">#F0A69C</color>
+    <color name="amp_error_tint">#3C211E</color>
+    <color name="amp_info">#9CC3E5</color>
+    <color name="amp_info_tint">#1E2E3D</color>
 
-    <color name="amp_surface">#0E1512</color>
-    <color name="amp_surface_container_lowest">#18231E</color>
-    <color name="amp_surface_container_low">#141D19</color>
-    <color name="amp_surface_container">#1D2924</color>
-    <color name="amp_surface_container_high">#233029</color>
-    <color name="amp_surface_container_highest">#29382F</color>
-
-    <color name="amp_surface_variant">#2A3A31</color>
-    <color name="amp_on_surface">#E8F0EA</color>
-    <color name="amp_on_surface_variant">#A6B8AC</color>
-    <color name="amp_outline">#3D5446</color>
-    <color name="amp_outline_variant">#2A3A31</color>
-
-    <color name="amp_muted">#7E9188</color>
-    <color name="amp_field_border">#31453A</color>
-    <color name="amp_line">#26352D</color>
-
-    <color name="amp_card">#18231E</color>
-
-    <color name="amp_success">#8FE0AE</color>
-    <color name="amp_success_container">#1E3B28</color>
-    <color name="amp_warning">#FFC876</color>
-    <color name="amp_warning_container">#3E2C15</color>
-    <color name="amp_info">#B8DDFF</color>
-    <color name="amp_info_container">#1B3A52</color>
-
-    <color name="amp_badge_bg">#223528</color>
-    <color name="amp_badge_text">#B6F28F</color>
-
-    <color name="amp_map_placeholder">#1E2A24</color>
-
-    <color name="amp_hero_start">#173C30</color>
-    <color name="amp_hero_mid">#22503D</color>
-    <color name="amp_hero_end">#33543B</color>
-    <color name="amp_on_hero">#FFFFFF</color>
-    <color name="amp_on_hero_muted">#C8E2D4</color>
-    <color name="amp_hero_kicker">#BCF49F</color>
-
-    <!-- "on primary" flips with the palette: dark ink on lime in night mode -->
-    <color name="amp_on_primary">#12221F</color>
+    <!-- Legacy role names -->
+    <color name="amp_on_lime">@color/amp_on_energy</color>
+    <color name="amp_lime">@color/amp_energy</color>
+    <color name="amp_lime_deep">@color/amp_energy</color>
+    <color name="amp_lime_soft">@color/amp_energy_tint</color>
+    <color name="amp_lime_tint">@color/amp_energy_tint</color>
+    <color name="amp_primary_light">#8FE0C9</color>
+    <color name="amp_primary_container">@color/amp_primary_tint</color>
+    <color name="amp_on_primary_container">@color/amp_on_primary_tint</color>
+    <color name="amp_secondary">@color/amp_info</color>
+    <color name="amp_secondary_container">@color/amp_info_tint</color>
+    <color name="amp_on_secondary_container">#D3E5F5</color>
+    <color name="amp_tertiary">@color/amp_busy</color>
+    <color name="amp_tertiary_container">@color/amp_busy_tint</color>
+    <color name="amp_on_tertiary_container">@color/amp_busy_ink</color>
+    <color name="amp_error_container">@color/amp_error_tint</color>
+    <color name="amp_on_error_container">#FFDAD4</color>
+    <color name="amp_surface_container_lowest">@color/amp_surface</color>
+    <color name="amp_surface_container_low">#1B211D</color>
+    <color name="amp_surface_container">@color/amp_surface_variant</color>
+    <color name="amp_surface_container_high">#303A33</color>
+    <color name="amp_surface_container_highest">#37423A</color>
+    <color name="amp_on_surface">@color/amp_ink</color>
+    <color name="amp_on_surface_variant">@color/amp_ink_secondary</color>
+    <color name="amp_outline_variant">@color/amp_divider</color>
+    <color name="amp_muted">@color/amp_ink_secondary</color>
+    <color name="amp_field_border">@color/amp_divider</color>
+    <color name="amp_line">@color/amp_divider</color>
+    <color name="amp_card">@color/amp_surface</color>
+    <color name="amp_success">@color/amp_available</color>
+    <color name="amp_success_container">@color/amp_available_tint</color>
+    <color name="amp_warning">@color/amp_busy</color>
+    <color name="amp_warning_container">@color/amp_busy_tint</color>
+    <color name="amp_badge_bg">@color/amp_available_tint</color>
+    <color name="amp_badge_text">@color/amp_available</color>
+    <color name="amp_map_placeholder">#232B25</color>
+    <color name="amp_hero_start">@color/amp_primary_tint</color>
+    <color name="amp_hero_mid">@color/amp_surface_variant</color>
+    <color name="amp_hero_end">@color/amp_surface_variant</color>
+    <color name="amp_on_hero">@color/amp_ink</color>
+    <color name="amp_on_hero_muted">@color/amp_ink_secondary</color>
+    <color name="amp_hero_kicker">@color/amp_energy</color>
 </resources>

@@ -25,9 +25,13 @@ import com.amperly.app.data.remote.SupabaseConfig;
 import com.amperly.app.data.repository.AmperlyRepository;
 import com.amperly.app.ui.Ux;
 import com.google.android.material.button.MaterialButton;
+import com.google.android.material.chip.Chip;
+import com.google.android.material.chip.ChipGroup;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
+
+import java.util.List;
 
 /**
  * The account page: who is signed in, what the sync engine is doing, and how to sign out.
@@ -56,6 +60,10 @@ public class AccountFragment extends Fragment {
     private MaterialButton editNameButton;
     private MaterialButton accountSignInButton;
     private MaterialButton signOutButton;
+    private ChipGroup roleChipGroup;
+
+    /** Set while the code, not the person, ticks a capacity chip. */
+    private boolean applyingRole;
 
     @Nullable
     @Override
@@ -81,6 +89,7 @@ public class AccountFragment extends Fragment {
         editNameButton = view.findViewById(R.id.editNameButton);
         accountSignInButton = view.findViewById(R.id.accountSignInButton);
         signOutButton = view.findViewById(R.id.signOutButton);
+        roleChipGroup = view.findViewById(R.id.roleChipGroup);
 
         boolean signedIn = SupabaseAuth.isSignedIn();
         boolean configured = SupabaseConfig.isConfigured() && !SupabaseConfig.looksLikeSecretKey();
@@ -93,6 +102,24 @@ public class AccountFragment extends Fragment {
         accountSignInButton.setVisibility(!signedIn && configured ? View.VISIBLE : View.GONE);
 
         render(AuthManager.getInstance().getCurrentUser(), signedIn);
+        renderRoleChips();
+
+        if (roleChipGroup != null) {
+            roleChipGroup.setOnCheckedStateChangeListener((group, checkedIds) -> {
+                if (applyingRole || checkedIds.isEmpty()) {
+                    return;
+                }
+                View chip = group.findViewById(checkedIds.get(0));
+                if (chip == null || chip.getTag() == null) {
+                    return;
+                }
+                if (getActivity() instanceof MainActivity) {
+                    ((MainActivity) getActivity()).switchRole(String.valueOf(chip.getTag()));
+                } else {
+                    AuthManager.getInstance().setRole(String.valueOf(chip.getTag()));
+                }
+            });
+        }
 
         editNameButton.setOnClickListener(v -> showEditNameDialog());
         signOutButton.setOnClickListener(v -> confirmSignOut());
@@ -107,7 +134,32 @@ public class AccountFragment extends Fragment {
     public void onResume() {
         super.onResume();
         render(AuthManager.getInstance().getCurrentUser(), SupabaseAuth.isSignedIn());
+        renderRoleChips();
         loadSyncStatus();
+    }
+
+    /**
+     * The capacity switch, built from the roles this account actually holds. It lives here
+     * rather than in the app bar, so the shell stays the same on every screen.
+     */
+    private void renderRoleChips() {
+        if (roleChipGroup == null) {
+            return;
+        }
+        applyingRole = true;
+        roleChipGroup.removeAllViews();
+        List<String> roles = AuthManager.getInstance().availableRoles();
+        String activeRole = AuthManager.getInstance().getCurrentRole();
+        LayoutInflater inflater = LayoutInflater.from(requireContext());
+        for (String role : roles) {
+            Chip chip = (Chip) inflater.inflate(R.layout.item_role_chip, roleChipGroup, false);
+            chip.setId(View.generateViewId());
+            chip.setText(AuthManager.roleLabel(role));
+            chip.setTag(role);
+            chip.setChecked(role.equals(activeRole));
+            roleChipGroup.addView(chip);
+        }
+        applyingRole = false;
     }
 
     /**

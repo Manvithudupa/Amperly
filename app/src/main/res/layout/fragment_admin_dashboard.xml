@@ -1,68 +1,41 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-  Administrator desk.
-
-  Three queues (stations, disputes, reports) plus a headline analytics panel. The
-  queues were previously separated only by a section title with no breathing room,
-  so it was hard to tell where one list ended and the next began; each section now
-  gets a divider and consistent spacing, and the policy note reads as a panel
-  rather than a stranded line of small print.
--->
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/adminScrollView"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="@color/amp_background"
     android:fillViewport="true">
 
     <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="@dimen/amp_screen_padding"
-        android:paddingBottom="@dimen/amp_space_xl">
+        style="@style/Widget.Amperly.ScreenBody"
+        android:paddingTop="@dimen/amp_space_l">
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/amp_space_m"
-            android:text="PLATFORM OPERATIONS"
-            android:textAppearance="@style/TextAppearance.Amperly.Eyebrow" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
             android:text="@string/admin_title"
-            android:textAppearance="@style/TextAppearance.Amperly.ScreenTitle" />
+            android:textAppearance="@style/TextAppearance.Amperly.Display" />
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:text="Keep the community network trusted, fair and moving."
+            android:layout_marginTop="@dimen/amp_space_xs"
+            android:text="@string/admin_intro"
             android:textAppearance="@style/TextAppearance.Amperly.BodySmall" />
 
         <TextView
             android:id="@+id/platformAnalyticsText"
-            style="@style/Widget.Amperly.Notice.Primary"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/amp_space_m"
-            android:textAppearance="@style/TextAppearance.Amperly.BodyStrong" />
+            android:textAppearance="@style/TextAppearance.Amperly.BodySmall" />
 
-        <!-- ================================================ Verification queue -->
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:layout_marginTop="@dimen/amp_space_l"
-            android:background="?attr/colorOutlineVariant" />
-
+        <!-- Queue -->
         <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/amp_space_m"
-            android:text="@string/admin_queue"
-            android:textAppearance="@style/TextAppearance.Amperly.SectionTitle" />
+            android:id="@+id/adminQueueSection"
+            style="@style/Widget.Amperly.SectionTitle"
+            android:text="@string/admin_queue" />
 
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/pendingStationsRecyclerView"
@@ -70,19 +43,11 @@
             android:layout_height="wrap_content"
             android:nestedScrollingEnabled="false" />
 
-        <!-- ============================================================ Disputes -->
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:layout_marginTop="@dimen/amp_space_l"
-            android:background="?attr/colorOutlineVariant" />
-
+        <!-- Disputes -->
         <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/amp_space_m"
-            android:text="@string/admin_disputes"
-            android:textAppearance="@style/TextAppearance.Amperly.SectionTitle" />
+            android:id="@+id/adminDisputesSection"
+            style="@style/Widget.Amperly.SectionTitle"
+            android:text="@string/admin_disputes" />
 
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/disputesRecyclerView"
@@ -90,19 +55,11 @@
             android:layout_height="wrap_content"
             android:nestedScrollingEnabled="false" />
 
-        <!-- ============================================================= Reports -->
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:layout_marginTop="@dimen/amp_space_l"
-            android:background="?attr/colorOutlineVariant" />
-
+        <!-- Reports -->
         <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/amp_space_m"
-            android:text="@string/report_title"
-            android:textAppearance="@style/TextAppearance.Amperly.SectionTitle" />
+            android:id="@+id/adminReportsSection"
+            style="@style/Widget.Amperly.SectionTitle"
+            android:text="@string/nav_admin_reports" />
 
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/reportsRecyclerView"

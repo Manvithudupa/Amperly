@@ -4,90 +4,90 @@
     <color name="white">#FFFFFFFF</color>
 
     <!--
-      Amperly design tokens, taken from the UI prototype.
+      Amperly colour roles, light theme.
 
-      These names are Material 3 ROLES, not decorative swatches. Getting them right is what
-      gives the app a surface hierarchy: the 18dp-radius cards are pure white sitting on a
-      warm paper background, separated by a hairline, never by a heavy shadow.
-
-      The palette is deliberately narrow:
-        lime       the one accent that means "energy / go"
-        deep green the ink used for headings and primary actions
-        paper      the background, never pure grey
-        blue       location and route
-        orange     attention without alarm
-        red        the one destructive tone
+      One warm paper background, white cards separated by a hairline, deep green for
+      anything actionable, amber reserved for energy. These are ROLES, not swatches:
+      layouts and drawables reference them, so the night theme is a single swap.
     -->
 
-    <!-- Brand: deep green carries text, lime carries energy -->
-    <color name="amp_primary">#205846</color>
-    <color name="amp_primary_dark">#163F34</color>
-    <color name="amp_primary_light">#2F6852</color>
-    <color name="amp_primary_container">#DCF6CC</color>
-    <color name="amp_on_primary_container">#163F34</color>
+    <!-- Surfaces -->
+    <color name="amp_background">#F6F4EE</color>
+    <color name="amp_surface">#FFFFFF</color>
+    <color name="amp_surface_variant">#ECE8DE</color>
+    <color name="amp_surface_sunken">#EFEBE2</color>
+    <color name="amp_divider">#DDD8CB</color>
+    <color name="amp_outline">#C4BDAC</color>
 
-    <!-- The signature accent. Only ever paired with dark green ink, never white text. -->
+    <!-- Ink -->
+    <color name="amp_ink">#16201B</color>
+    <color name="amp_ink_secondary">#5B665F</color>
+    <color name="amp_ink_on_dark">#FFFFFF</color>
+
+    <!-- Primary: deep green -->
+    <color name="amp_primary">#0F5C4D</color>
+    <color name="amp_primary_dark">#0B4438</color>
+    <color name="amp_primary_tint">#E3EFEA</color>
     <color name="amp_on_primary">#FFFFFF</color>
-    <color name="amp_lime">#9CE96A</color>
-    <color name="amp_lime_deep">#81D757</color>
-    <color name="amp_lime_soft">#E8F6E3</color>
-    <color name="amp_lime_tint">#F0FAEC</color>
-    <color name="amp_on_lime">#163F34</color>
+    <color name="amp_on_primary_tint">#0B4438</color>
 
-    <color name="amp_secondary">#4683B5</color>
-    <color name="amp_secondary_container">#E1F0FF</color>
-    <color name="amp_on_secondary_container">#2E678E</color>
+    <!-- Energy: amber, used sparingly. Always with ink, never white, on top. -->
+    <color name="amp_energy">#F2A516</color>
+    <color name="amp_energy_deep">#C98708</color>
+    <color name="amp_energy_tint">#FDF1D8</color>
+    <color name="amp_on_energy">#16201B</color>
 
-    <color name="amp_tertiary">#A36A24</color>
-    <color name="amp_tertiary_container">#FFF0D9</color>
-    <color name="amp_on_tertiary_container">#7E5729</color>
+    <!-- Status: each has an ink and a tint for chips -->
+    <color name="amp_available">#2E7D4F</color>
+    <color name="amp_available_tint">#E4F2E6</color>
+    <color name="amp_busy">#C77700</color>
+    <color name="amp_busy_ink">#8A5200</color>
+    <color name="amp_busy_tint">#FBEEDA</color>
+    <color name="amp_error">#B3261E</color>
+    <color name="amp_error_tint">#FBE7E4</color>
+    <color name="amp_info">#2F5D8A</color>
+    <color name="amp_info_tint">#E7EFF7</color>
 
-    <color name="amp_error">#EF745E</color>
-    <color name="amp_error_container">#FFE4DF</color>
-    <color name="amp_on_error_container">#AE4E3F</color>
-
-    <!-- Surfaces: paper is the lowest, cards step up to white -->
-    <color name="amp_surface">#F5F7F2</color>
-    <color name="amp_surface_container_lowest">#FFFFFF</color>
-    <color name="amp_surface_container_low">#FBFCFA</color>
-    <color name="amp_surface_container">#F0F4EF</color>
-    <color name="amp_surface_container_high">#EAF1E8</color>
-    <color name="amp_surface_container_highest">#E4EDE1</color>
-
-    <color name="amp_surface_variant">#E5EBE5</color>
-    <color name="amp_on_surface">#12221F</color>
-    <color name="amp_on_surface_variant">#536561</color>
-    <color name="amp_outline">#B8C7BC</color>
-    <color name="amp_outline_variant">#E5EBE5</color>
-
-    <!-- Muted text is its own token: it is lighter than on_surface_variant -->
-    <color name="amp_muted">#8A9A95</color>
-    <color name="amp_field_border">#D7E5D5</color>
-    <color name="amp_line">#E5EBE5</color>
-
-    <!-- Kept for compatibility with existing layouts and styles -->
-    <color name="amp_card">#FFFFFFFF</color>
-
-    <!-- Semantic status colours -->
-    <color name="amp_success">#3B8051</color>
-    <color name="amp_success_container">#E2F8D8</color>
-    <color name="amp_warning">#A36A24</color>
-    <color name="amp_warning_container">#FFF0D9</color>
-    <color name="amp_info">#4683B5</color>
-    <color name="amp_info_container">#E1F0FF</color>
-
-    <!-- Status badge (verification state on a station row) -->
-    <color name="amp_badge_bg">#E2F8D8</color>
-    <color name="amp_badge_text">#337048</color>
-
-    <!-- The hero strip is a three-stop gradient, exactly as in the prototype -->
-    <!-- The surface behind the Google map while its tiles load -->
-    <color name="amp_map_placeholder">#DCE9D5</color>
-
-    <color name="amp_hero_start">#1F5544</color>
-    <color name="amp_hero_mid">#2F6852</color>
-    <color name="amp_hero_end">#466E4E</color>
-    <color name="amp_on_hero">#FFFFFF</color>
-    <color name="amp_on_hero_muted">#C8E2D4</color>
-    <color name="amp_hero_kicker">#BCF49F</color>
+    <!-- Legacy role names kept so existing Java and drawables keep resolving -->
+    <color name="amp_on_lime">@color/amp_on_energy</color>
+    <color name="amp_lime">@color/amp_energy</color>
+    <color name="amp_lime_deep">@color/amp_energy_deep</color>
+    <color name="amp_lime_soft">@color/amp_energy_tint</color>
+    <color name="amp_lime_tint">@color/amp_energy_tint</color>
+    <color name="amp_primary_light">#2F7A67</color>
+    <color name="amp_primary_container">@color/amp_primary_tint</color>
+    <color name="amp_on_primary_container">@color/amp_on_primary_tint</color>
+    <color name="amp_secondary">@color/amp_info</color>
+    <color name="amp_secondary_container">@color/amp_info_tint</color>
+    <color name="amp_on_secondary_container">#234A6B</color>
+    <color name="amp_tertiary">@color/amp_busy</color>
+    <color name="amp_tertiary_container">@color/amp_busy_tint</color>
+    <color name="amp_on_tertiary_container">@color/amp_busy_ink</color>
+    <color name="amp_error_container">@color/amp_error_tint</color>
+    <color name="amp_on_error_container">#7F1D15</color>
+    <color name="amp_surface_container_lowest">@color/amp_surface</color>
+    <color name="amp_surface_container_low">#FBF9F4</color>
+    <color name="amp_surface_container">@color/amp_surface_variant</color>
+    <color name="amp_surface_container_high">#E4DFD3</color>
+    <color name="amp_surface_container_highest">#DCD6C8</color>
+    <color name="amp_on_surface">@color/amp_ink</color>
+    <color name="amp_on_surface_variant">@color/amp_ink_secondary</color>
+    <color name="amp_outline_variant">@color/amp_divider</color>
+    <color name="amp_muted">@color/amp_ink_secondary</color>
+    <color name="amp_field_border">@color/amp_divider</color>
+    <color name="amp_line">@color/amp_divider</color>
+    <color name="amp_card">@color/amp_surface</color>
+    <color name="amp_success">@color/amp_available</color>
+    <color name="amp_success_container">@color/amp_available_tint</color>
+    <color name="amp_warning">@color/amp_busy</color>
+    <color name="amp_warning_container">@color/amp_busy_tint</color>
+    <color name="amp_badge_bg">@color/amp_available_tint</color>
+    <color name="amp_badge_text">@color/amp_available</color>
+    <color name="amp_map_placeholder">#E8E3D7</color>
+    <color name="amp_hero_start">@color/amp_primary_dark</color>
+    <color name="amp_hero_mid">@color/amp_primary</color>
+    <color name="amp_hero_end">@color/amp_primary</color>
+    <color name="amp_on_hero">@color/amp_on_primary</color>
+    <color name="amp_on_hero_muted">@color/amp_primary_tint</color>
+    <color name="amp_hero_kicker">@color/amp_energy</color>
 </resources>

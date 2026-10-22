@@ -1,65 +1,60 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Booking code.
-
-  This screen is shown to another person (the Host scanning it), so the code is the
-  hero: a white card that always contrasts with the QR image, the human-readable
-  code underneath it in monospace, and the actions out of the way at the bottom.
+  Booking code. This is shown to someone else, so the QR keeps a pure white card in both
+  themes and the human-readable code sits under it in tabular monospace.
 -->
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="@color/amp_background"
     android:fillViewport="true">
 
     <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:gravity="center_horizontal"
-        android:orientation="vertical"
-        android:padding="@dimen/amp_screen_padding"
-        android:paddingBottom="@dimen/amp_space_xl">
+        style="@style/Widget.Amperly.ScreenBody"
+        android:paddingTop="@dimen/amp_space_l">
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="YOUR BOOKING"
-            android:textAppearance="@style/TextAppearance.Amperly.Eyebrow" />
+            android:text="@string/qr_title"
+            android:textAppearance="@style/TextAppearance.Amperly.Display" />
 
         <TextView
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/qr_title"
-            android:layout_marginTop="4dp"
-            android:textAppearance="@style/TextAppearance.Amperly.ScreenTitle" />
+            android:layout_marginTop="@dimen/amp_space_xs"
+            android:text="@string/qr_hint"
+            android:textAppearance="@style/TextAppearance.Amperly.BodySmall" />
 
-        <!--
-          Pinned to the lightest surface role on purpose: a QR code has to keep its
-          dark-on-light contrast even when the rest of the app is in dark mode.
-        -->
         <com.google.android.material.card.MaterialCardView
             style="@style/Widget.Amperly.Card"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/amp_space_m"
-            app:cardBackgroundColor="@color/white">
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="@dimen/amp_space_l"
+            app:cardBackgroundColor="@color/white"
+            app:strokeColor="@color/white">
 
             <ImageView
                 android:id="@+id/qrImageView"
-                android:layout_width="240dp"
-                android:layout_height="240dp"
+                android:layout_width="@dimen/amp_qr_size"
+                android:layout_height="@dimen/amp_qr_size"
                 android:contentDescription="@string/qr_title"
-                android:padding="@dimen/amp_space_s" />
+                android:padding="@dimen/amp_space_m" />
         </com.google.android.material.card.MaterialCardView>
 
         <TextView
             android:id="@+id/bookingCodeText"
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/amp_space_m"
-            android:letterSpacing="0.12"
-            android:textAppearance="@style/TextAppearance.Amperly.Mono"
-            android:textSize="24sp" />
+            android:fontFamily="monospace"
+            android:gravity="center"
+            android:letterSpacing="0.2"
+            android:textAppearance="@style/TextAppearance.Amperly.Title"
+            android:textColor="@color/amp_ink"
+            android:textSize="26sp" />
 
         <TextView
             android:id="@+id/qrStationText"
@@ -67,22 +62,22 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/amp_space_s"
             android:gravity="center"
-            android:textAppearance="@style/TextAppearance.Amperly.BodyStrong" />
+            android:textAppearance="@style/TextAppearance.Amperly.TitleSmall" />
 
         <TextView
             android:id="@+id/qrSlotText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:gravity="center"
-            android:textAppearance="@style/TextAppearance.Amperly.Body" />
+            android:textAppearance="@style/TextAppearance.Amperly.BodySmall" />
 
         <TextView
             android:id="@+id/qrHintText"
             style="@style/Widget.Amperly.Notice"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/amp_space_m"
-            android:text="@string/qr_hint" />
+            android:layout_marginTop="@dimen/amp_space_l"
+            android:text="@string/qr_notice" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/goToSessionButton"

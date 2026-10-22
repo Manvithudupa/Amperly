@@ -1,17 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-  Host messages.
-
-  A chat screen wants all remaining vertical space for the transcript, so the
-  chrome is deliberately thin: thread picker, transcript, quick questions, composer.
-  The masking disclaimer is promoted to a panel because it is a privacy guarantee,
-  and the moderation actions are pushed below a rule so Block is not sitting one
-  thumb-slip away from Send.
--->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="@color/amp_background"
     android:orientation="vertical"
     android:paddingStart="@dimen/amp_screen_padding"
     android:paddingTop="@dimen/amp_space_m"
@@ -20,34 +12,29 @@
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="RESERVATION CHAT"
-        android:textAppearance="@style/TextAppearance.Amperly.Eyebrow" />
-
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
         android:text="@string/chat_title"
-        android:layout_marginTop="4dp"
-        android:textAppearance="@style/TextAppearance.Amperly.ScreenTitle" />
+        android:textAppearance="@style/TextAppearance.Amperly.Title" />
 
     <TextView
         android:id="@+id/maskedDisclaimerText"
-        style="@style/Widget.Amperly.Notice.Info"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="@dimen/amp_space_s"
-        android:text="@string/chat_masked_disclaimer" />
+        android:layout_marginTop="@dimen/amp_space_xs"
+        android:text="@string/chat_masked_disclaimer"
+        android:textAppearance="@style/TextAppearance.Amperly.Label" />
 
     <HorizontalScrollView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="@dimen/amp_space_s"
+        android:clipToPadding="false"
         android:scrollbars="none">
 
         <com.google.android.material.chip.ChipGroup
             android:id="@+id/threadsChipGroup"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            app:chipSpacingHorizontal="@dimen/amp_space_s"
             app:singleLine="true"
             app:singleSelection="true" />
     </HorizontalScrollView>
@@ -57,7 +44,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="@dimen/amp_space_m"
-        android:textAppearance="@style/TextAppearance.Amperly.SectionTitle" />
+        android:textAppearance="@style/TextAppearance.Amperly.TitleSmall" />
 
     <TextView
         android:id="@+id/threadExpiryText"
@@ -77,26 +64,23 @@
         android:id="@+id/chatEmptyText"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/amp_space_m"
         android:text="@string/empty_state"
-        android:textAppearance="@style/TextAppearance.Amperly.Body"
+        android:textAppearance="@style/TextAppearance.Amperly.BodySmall"
         android:visibility="gone" />
-
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="@dimen/amp_space_s"
-        android:text="@string/chat_quick_question"
-        android:textAppearance="@style/TextAppearance.Amperly.Label" />
 
     <HorizontalScrollView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/amp_space_s"
+        android:clipToPadding="false"
         android:scrollbars="none">
 
         <com.google.android.material.chip.ChipGroup
             android:id="@+id/quickQuestionsChipGroup"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            app:chipSpacingHorizontal="@dimen/amp_space_s"
             app:singleLine="true" />
     </HorizontalScrollView>
 
@@ -104,7 +88,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="@dimen/amp_space_s"
-        android:baselineAligned="false"
+        android:gravity="bottom"
         android:orientation="horizontal">
 
         <com.google.android.material.textfield.TextInputLayout
@@ -118,7 +102,9 @@
                 android:id="@+id/chatInputEdit"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:inputType="textCapSentences" />
+                android:inputType="textCapSentences|textMultiLine"
+                android:maxLines="4"
+                android:textAppearance="@style/TextAppearance.Amperly.Body" />
         </com.google.android.material.textfield.TextInputLayout>
 
         <com.google.android.material.button.MaterialButton
@@ -131,40 +117,33 @@
     </LinearLayout>
 
     <View
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:layout_marginTop="@dimen/amp_space_m"
-        android:background="?attr/colorOutlineVariant" />
-
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="@dimen/amp_space_s"
-        android:text="@string/chat_section_moderation"
-        android:textAppearance="@style/TextAppearance.Amperly.Label" />
+        style="@style/Widget.Amperly.Divider"
+        android:layout_marginTop="@dimen/amp_space_s" />
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="@dimen/amp_space_m"
-        android:baselineAligned="false"
         android:orientation="horizontal">
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/reportThreadButton"
-            style="@style/Widget.Amperly.Button.Outlined"
+            style="@style/Widget.Amperly.Button.Text"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
+            android:minWidth="0dp"
             android:text="@string/chat_report_thread" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/blockThreadButton"
-            style="@style/Widget.Amperly.Button.Danger"
+            style="@style/Widget.Amperly.Button.Text"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginStart="@dimen/amp_space_s"
             android:layout_weight="1"
-            android:text="@string/chat_block_thread" />
+            android:minWidth="0dp"
+            android:text="@string/chat_block_thread"
+            android:textColor="@color/amp_error"
+            app:iconTint="@color/amp_error" />
     </LinearLayout>
 </LinearLayout>

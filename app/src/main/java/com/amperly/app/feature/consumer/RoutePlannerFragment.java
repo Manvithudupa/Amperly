@@ -768,11 +768,13 @@ public class RoutePlannerFragment extends Fragment implements RouteStopAdapter.L
         planStatusText.setText(message);
     }
 
+    /** One line inside a section built at runtime, styled by the shared type scale. */
     private void addLine(LinearLayout container, String text) {
         TextView line = new TextView(requireContext());
         line.setText(text);
-        line.setTextAppearance(R.style.TextAppearance_Amperly_Body);
-        line.setPadding(0, 6, 0, 6);
+        line.setTextAppearance(R.style.TextAppearance_Amperly_BodySmall);
+        float density = getResources().getDisplayMetrics().density;
+        line.setPadding(0, Math.round(4 * density), 0, Math.round(4 * density));
         container.addView(line);
     }
 

@@ -47,6 +47,10 @@ import java.util.UUID;
  */
 public class HostDashboardFragment extends Fragment {
 
+    /** Which block the bottom navigation asked for. The page is one screen either way. */
+    public static final String ARG_SECTION = "section";
+    public static final String SECTION_BOOKINGS = "bookings";
+
     private AmperlyRepository repo;
     private LinearLayout analyticsContainer;
     private TextView emptyText;
@@ -68,7 +72,8 @@ public class HostDashboardFragment extends Fragment {
         emptyText = view.findViewById(R.id.hostEmptyText);
 
         ((TextView) view.findViewById(R.id.hostNameText)).setText(
-                AuthManager.getInstance().getCurrentUser().getName() + " · host dashboard");
+                AuthManager.getInstance().getCurrentUser().getName()
+                        + " · your chargers and what they earned");
 
         RecyclerView stations = view.findViewById(R.id.stationsRecyclerView);
         stations.setLayoutManager(new LinearLayoutManager(requireContext()));
@@ -124,6 +129,24 @@ public class HostDashboardFragment extends Fragment {
                 Navigator.openRoot(requireActivity(), new RegisterStationFragment(), "register"));
 
         load(reservationAdapter, sessionAdapter, stations);
+
+        // The Bookings tab opens this same page at its reservations block.
+        String section = getArguments() == null ? null : getArguments().getString(ARG_SECTION);
+        if (SECTION_BOOKINGS.equals(section)) {
+            view.postDelayed(() -> scrollTo(R.id.hostBookingsSection), 250);
+        }
+    }
+
+    private void scrollTo(int viewId) {
+        View root = getView();
+        if (root == null) {
+            return;
+        }
+        View scroll = root.findViewById(R.id.hostScrollView);
+        View target = root.findViewById(viewId);
+        if (scroll instanceof android.widget.ScrollView && target != null) {
+            ((android.widget.ScrollView) scroll).smoothScrollTo(0, target.getTop());
+        }
     }
 
     @Override
@@ -169,6 +192,8 @@ public class HostDashboardFragment extends Fragment {
         analyticsContainer.removeAllViews();
         addRow("Repeat consumers", String.valueOf(analytics.getRepeatConsumers()));
         addRow("Cancellation rate", Formatters.percent(analytics.getCancellationRatePercent()));
+        addRow("Utilisation of published hours",
+                Formatters.percent(analytics.getUtilizationPercent()));
         addRow("Average session size", Formatters.kwh(analytics.getAverageSessionKwh()));
         addRow("Disputes", analytics.getDisputes() + " (" + analytics.getOpenDisputes() + " open)");
         addRow("Refunds and adjustments", Formatters.money(analytics.getRefundsAndAdjustments()));

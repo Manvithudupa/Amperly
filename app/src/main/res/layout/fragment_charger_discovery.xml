@@ -1,375 +1,242 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<!--
+  Discover: the map is the page, the list is a sheet you can pull up.
+
+  The floating card answers "where am I and what did I tell the app about my battery" without
+  covering the map. Filters and results live in the sheet, so the map stays legible.
+-->
+<androidx.coordinatorlayout.widget.CoordinatorLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:fillViewport="true">
+    android:background="@color/amp_background">
 
-    <LinearLayout
+    <!-- Full-bleed map. It runs under the floating card and the sheet on purpose. -->
+    <FrameLayout
+        android:id="@+id/mapContainer"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@color/amp_map_placeholder" />
+
+    <!-- Floating header: what this list is, and the driver's own battery reading. -->
+    <com.google.android.material.card.MaterialCardView
+        style="@style/Widget.Amperly.Card"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:paddingBottom="@dimen/amp_space_xl">
+        android:layout_marginStart="@dimen/amp_screen_padding"
+        android:layout_marginTop="@dimen/amp_space_s"
+        android:layout_marginEnd="@dimen/amp_screen_padding"
+        app:cardElevation="0dp">
 
-        <!-- ======================================================== Hero Card -->
-        <!-- The one dark surface in the app: a gradient banner that states the promise. -->
-        <com.google.android.material.card.MaterialCardView
-            style="@style/Widget.Amperly.Card.Hero"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginHorizontal="@dimen/amp_screen_padding"
-            android:layout_marginTop="@dimen/amp_space_m">
+            android:orientation="vertical"
+            android:padding="@dimen/amp_space_m">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="@dimen/amp_space_l">
-
-                <!-- Live kicker: a dot and a letterspaced label -->
-                <LinearLayout
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal">
-
-                    <View
-                        android:layout_width="6dp"
-                        android:layout_height="6dp"
-                        android:background="@drawable/bg_dot_lime" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="7dp"
-                        android:fontFamily="@font/dm_sans"
-                        android:letterSpacing="0.16"
-                        android:text="LIVE NETWORK"
-                        android:textColor="@color/amp_hero_kicker"
-                        android:textSize="10sp"
-                        android:textStyle="bold" />
-                </LinearLayout>
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:fontFamily="@font/fraunces"
-                    android:letterSpacing="-0.045"
-                    android:lineSpacingMultiplier="0.96"
-                    android:text="Power up without the detour."
-                    android:textColor="@color/amp_on_hero"
-                    android:textSize="30sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:id="@+id/discoveryContextText"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:ellipsize="end"
-                    android:fontFamily="@font/dm_sans"
-                    android:maxLines="2"
-                    android:textColor="@color/amp_on_hero_muted"
-                    android:textSize="12sp" />
-
-                <!-- Battery readout, inset on a translucent surface like the prototype.
-                     Tapping it is how the driver states their own battery level. -->
-                <LinearLayout
-                    android:id="@+id/heroBatteryCard"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="@dimen/amp_space_m"
-                    android:background="@drawable/bg_hero_battery"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:foreground="?attr/selectableItemBackground"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal"
-                    android:padding="@dimen/amp_space_m">
-
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:orientation="vertical">
-
-                        <TextView
-                            android:id="@+id/heroBatteryText"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:fontFamily="@font/fraunces"
-                            android:text="—"
-                            android:textColor="@color/amp_on_hero"
-                            android:textSize="20sp"
-                            android:textStyle="bold" />
-
-                        <TextView
-                            android:id="@+id/heroBatteryCaption"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:fontFamily="@font/dm_sans"
-                            android:text="@string/discovery_battery_caption"
-                            android:textColor="@color/amp_on_hero_muted"
-                            android:textSize="10sp" />
-
-                        <com.google.android.material.progressindicator.LinearProgressIndicator
-                            android:id="@+id/heroBatteryProgress"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="6dp"
-                            android:max="100"
-                            android:progress="0"
-                            app:indicatorColor="@color/amp_lime"
-                            app:trackColor="#33FFFFFF"
-                            app:trackCornerRadius="4dp"
-                            app:trackThickness="6dp" />
-                    </LinearLayout>
-
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/updateVehicleButton"
-                        style="@style/Widget.Amperly.Button.Text"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="@dimen/amp_space_s"
-                        android:text="Vehicle"
-                        android:textColor="@color/amp_hero_kicker"
-                        app:iconTint="@color/amp_hero_kicker" />
-                </LinearLayout>
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-        <!-- =================================================== Stat Cards Row -->
-        <HorizontalScrollView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/amp_space_m"
-            android:paddingHorizontal="@dimen/amp_screen_padding"
-            android:scrollbars="none">
-
-            <LinearLayout
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
                 android:orientation="horizontal">
 
-                <!-- Nearby chargers -->
-                <com.google.android.material.card.MaterialCardView
-                    style="@style/Widget.Amperly.Card"
-                    android:layout_width="152dp"
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:contentDescription="@null"
+                    android:src="@drawable/ic_pin"
+                    app:tint="@color/amp_primary" />
+
+                <TextView
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginEnd="@dimen/amp_space_s">
+                    android:layout_marginStart="@dimen/amp_space_s"
+                    android:layout_weight="1"
+                    android:text="@string/discovery_title"
+                    android:textAppearance="@style/TextAppearance.Amperly.TitleSmall" />
 
-                    <LinearLayout
-                        android:layout_width="match_parent"
+                <!-- Battery is the driver's own reading, entered by hand; tapping changes it. -->
+                <LinearLayout
+                    android:id="@+id/heroBatteryCard"
+                    android:layout_width="wrap_content"
+                    android:layout_height="@dimen/amp_touch_target"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:id="@+id/heroBatteryText"
+                        android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:gravity="center_vertical"
-                        android:orientation="horizontal"
-                        android:padding="12dp">
+                        android:fontFeatureSettings="tnum"
+                        android:text="—"
+                        android:textAppearance="@style/TextAppearance.Amperly.MetricSmall" />
 
-                        <FrameLayout
-                            android:layout_width="34dp"
-                            android:layout_height="34dp"
-                            android:background="@drawable/bg_avatar_lime">
-
-                            <ImageView
-                                android:layout_width="17dp"
-                                android:layout_height="17dp"
-                                android:layout_gravity="center"
-                                android:contentDescription="@null"
-                                android:src="@drawable/ic_pin"
-                                app:tint="@color/amp_primary" />
-                        </FrameLayout>
-
-                        <LinearLayout
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_marginStart="10dp"
-                            android:layout_weight="1"
-                            android:orientation="vertical">
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="Nearby"
-                                android:textAppearance="@style/TextAppearance.Amperly.Label" />
-
-                            <TextView
-                                android:id="@+id/statNearbyCountText"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="0"
-                                android:textAppearance="@style/TextAppearance.Amperly.Metric" />
-                        </LinearLayout>
-                    </LinearLayout>
-                </com.google.android.material.card.MaterialCardView>
-
-                <!-- Best price -->
-                <com.google.android.material.card.MaterialCardView
-                    style="@style/Widget.Amperly.Card"
-                    android:layout_width="152dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginEnd="@dimen/amp_space_s">
-
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:gravity="center_vertical"
-                        android:orientation="horizontal"
-                        android:padding="12dp">
-
-                        <FrameLayout
-                            android:layout_width="34dp"
-                            android:layout_height="34dp"
-                            android:background="@drawable/bg_avatar_blue">
-
-                            <ImageView
-                                android:layout_width="17dp"
-                                android:layout_height="17dp"
-                                android:layout_gravity="center"
-                                android:contentDescription="@null"
-                                android:src="@drawable/ic_receipt"
-                                app:tint="@color/amp_secondary" />
-                        </FrameLayout>
-
-                        <LinearLayout
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_marginStart="10dp"
-                            android:layout_weight="1"
-                            android:orientation="vertical">
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="Best price"
-                                android:textAppearance="@style/TextAppearance.Amperly.Label" />
-
-                            <TextView
-                                android:id="@+id/statBestPriceText"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="—"
-                                android:textAppearance="@style/TextAppearance.Amperly.Metric" />
-                        </LinearLayout>
-                    </LinearLayout>
-                </com.google.android.material.card.MaterialCardView>
-
-                <!-- Estimated range -->
-                <com.google.android.material.card.MaterialCardView
-                    style="@style/Widget.Amperly.Card"
-                    android:layout_width="152dp"
-                    android:layout_height="wrap_content">
-
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:gravity="center_vertical"
-                        android:orientation="horizontal"
-                        android:padding="12dp">
-
-                        <FrameLayout
-                            android:layout_width="34dp"
-                            android:layout_height="34dp"
-                            android:background="@drawable/bg_avatar_orange">
-
-                            <ImageView
-                                android:layout_width="17dp"
-                                android:layout_height="17dp"
-                                android:layout_gravity="center"
-                                android:contentDescription="@null"
-                                android:src="@drawable/ic_session"
-                                app:tint="@color/amp_tertiary" />
-                        </FrameLayout>
-
-                        <LinearLayout
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_marginStart="10dp"
-                            android:layout_weight="1"
-                            android:orientation="vertical">
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="Est. range"
-                                android:textAppearance="@style/TextAppearance.Amperly.Label" />
-
-                            <TextView
-                                android:id="@+id/statRangeText"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="—"
-                                android:textAppearance="@style/TextAppearance.Amperly.Metric" />
-                        </LinearLayout>
-                    </LinearLayout>
-                </com.google.android.material.card.MaterialCardView>
+                    <ImageView
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_marginStart="4dp"
+                        android:contentDescription="@null"
+                        android:src="@drawable/ic_battery"
+                        app:tint="@color/amp_available" />
+                </LinearLayout>
             </LinearLayout>
-        </HorizontalScrollView>
 
-        <!-- ======================================================== Live Map -->
-        <com.google.android.material.card.MaterialCardView
-            style="@style/Widget.Amperly.Card"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginHorizontal="@dimen/amp_screen_padding"
-            android:layout_marginTop="@dimen/amp_space_m">
+            <TextView
+                android:id="@+id/discoveryContextText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:ellipsize="end"
+                android:maxLines="2"
+                android:textAppearance="@style/TextAppearance.Amperly.BodySmall" />
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="12dp">
+                android:layout_marginTop="@dimen/amp_space_s"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
 
-                <LinearLayout
-                    android:layout_width="match_parent"
+                <com.google.android.material.progressindicator.LinearProgressIndicator
+                    android:id="@+id/heroBatteryProgress"
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginBottom="10dp"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal">
+                    android:layout_weight="1"
+                    android:max="100"
+                    android:progress="0"
+                    app:indicatorColor="@color/amp_available"
+                    app:trackColor="@color/amp_surface_variant"
+                    app:trackCornerRadius="3dp"
+                    app:trackThickness="6dp" />
 
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:orientation="vertical">
+                <TextView
+                    android:id="@+id/heroBatteryCaption"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="@dimen/amp_space_s"
+                    android:text="@string/discovery_battery_caption"
+                    android:textAppearance="@style/TextAppearance.Amperly.Label" />
 
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="LIVE MAP"
-                            android:textAppearance="@style/TextAppearance.Amperly.Eyebrow" />
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="3dp"
-                            android:text="Chargers near you"
-                            android:textAppearance="@style/TextAppearance.Amperly.SectionTitle" />
-                    </LinearLayout>
-                </LinearLayout>
-
-                <com.amperly.app.core.map.MapContainerView
-                    android:id="@+id/mapContainer"
-                    android:layout_width="match_parent"
-                    android:layout_height="@dimen/amp_map_panel_height"
-                    android:background="@drawable/bg_map_placeholder"
-                    android:clipToOutline="true" />
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/updateVehicleButton"
+                    style="@style/Widget.Amperly.Button.Text"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:minWidth="0dp"
+                    android:text="@string/vehicle_title" />
             </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
 
-        <!-- Filter Chips -->
+    <!-- The sheet. Peek shows filters and the first charger; drag for the full list. -->
+    <LinearLayout
+        android:id="@+id/discoverSheet"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@drawable/bg_sheet_top"
+        android:orientation="vertical"
+        app:behavior_fitToContents="false"
+        app:behavior_hideable="false"
+        app:behavior_peekHeight="280dp"
+        app:layout_behavior="com.google.android.material.bottomsheet.BottomSheetBehavior">
+
+        <View
+            style="@style/Widget.Amperly.SheetHandle"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="@dimen/amp_space_s"
+            android:layout_marginBottom="@dimen/amp_space_s" />
+
+        <!-- Compact three-number summary. Not a grid of cards. -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:baselineAligned="false"
+            android:orientation="horizontal"
+            android:paddingStart="@dimen/amp_screen_padding"
+            android:paddingEnd="@dimen/amp_screen_padding">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/statNearbyCountText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFeatureSettings="tnum"
+                    android:text="0"
+                    android:textAppearance="@style/TextAppearance.Amperly.MetricSmall" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/discovery_stat_nearby"
+                    android:textAppearance="@style/TextAppearance.Amperly.Label" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/statBestPriceText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFeatureSettings="tnum"
+                    android:text="—"
+                    android:textAppearance="@style/TextAppearance.Amperly.MetricSmall" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/discovery_stat_best_price"
+                    android:textAppearance="@style/TextAppearance.Amperly.Label" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/statRangeText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFeatureSettings="tnum"
+                    android:text="—"
+                    android:textAppearance="@style/TextAppearance.Amperly.MetricSmall" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/discovery_stat_range"
+                    android:textAppearance="@style/TextAppearance.Amperly.Label" />
+            </LinearLayout>
+        </LinearLayout>
+
         <HorizontalScrollView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/amp_space_m"
-            android:paddingHorizontal="@dimen/amp_screen_padding"
+            android:layout_marginTop="@dimen/amp_space_s"
+            android:paddingStart="@dimen/amp_screen_padding"
+            android:paddingEnd="@dimen/amp_screen_padding"
+            android:clipToPadding="false"
             android:scrollbars="none">
 
             <com.google.android.material.chip.ChipGroup
                 android:id="@+id/filterChipGroup"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                app:chipSpacingHorizontal="4dp"
+                app:chipSpacingHorizontal="@dimen/amp_space_s"
                 app:singleLine="true"
                 app:singleSelection="true">
 
@@ -422,45 +289,58 @@
             android:id="@+id/resultCountText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginHorizontal="@dimen/amp_screen_padding"
+            android:layout_marginStart="@dimen/amp_screen_padding"
             android:layout_marginTop="@dimen/amp_space_s"
-            android:textAppearance="@style/TextAppearance.Amperly.Eyebrow" />
+            android:layout_marginEnd="@dimen/amp_screen_padding"
+            android:textAppearance="@style/TextAppearance.Amperly.Label" />
 
-        <!-- Empty State -->
-        <LinearLayout
-            android:id="@+id/emptyStateContainer"
+        <androidx.core.widget.NestedScrollView
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_margin="@dimen/amp_screen_padding"
-            android:orientation="vertical"
-            android:visibility="gone">
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:fillViewport="true">
 
-            <TextView
-                android:id="@+id/emptyStateText"
-                style="@style/Widget.Amperly.Notice.Info"
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="@string/discovery_empty" />
+                android:orientation="vertical">
 
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/emptyStateActionButton"
-                style="@style/Widget.Amperly.Button.Tonal"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="end"
-                android:layout_marginTop="@dimen/amp_space_s"
-                android:text="@string/discovery_empty_action"
-                android:visibility="gone" />
-        </LinearLayout>
+                <LinearLayout
+                    android:id="@+id/emptyStateContainer"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="@dimen/amp_screen_padding"
+                    android:layout_marginTop="@dimen/amp_space_s"
+                    android:layout_marginEnd="@dimen/amp_screen_padding"
+                    android:orientation="vertical"
+                    android:visibility="gone">
 
-        <!-- Stations List -->
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/stationsRecyclerView"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:clipToPadding="false"
-            android:nestedScrollingEnabled="false"
-            android:paddingHorizontal="@dimen/amp_space_s"
-            android:paddingTop="@dimen/amp_space_xs" />
+                    <TextView
+                        android:id="@+id/emptyStateText"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/discovery_empty"
+                        android:textAppearance="@style/TextAppearance.Amperly.Body" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/emptyStateActionButton"
+                        style="@style/Widget.Amperly.Button.Tonal"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/amp_space_s"
+                        android:text="@string/discovery_empty_action"
+                        android:visibility="gone" />
+                </LinearLayout>
+
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/stationsRecyclerView"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:clipToPadding="false"
+                    android:nestedScrollingEnabled="false"
+                    android:paddingBottom="@dimen/amp_space_xl" />
+            </LinearLayout>
+        </androidx.core.widget.NestedScrollView>
     </LinearLayout>
-</androidx.core.widget.NestedScrollView>
+
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

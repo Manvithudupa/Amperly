@@ -43,6 +43,12 @@ import java.util.UUID;
  */
 public class AdminDashboardFragment extends Fragment {
 
+    /** Which queue the bottom navigation opened. */
+    public static final String ARG_SECTION = "section";
+    public static final String SECTION_QUEUE = "queue";
+    public static final String SECTION_DISPUTES = "disputes";
+    public static final String SECTION_REPORTS = "reports";
+
     private AmperlyRepository repo;
     private PendingStationAdapter pendingAdapter;
     private DisputeAdapter disputeAdapter;
@@ -126,6 +132,27 @@ public class AdminDashboardFragment extends Fragment {
         reports.setAdapter(reportAdapter);
 
         load();
+
+        // The three bottom-navigation destinations are one desk; each opens at its own queue.
+        String section = getArguments() == null ? null : getArguments().getString(ARG_SECTION);
+        if (section != null) {
+            view.postDelayed(() -> scrollToSection(section), 250);
+        }
+    }
+
+    private void scrollToSection(String section) {
+        View root = getView();
+        if (root == null) {
+            return;
+        }
+        int targetId = SECTION_DISPUTES.equals(section) ? R.id.adminDisputesSection
+                : SECTION_REPORTS.equals(section) ? R.id.adminReportsSection
+                : R.id.adminQueueSection;
+        View scroll = root.findViewById(R.id.adminScrollView);
+        View target = root.findViewById(targetId);
+        if (scroll instanceof android.widget.ScrollView && target != null) {
+            ((android.widget.ScrollView) scroll).smoothScrollTo(0, target.getTop());
+        }
     }
 
     private void load() {

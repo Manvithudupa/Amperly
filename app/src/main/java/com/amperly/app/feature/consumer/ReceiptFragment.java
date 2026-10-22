@@ -68,7 +68,10 @@ public class ReceiptFragment extends Fragment {
 
         if (data.session == null) {
             title.setText("No receipt yet");
-            stationText.setText("Complete a charging session to get an itemised receipt based on verified meter readings.");
+            stationText.setText("Complete a charging session and the receipt shows up here, itemised from verified meter readings.");
+            totalText.setText("");
+            view.findViewById(R.id.receiptPaidBlock).setVisibility(View.GONE);
+            view.findViewById(R.id.reportIssueButton).setVisibility(View.GONE);
             return;
         }
 

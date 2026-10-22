@@ -1,17 +1,16 @@
 package com.amperly.app.ui.dialog;
 
 import android.content.Context;
-import android.text.InputType;
+import android.view.LayoutInflater;
+import android.view.View;
 import android.widget.ArrayAdapter;
-import android.widget.EditText;
-import android.widget.LinearLayout;
 import android.widget.Spinner;
-import android.widget.TextView;
 
 import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.Fragment;
 
 import com.amperly.app.R;
+import com.google.android.material.textfield.TextInputEditText;
 
 /**
  * The consumer reporting flow. Categories mirror the spec so reports reach the admin queue with the
@@ -45,16 +44,8 @@ public final class ReportDialog {
             return;
         }
 
-        LinearLayout container = new LinearLayout(context);
-        container.setOrientation(LinearLayout.VERTICAL);
-        int padding = (int) (16 * context.getResources().getDisplayMetrics().density);
-        container.setPadding(padding, padding, padding, padding);
-
-        TextView label = new TextView(context);
-        label.setText(R.string.report_reason);
-        container.addView(label);
-
-        Spinner spinner = new Spinner(context);
+        View content = LayoutInflater.from(context).inflate(R.layout.dialog_report, null, false);
+        Spinner spinner = content.findViewById(R.id.reportTypeSpinner);
         ArrayAdapter<String> adapter = new ArrayAdapter<>(context,
                 android.R.layout.simple_spinner_dropdown_item, REPORT_TYPES);
         spinner.setAdapter(adapter);
@@ -66,21 +57,11 @@ public final class ReportDialog {
                 }
             }
         }
-        container.addView(spinner);
-
-        TextView detailsLabel = new TextView(context);
-        detailsLabel.setText(R.string.report_details);
-        container.addView(detailsLabel);
-
-        EditText details = new EditText(context);
-        details.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE);
-        details.setMinLines(3);
-        details.setHint(R.string.report_details);
-        container.addView(details);
+        TextInputEditText details = content.findViewById(R.id.reportDetailsEdit);
 
         new AlertDialog.Builder(context)
                 .setTitle(title == null ? context.getString(R.string.report_title) : title)
-                .setView(container)
+                .setView(content)
                 .setNegativeButton(R.string.action_cancel, null)
                 .setPositiveButton(R.string.report_submit, (dialog, which) -> {
                     String type = (String) spinner.getSelectedItem();

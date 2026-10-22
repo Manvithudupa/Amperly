@@ -1,6 +1,7 @@
 package com.amperly.app.feature.consumer;
 
 import android.Manifest;
+import android.content.res.ColorStateList;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -13,6 +14,7 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 
 import com.amperly.app.R;
@@ -34,6 +36,7 @@ import com.amperly.app.ui.dialog.ReportDialog;
 import com.google.android.material.chip.ChipGroup;
 
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
@@ -130,9 +133,17 @@ public class ChargerDetailsFragment extends Fragment {
                 return;
             }
             availability.setText(summary.getLabel());
+            // Words say the state; the tint only backs them up.
+            boolean open = !summary.isPaused() && summary.getFreePorts() > 0;
+            availability.setBackgroundResource(open
+                    ? R.drawable.bg_badge_success : R.drawable.bg_badge_warning);
+            availability.setTextColor(ContextCompat.getColor(requireContext(),
+                    open ? R.color.amp_available : R.color.amp_busy_ink));
             freshness.setText(getString(R.string.label_availability_freshness,
                     Formatters.agoFromNow(summary.getLastUpdatedMs())));
         });
+
+        renderTimeline(view, station.getId());
 
         verification.setText(verificationLabel(station));
         gating.setVisibility(station.supportsPaidEnergyBilling() ? View.GONE : View.VISIBLE);
@@ -213,6 +224,112 @@ public class ChargerDetailsFragment extends Fragment {
                     repo.saveReport(report);
                     Ux.toast(this, getString(R.string.report_submitted));
                 }));
+    }
+
+    /**
+     * Today's availability, half-hour at a time, aggregated across the station's ports.
+     *
+     * <p>Uses the same slots the reservation flow offers, so a driver is never shown a free
+     * bar that the booking screen would refuse. A slot with no published schedule stays
+     * neutral rather than being drawn as free.
+     */
+    private void renderTimeline(View root, String stationId) {
+        LinearLayout bars = root.findViewById(R.id.availabilityTimelineContainer);
+        LinearLayout labels = root.findViewById(R.id.timelineLabelsRow);
+        if (bars == null || labels == null) {
+            return;
+        }
+        final int slotMinutes = 30;
+        final int slotCount = 48;
+        Calendar day = Calendar.getInstance();
+        day.set(Calendar.HOUR_OF_DAY, 0);
+        day.set(Calendar.MINUTE, 0);
+        day.set(Calendar.SECOND, 0);
+        day.set(Calendar.MILLISECOND, 0);
+        final long dayStart = day.getTimeInMillis();
+
+        repo.background(() -> repo.getSlots(stationId, dayStart, slotMinutes, slotCount), slots -> {
+            if (!isAdded() || slots == null) {
+                return;
+            }
+            int[] total = new int[slotCount];
+            int[] free = new int[slotCount];
+            for (AvailabilityEngine.Slot slot : slots) {
+                int index = (int) ((slot.getStartMs() - dayStart) / (slotMinutes * 60_000L));
+                if (index < 0 || index >= slotCount) {
+                    continue;
+                }
+                total[index]++;
+                if (slot.isAvailable()) {
+                    free[index]++;
+                }
+            }
+
+            bars.removeAllViews();
+            float density = getResources().getDisplayMetrics().density;
+            for (int i = 0; i < slotCount; i++) {
+                View bar = new View(requireContext());
+                LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0,
+                        LinearLayout.LayoutParams.MATCH_PARENT, 1f);
+                if (i > 0) {
+                    params.setMarginStart(Math.round(density));
+                }
+                bar.setLayoutParams(params);
+                bar.setBackgroundResource(R.drawable.bg_timeline_slot);
+                int color = total[i] == 0
+                        ? R.color.amp_surface_variant
+                        : (free[i] > 0 ? R.color.amp_available : R.color.amp_busy);
+                bar.setBackgroundTintList(ColorStateList.valueOf(
+                        ContextCompat.getColor(requireContext(), color)));
+                bars.addView(bar);
+            }
+
+            TextView summary = root.findViewById(R.id.timelineSummaryText);
+            if (summary != null) {
+                summary.setText(summariseSchedule(free, total, slotMinutes));
+            }
+
+            labels.removeAllViews();
+            int[] hours = {0, 6, 12, 18};
+            for (int hour : hours) {
+                TextView label = new TextView(requireContext());
+                label.setText(String.format(Locale.US, "%02d:00", hour));
+                label.setTextAppearance(R.style.TextAppearance_Amperly_Label);
+                label.setLayoutParams(new LinearLayout.LayoutParams(0,
+                        LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+                labels.addView(label);
+            }
+        });
+    }
+
+    /**
+     * The timeline bars carry meaning in colour, so the same information is written out in words
+     * for anyone who cannot read the shades.
+     */
+    private String summariseSchedule(int[] free, int[] total, int slotMinutes) {
+        int published = 0;
+        for (int i = 0; i < total.length; i++) {
+            if (total[i] > 0) {
+                published++;
+            }
+        }
+        if (published == 0) {
+            return getString(R.string.timeline_unpublished);
+        }
+        Calendar now = Calendar.getInstance();
+        int minutesOfDay = now.get(Calendar.HOUR_OF_DAY) * 60 + now.get(Calendar.MINUTE);
+        int current = Math.min(free.length - 1, Math.max(0, minutesOfDay / slotMinutes));
+        boolean freeNow = total[current] > 0 && free[current] > 0;
+        String base = getString(freeNow ? R.string.timeline_free_now : R.string.timeline_busy_now);
+        for (int i = current + 1; i < free.length; i++) {
+            boolean freeThen = total[i] > 0 && free[i] > 0;
+            if (freeThen != freeNow) {
+                int minutes = i * slotMinutes;
+                String clock = String.format(Locale.US, "%02d:%02d", minutes / 60, minutes % 60);
+                return base + " " + getString(R.string.timeline_changes_at, clock);
+            }
+        }
+        return base + " " + getString(R.string.timeline_rest_of_day);
     }
 
     /** Travel-mode chips plus the location fix the route starts from. */

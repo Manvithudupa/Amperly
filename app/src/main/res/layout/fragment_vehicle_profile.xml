@@ -24,15 +24,16 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="YOUR CAR"
-            android:textAppearance="@style/TextAppearance.Amperly.Eyebrow" />
+            android:layout_marginTop="@dimen/amp_space_l"
+            android:text="@string/vehicle_title"
+            android:textAppearance="@style/TextAppearance.Amperly.Display" />
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/vehicle_title"
-            android:layout_marginTop="4dp"
-            android:textAppearance="@style/TextAppearance.Amperly.ScreenTitle" />
+            android:layout_marginTop="@dimen/amp_space_xs"
+            android:text="@string/vehicle_intro"
+            android:textAppearance="@style/TextAppearance.Amperly.BodySmall" />
 
         <!-- ========================================================== Identity -->
         <com.google.android.material.card.MaterialCardView

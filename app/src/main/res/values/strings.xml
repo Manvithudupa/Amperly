@@ -1,8 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Amperly</string>
-    <!-- The wordmark is set in Fraunces with a lime full stop drawn beside it. -->
-    <string name="brand_wordmark" translatable="false">amperly</string>
+    <string name="brand_wordmark" translatable="false">Amperly</string>
     <string name="app_tagline">Reserve, access and pay for existing EV chargers</string>
     <string name="pilot_subtitle">Hyperlocal EV Charger Platform</string>
 
@@ -23,6 +22,13 @@
     <string name="nav_dashboard">Dashboard</string>
     <string name="nav_add_station">Add Station</string>
     <string name="nav_admin">Admin</string>
+    <string name="nav_profile">Profile</string>
+    <string name="nav_stations">Stations</string>
+    <string name="nav_bookings">Bookings</string>
+    <string name="nav_trips">Trips</string>
+    <string name="nav_admin_queue">Queue</string>
+    <string name="nav_admin_disputes">Disputes</string>
+    <string name="nav_admin_reports">Reports</string>
 
     <!-- Generic -->
     <string name="action_continue">Continue</string>
@@ -59,6 +65,11 @@
 
     <!-- Discovery -->
     <string name="discovery_title">Chargers near you</string>
+    <string name="discovery_stat_nearby">Chargers</string>
+    <string name="discovery_stat_best_price">Best price</string>
+    <string name="discovery_stat_range">Est. range</string>
+    <string name="label_meter_verified_short">Meter verified</string>
+    <string name="label_no_meter_short">No meter</string>
     <string name="discovery_subtitle">Compatible with your vehicle</string>
     <string name="filter_all">All</string>
     <string name="filter_compatible">Compatible</string>
@@ -84,6 +95,13 @@
     <string name="details_verification">Verification</string>
     <string name="details_reliability">Reliability</string>
     <string name="details_price_breakdown">Price breakdown (per kWh)</string>
+    <string name="details_directions">Getting there</string>
+    <string name="details_billing_note">Billing uses verified meter readings only. A station without a verified meter can be listed, but never billed automatically.</string>
+    <string name="details_availability_title">Today at this charger</string>
+    <string name="details_availability_caption">Half-hour slots, from the host’s schedule and current reservations.</string>
+    <string name="details_timeline_legend">Each bar is a 30-minute slot: free, busy, or no schedule published.</string>
+    <string name="details_fees_disclosed">Every line is disclosed before you reserve.</string>
+    <string name="unit_per_kwh">/ kWh</string>
     <string name="line_energy_price">Energy price</string>
     <string name="line_service_fee">Amperly service fee</string>
     <string name="line_gateway_fee">Payment gateway charge</string>
@@ -122,23 +140,38 @@
     <!-- Booking QR -->
     <string name="qr_title">Booking code</string>
     <string name="qr_hint">Show this code at the station to start the session.</string>
+    <string name="qr_notice">The host scans this at the station. If the scanner will not read it, the digits below are the same code.</string>
     <string name="qr_code_label">Booking code</string>
 
     <!-- Session -->
     <string name="session_title">Charging session</string>
+    <string name="session_live_kwh_label">Energy delivered</string>
+    <string name="session_live_time_label">Time</string>
+    <string name="session_live_cost_label">Cost so far</string>
+    <string name="session_stop_and_bill">Stop charging and see the bill</string>
+    <string name="session_mark_charging">Start charging</string>
+    <string name="unit_kwh">kWh</string>
+    <string name="label_estimate">Estimate</string>
     <string name="session_check_in">Check in</string>
     <string name="session_start_meter">Starting meter reading (kWh)</string>
     <string name="session_end_meter">Ending meter reading (kWh)</string>
     <string name="session_simulate">Simulate meter</string>
+    <string name="session_note_optional">Session note (optional)</string>
+    <string name="timeline_free_now">Free right now.</string>
+    <string name="timeline_busy_now">Taken right now.</string>
+    <string name="timeline_changes_at">Changes at %1$s.</string>
+    <string name="timeline_rest_of_day">No change for the rest of today.</string>
+    <string name="timeline_unpublished">No schedule published for today, so the bar stays grey.</string>
     <string name="session_simulate_delivers">Simulated session delivers %1$.1f kWh</string>
     <string name="session_complete">Complete session and bill</string>
     <string name="session_state">State: %1$s</string>
-    <string name="session_demo_meter">Demo meter readings.</string>
+    <string name="session_demo_meter">Demo meter: these readings are simulated or entered by hand, not read from live hardware.</string>
     <string name="session_invalid_reading">Ending reading cannot be lower than starting reading.</string>
     <string name="session_meter_offline">Meter offline. Enter a manually verified reading to continue.</string>
 
     <!-- Receipt -->
     <string name="receipt_title">Itemized receipt</string>
+    <string name="receipt_paid_label">Payment complete</string>
     <string name="receipt_start_reading">Starting meter reading</string>
     <string name="receipt_end_reading">Ending meter reading</string>
     <string name="receipt_verified_kwh">Verified energy consumed</string>
@@ -151,6 +184,9 @@
 
     <!-- Route planner -->
     <string name="route_title">Route and charging plan</string>
+    <string name="route_intro">Where you are, where you are going, and what the dashboard says. Stops are chosen from chargers your car can actually use.</string>
+    <string name="route_battery_step">Battery</string>
+    <string name="route_preferences_title">How to choose stops</string>
     <string name="route_destination">To</string>
     <string name="route_start_label">Starting point</string>
     <string name="route_start_locating">Finding your current location…</string>
@@ -202,6 +238,7 @@
 
     <!-- Vehicle -->
     <string name="vehicle_title">Vehicle profile</string>
+    <string name="vehicle_intro">These numbers shape range and charging plans. They are never used to bill you.</string>
     <string name="vehicle_make">Make</string>
     <string name="vehicle_model">Model</string>
     <string name="vehicle_variant">Variant</string>
@@ -224,6 +261,8 @@
     <!-- Host -->
     <string name="host_dashboard_title">Host dashboard</string>
     <string name="host_register_title">Register existing charger</string>
+    <string name="host_register_intro">Add a charger you already own. It is reviewed before it appears on the map.</string>
+    <string name="host_meter_level_note">A station without a verified meter can be listed, but paid automatic billing stays off until evidence is approved.</string>
     <string name="host_station_name">Station name</string>
     <string name="host_address">Address</string>
     <string name="host_latitude">Latitude</string>
@@ -257,6 +296,9 @@
 
     <!-- Host analytics -->
     <string name="analytics_sessions_completed">Sessions completed</string>
+    <string name="analytics_sessions_short">Sessions</string>
+    <string name="analytics_energy_short">kWh delivered</string>
+    <string name="analytics_revenue_short">Revenue</string>
     <string name="analytics_energy_delivered">Energy delivered (kWh)</string>
     <string name="analytics_utilization">Station utilization</string>
     <string name="analytics_revenue">Revenue</string>
@@ -275,6 +317,7 @@
 
     <!-- Admin -->
     <string name="admin_title">Administrator desk</string>
+    <string name="admin_intro">Verify listings, review meter evidence and settle disputes. Every decision is recorded against the evidence shown below.</string>
     <string name="admin_queue">Station verification queue</string>
     <string name="admin_disputes">Disputes and evidence</string>
     <string name="admin_enforcement">Enforcement actions</string>
@@ -348,7 +391,9 @@
 
     <!-- Sign in and account -->
     <string name="auth_title">Sign in</string>
-    <string name="auth_intro">Sign in to access your reservations, charging sessions, and receipts.</string>
+    <string name="auth_value_line">Reserve a nearby charger and pay only for the energy you use.</string>
+    <string name="auth_intro">Your reservations, sessions and receipts live in one account.</string>
+    <string name="auth_footer_note">Chargers are listed by their hosts. Meter readings and prices are shown before you book.</string>
     <string name="auth_email">Email address</string>
     <string name="auth_password">Password</string>
     <string name="auth_sign_in">Sign in</string>
@@ -391,7 +436,9 @@
     <string name="account_sign_out_confirm">Sign out of Amperly?</string>
     <string name="account_demo_mode">Offline demo mode</string>
     <string name="account_demo_note">Running on local demo data.</string>
-    <string name="account_role_note">Every Amperly account can charge and host. Switch between Consumer and Host from the strip at the top of any screen.</string>
+    <string name="account_role_note">Every Amperly account can charge and host. Switching only changes the tools in front of you, never the account.</string>
+    <string name="account_switch_title">Acting as</string>
+    <string name="account_switch_body">Same account, different tools. You can switch back at any time.</string>
     <string name="account_name_update_failed">Could not save the name on this device. Try again.</string>
 
     <!-- Map (Google Maps SDK for Android; the key is injected at build time) -->

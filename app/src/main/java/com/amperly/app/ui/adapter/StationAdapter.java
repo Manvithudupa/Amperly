@@ -3,9 +3,12 @@ package com.amperly.app.ui.adapter;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
+import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.amperly.app.R;
@@ -88,6 +91,8 @@ public class StationAdapter extends RecyclerView.Adapter<StationAdapter.StationV
         private final TextView freshness;
         private final TextView price;
         private final TextView compatibility;
+        private final TextView distance;
+        private final LinearLayout connectorRow;
         private final MaterialButton details;
         private final MaterialButton navigate;
 
@@ -101,6 +106,8 @@ public class StationAdapter extends RecyclerView.Adapter<StationAdapter.StationV
             freshness = itemView.findViewById(R.id.freshnessText);
             price = itemView.findViewById(R.id.priceText);
             compatibility = itemView.findViewById(R.id.compatibilityText);
+            distance = itemView.findViewById(R.id.distanceText);
+            connectorRow = itemView.findViewById(R.id.connectorRow);
             details = itemView.findViewById(R.id.viewDetailsButton);
             navigate = itemView.findViewById(R.id.navigateButton);
         }
@@ -110,45 +117,56 @@ public class StationAdapter extends RecyclerView.Adapter<StationAdapter.StationV
             name.setText(station.getName());
             address.setText(station.getAddress());
             type.setText(locationTypeLabel(station.getLocationType()) + " · "
-                    + station.getConnectorTypes() + " · " + (int) station.getMaxPowerKw() + " kW"
-                    + (station.isDcCapable() ? " DC" : " AC"));
+                    + (int) station.getMaxPowerKw() + " kW "
+                    + (station.isDcCapable() ? "DC" : "AC"));
+            bindConnectors(station);
 
-            // Rounded pills, and colour that matches meaning: a station with no verified
-            // meter must not carry the same green badge as a verified one.
-            if (station.supportsPaidEnergyBilling()) {
-                badge.setText("LEVEL 1" + (AppConstants.LEVEL_2_SIMULATED_SMART_METER.equals(station.getVerificationLevel()) ? "/2 METER" : " METER"));
-                badge.setBackgroundResource(R.drawable.bg_badge);
-                badge.setTextColor(androidx.core.content.ContextCompat.getColor(
-                        badge.getContext(), R.color.amp_badge_text));
+            String extras = row.getExtraLine();
+            if (extras != null && extras.contains("·")) {
+                distance.setText(extras.substring(0, extras.indexOf('·')).trim());
             } else {
-                badge.setText("NO METER");
-                badge.setBackgroundResource(R.drawable.bg_badge_warning);
-                badge.setTextColor(androidx.core.content.ContextCompat.getColor(
-                        badge.getContext(), R.color.amp_on_tertiary_container));
+                distance.setText("");
             }
 
-            if (row.getAvailability() != null) {
-                availability.setText(row.getAvailability().getLabel());
-                freshness.setText("Availability last updated "
-                        + Formatters.agoFromNow(row.getAvailability().getLastUpdatedMs()) + ".");
+            // Words carry the state; the tint only reinforces it.
+            if (station.supportsPaidEnergyBilling()) {
+                badge.setText(R.string.label_meter_verified_short);
+                badge.setBackgroundResource(R.drawable.bg_badge_success);
+                badge.setTextColor(ContextCompat.getColor(
+                        badge.getContext(), R.color.amp_available));
+            } else {
+                badge.setText(R.string.label_no_meter_short);
+                badge.setBackgroundResource(R.drawable.bg_badge_warning);
+                badge.setTextColor(ContextCompat.getColor(
+                        badge.getContext(), R.color.amp_busy_ink));
+            }
+
+            AvailabilityEngine.AvailabilitySummary summary = row.getAvailability();
+            long updatedAt = station.getLastUpdatedMs();
+            if (summary != null) {
+                availability.setText(summary.getLabel());
+                updatedAt = summary.getLastUpdatedMs();
+                boolean open = !summary.isPaused() && summary.getFreePorts() > 0;
+                availability.setBackgroundResource(open
+                        ? R.drawable.bg_badge_success : R.drawable.bg_badge_warning);
+                availability.setTextColor(ContextCompat.getColor(availability.getContext(),
+                        open ? R.color.amp_available : R.color.amp_busy_ink));
             } else {
                 availability.setText(station.isPaused() ? "Paused by the host" : "Availability unknown");
-                freshness.setText("Availability last updated " + Formatters.agoFromNow(station.getLastUpdatedMs()) + ".");
+                availability.setBackgroundResource(R.drawable.bg_badge_warning);
+                availability.setTextColor(ContextCompat.getColor(
+                        availability.getContext(), R.color.amp_busy_ink));
             }
+            freshness.setText(itemView.getContext().getString(
+                    R.string.label_availability_freshness, Formatters.agoFromNow(updatedAt)));
 
-            price.setText(Formatters.money(station.getPricePerKwh()) + " / kWh  + "
-                    + Formatters.money(station.getServiceFee()) + " service + "
-                    + Formatters.money(station.getGatewayFee()) + " gateway");
+            price.setText(Formatters.money(station.getPricePerKwh()) + " / kWh");
 
             boolean compatible = RoutePlannerEngine.isConnectorCompatible(station, vehicle);
             StringBuilder compatibilityText = new StringBuilder();
             compatibilityText.append(compatible ? "Compatible with your vehicle" : "Connector mismatch");
-            compatibilityText.append(" · reliability ").append((int) station.getReliabilityScore()).append("%");
             if (station.getIncidentCount() > 0) {
                 compatibilityText.append(" · ").append(station.getIncidentCount()).append(" incident(s)");
-            }
-            if (row.getExtraLine() != null && !row.getExtraLine().isEmpty()) {
-                compatibilityText.append("\n").append(row.getExtraLine());
             }
             compatibility.setText(compatibilityText.toString());
 
@@ -167,6 +185,38 @@ public class StationAdapter extends RecyclerView.Adapter<StationAdapter.StationV
                     listener.onNavigateToStation(station);
                 }
             });
+        }
+
+        /** One small glyph per connector, with the connector name as its content description. */
+        private void bindConnectors(ChargerStation station) {
+            connectorRow.removeAllViews();
+            String types = station.getConnectorTypes();
+            if (types == null) {
+                return;
+            }
+            String upper = types.toUpperCase(Locale.US);
+            addConnectorGlyph(R.drawable.ic_connector_ccs2, "CCS2", upper.contains("CCS"));
+            addConnectorGlyph(R.drawable.ic_connector_chademo, "CHAdeMO", upper.contains("CHADEMO"));
+            addConnectorGlyph(R.drawable.ic_connector_type2, "Type 2",
+                    upper.contains("TYPE 2") || upper.contains("TYPE2"));
+        }
+
+        private void addConnectorGlyph(int drawable, String label, boolean present) {
+            if (!present) {
+                return;
+            }
+            ImageView glyph = new ImageView(connectorRow.getContext());
+            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(dp(18), dp(18));
+            params.setMarginEnd(dp(4));
+            glyph.setLayoutParams(params);
+            glyph.setImageResource(drawable);
+            glyph.setContentDescription(label);
+            glyph.setColorFilter(ContextCompat.getColor(glyph.getContext(), R.color.amp_ink_secondary));
+            connectorRow.addView(glyph);
+        }
+
+        private int dp(int value) {
+            return Math.round(value * itemView.getResources().getDisplayMetrics().density);
         }
 
         private String locationTypeLabel(String type) {

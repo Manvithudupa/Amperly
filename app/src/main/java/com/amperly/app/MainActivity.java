@@ -45,11 +45,7 @@ import com.amperly.app.feature.host.HostDashboardFragment;
 import com.amperly.app.feature.host.RegisterStationFragment;
 import com.amperly.app.ui.Ux;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
-import com.google.android.material.chip.Chip;
-import com.google.android.material.chip.ChipGroup;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
-
-import java.util.List;
 
 /**
  * The application shell: app bar, mode strip, one fragment container and the bottom
@@ -64,7 +60,6 @@ public class MainActivity extends AppCompatActivity {
     private static final String KEY_LAST_USER = "last_user_id";
 
     private BottomNavigationView bottomNavigationView;
-    private ChipGroup roleChipGroup;
 
     /** The profile trigger in the top bar, kept so its name and role can be re-rendered. */
     private View profileBadgeView;
@@ -73,15 +68,8 @@ public class MainActivity extends AppCompatActivity {
     private View appBarLayout;
     private View appBarDivider;
     private View fragmentContainer;
-    private View roleStrip;
 
     private AmperlyRepository repo;
-
-    /** Set while the code, rather than the user, changes the chip selection. */
-    private boolean applyingRole;
-
-    /** The role list the chips were last built for, so they are only rebuilt when it changes. */
-    private String builtRoleSignature = "";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -114,24 +102,9 @@ public class MainActivity extends AppCompatActivity {
             makeToolbarHome(toolbar);
 
             bottomNavigationView = findViewById(R.id.bottomNavigationView);
-            roleChipGroup = findViewById(R.id.roleChipGroup);
-            roleStrip = findViewById(R.id.roleStrip);
             appBarLayout = findViewById(R.id.appBarLayout);
             appBarDivider = findViewById(R.id.appBarDivider);
             fragmentContainer = findViewById(R.id.fragment_container);
-
-            if (roleChipGroup != null) {
-                roleChipGroup.setOnCheckedStateChangeListener((group, checkedIds) -> {
-                    if (applyingRole || checkedIds.isEmpty()) {
-                        return;
-                    }
-                    View chip = group.findViewById(checkedIds.get(0));
-                    if (chip == null || chip.getTag() == null) {
-                        return;
-                    }
-                    applyRole(String.valueOf(chip.getTag()));
-                });
-            }
 
             handleDeepLink(getIntent());
             startBackend();
@@ -274,7 +247,6 @@ public class MainActivity extends AppCompatActivity {
                 return;
             }
             if (SupabaseAuth.hasStoredSession(this)) {
-                if (roleStrip != null) roleStrip.setVisibility(View.GONE);
                 if (bottomNavigationView != null) bottomNavigationView.setVisibility(View.GONE);
                 restoreSession();
             } else {
@@ -287,7 +259,6 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void showSignIn() {
-        if (roleStrip != null) roleStrip.setVisibility(View.GONE);
         if (bottomNavigationView != null) bottomNavigationView.setVisibility(View.GONE);
         setChromeVisible(false);
         getSupportFragmentManager()
@@ -307,9 +278,7 @@ public class MainActivity extends AppCompatActivity {
         if (storedSoc >= 0 && AppStateStore.get().getCurrentSoc() < 0) {
             AppStateStore.get().setEstimatedSoc(storedSoc);
         }
-        // The role strip stays available to signed-in users: the same account is a Consumer and a
-        // Host, so switching capacity is a normal part of using the app, not a demo control.
-        if (roleStrip != null) roleStrip.setVisibility(View.VISIBLE);
+        // Capacity is switched on the Profile page, so the shell itself stays identical.
         if (bottomNavigationView != null) bottomNavigationView.setVisibility(View.VISIBLE);
         setChromeVisible(true);
         applyRole(AppConstants.ROLE_CONSUMER);
@@ -585,9 +554,20 @@ public class MainActivity extends AppCompatActivity {
     }
 
     /**
-     * Switches capacity. The account never changes, only what it is currently acting as, so a
-     * Consumer booking a slot and a Host listing a charger are the same signed-in person.
+     * Switches capacity from the Profile page. The account never changes, only what it is
+     * currently acting as, so a Consumer booking a slot and a Host listing a charger are the
+     * same signed-in person.
      */
+    public void switchRole(String role) {
+        applyRole(role);
+        // Stay on the Profile page while the capacity changes: rebuilding the navigation
+        // selects the role's home, so ask for Profile again. Admin has no Profile tab.
+        if (bottomNavigationView != null
+                && !AppConstants.ROLE_ADMIN.equals(AuthManager.getInstance().getCurrentRole())) {
+            bottomNavigationView.setSelectedItemId(R.id.nav_profile);
+        }
+    }
+
     private void applyRole(String role) {
         AuthManager auth = AuthManager.getInstance();
         String target = role;
@@ -596,39 +576,9 @@ public class MainActivity extends AppCompatActivity {
             target = AppConstants.ROLE_CONSUMER;
             auth.setRole(target);
         }
-        buildRoleChips(target);
         AppStateStore.get().setUserId(auth.getCurrentUserId());
         renderProfileBadge();
         buildNavigation(target);
-    }
-
-    /**
-     * Rebuilds the chips from the roles this account actually holds. Consumer and Host are always
-     * offered together; Admin appears only when the server says the account is platform ops.
-     */
-    private void buildRoleChips(String activeRole) {
-        if (roleChipGroup == null) {
-            return;
-        }
-        List<String> roles = AuthManager.getInstance().availableRoles();
-        String signature = roles + "|" + activeRole;
-        if (signature.equals(builtRoleSignature)) {
-            return;
-        }
-        builtRoleSignature = signature;
-
-        applyingRole = true;
-        roleChipGroup.removeAllViews();
-        LayoutInflater inflater = LayoutInflater.from(this);
-        for (String role : roles) {
-            Chip chip = (Chip) inflater.inflate(R.layout.item_role_chip, roleChipGroup, false);
-            chip.setId(View.generateViewId());
-            chip.setText(AuthManager.roleLabel(role));
-            chip.setTag(role);
-            chip.setChecked(role.equals(activeRole));
-            roleChipGroup.addView(chip);
-        }
-        applyingRole = false;
     }
 
     private void buildNavigation(String role) {
@@ -639,8 +589,9 @@ public class MainActivity extends AppCompatActivity {
 
         if (AppConstants.ROLE_HOST.equals(role)) {
             menu.add(0, R.id.nav_host_dashboard, 0, R.string.nav_dashboard).setIcon(R.drawable.ic_dashboard);
-            menu.add(0, R.id.nav_host_add_station, 1, R.string.nav_add_station).setIcon(R.drawable.ic_add);
-            menu.add(0, R.id.nav_host_chat, 2, R.string.nav_chat).setIcon(R.drawable.ic_chat);
+            menu.add(0, R.id.nav_host_add_station, 1, R.string.nav_stations).setIcon(R.drawable.ic_pin);
+            menu.add(0, R.id.nav_host_bookings, 2, R.string.nav_bookings).setIcon(R.drawable.ic_reserve);
+            menu.add(0, R.id.nav_profile, 3, R.string.nav_profile).setIcon(R.drawable.ic_account);
             bottomNavigationView.setOnItemSelectedListener(item -> loadHostScreen(item.getItemId()));
             // Selecting the item runs the listener above, which loads the screen. Calling
             // loadRoot here as well built a second fragment and detached the first one while its
@@ -650,17 +601,18 @@ public class MainActivity extends AppCompatActivity {
         }
 
         if (AppConstants.ROLE_ADMIN.equals(role)) {
-            menu.add(0, R.id.nav_admin, 0, R.string.nav_admin).setIcon(R.drawable.ic_admin);
+            menu.add(0, R.id.nav_admin_queue, 0, R.string.nav_admin_queue).setIcon(R.drawable.ic_queue);
+            menu.add(0, R.id.nav_admin_disputes, 1, R.string.nav_admin_disputes).setIcon(R.drawable.ic_gavel);
+            menu.add(0, R.id.nav_admin_reports, 2, R.string.nav_admin_reports).setIcon(R.drawable.ic_flag);
             bottomNavigationView.setOnItemSelectedListener(item -> loadAdminScreen(item.getItemId()));
-            bottomNavigationView.setSelectedItemId(R.id.nav_admin);
+            bottomNavigationView.setSelectedItemId(R.id.nav_admin_queue);
             return;
         }
 
         menu.add(0, R.id.nav_discover, 0, R.string.nav_discover).setIcon(R.drawable.ic_discover);
-        menu.add(0, R.id.nav_route_plan, 1, R.string.nav_route).setIcon(R.drawable.ic_route);
-        menu.add(0, R.id.nav_reserve, 2, R.string.nav_reserve).setIcon(R.drawable.ic_reserve);
-        menu.add(0, R.id.nav_session, 3, R.string.nav_session).setIcon(R.drawable.ic_session);
-        menu.add(0, R.id.nav_safety, 4, R.string.nav_safety).setIcon(R.drawable.ic_safety);
+        menu.add(0, R.id.nav_route_plan, 1, R.string.nav_trips).setIcon(R.drawable.ic_route);
+        menu.add(0, R.id.nav_reserve, 2, R.string.nav_bookings).setIcon(R.drawable.ic_reserve);
+        menu.add(0, R.id.nav_profile, 3, R.string.nav_profile).setIcon(R.drawable.ic_account);
         bottomNavigationView.setOnItemSelectedListener(item -> loadConsumerScreen(item.getItemId()));
         bottomNavigationView.setSelectedItemId(R.id.nav_discover);
     }
@@ -674,12 +626,9 @@ public class MainActivity extends AppCompatActivity {
         } else if (itemId == R.id.nav_reserve) {
             fragment = new ReservationFragment();
             tag = "reserve";
-        } else if (itemId == R.id.nav_session) {
-            fragment = new ActiveSessionFragment();
-            tag = "session";
-        } else if (itemId == R.id.nav_safety) {
-            fragment = new SafetySOSFragment();
-            tag = "safety";
+        } else if (itemId == R.id.nav_profile) {
+            fragment = new AccountFragment();
+            tag = "account";
         } else {
             fragment = new ChargerDiscoveryFragment();
             tag = "discover";
@@ -693,8 +642,16 @@ public class MainActivity extends AppCompatActivity {
             loadRoot(new RegisterStationFragment(), "register");
             return true;
         }
-        if (itemId == R.id.nav_host_chat) {
-            loadRoot(new HostChatFragment(), "chat");
+        if (itemId == R.id.nav_profile) {
+            loadRoot(new AccountFragment(), "account");
+            return true;
+        }
+        if (itemId == R.id.nav_host_bookings) {
+            HostDashboardFragment bookings = new HostDashboardFragment();
+            Bundle args = new Bundle();
+            args.putString(HostDashboardFragment.ARG_SECTION, HostDashboardFragment.SECTION_BOOKINGS);
+            bookings.setArguments(args);
+            loadRoot(bookings, "host_dashboard");
             return true;
         }
         loadRoot(new HostDashboardFragment(), "host_dashboard");
@@ -702,7 +659,17 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private boolean loadAdminScreen(int itemId) {
-        loadRoot(new AdminDashboardFragment(), "admin");
+        AdminDashboardFragment admin = new AdminDashboardFragment();
+        Bundle args = new Bundle();
+        if (itemId == R.id.nav_admin_disputes) {
+            args.putString(AdminDashboardFragment.ARG_SECTION, AdminDashboardFragment.SECTION_DISPUTES);
+        } else if (itemId == R.id.nav_admin_reports) {
+            args.putString(AdminDashboardFragment.ARG_SECTION, AdminDashboardFragment.SECTION_REPORTS);
+        } else {
+            args.putString(AdminDashboardFragment.ARG_SECTION, AdminDashboardFragment.SECTION_QUEUE);
+        }
+        admin.setArguments(args);
+        loadRoot(admin, "admin");
         return true;
     }
 

@@ -52,6 +52,9 @@ public class ActiveSessionFragment extends Fragment {
     private TextView stepsText;
     private TextView simulateResultText;
     private TextView summaryText;
+    private TextView liveKwhText;
+    private TextView liveTimeText;
+    private TextView liveCostText;
 
     private Reservation reservation;
     private ChargerStation station;
@@ -77,6 +80,15 @@ public class ActiveSessionFragment extends Fragment {
         summaryText = view.findViewById(R.id.sessionSummaryText);
         startMeterEdit = view.findViewById(R.id.startMeterEdit);
         endMeterEdit = view.findViewById(R.id.endMeterEdit);
+        liveKwhText = view.findViewById(R.id.liveKwhText);
+        liveTimeText = view.findViewById(R.id.liveTimeText);
+        liveCostText = view.findViewById(R.id.liveCostText);
+
+        // Nothing has been delivered yet, so the screen says so rather than showing a zero
+        // that could be read as a real meter reading.
+        liveKwhText.setText("—");
+        liveTimeText.setText("—");
+        liveCostText.setText("—");
 
         stepsText.setText("Reserved → Checked in → Charging → Completed\n"
                 + "Other possible states: Cancelled, Expired, Disputed, Refunded");
@@ -148,6 +160,14 @@ public class ActiveSessionFragment extends Fragment {
             if (session.getEndingMeterKwh() > 0) {
                 endMeterEdit.setText(String.format(Locale.US, "%.2f", session.getEndingMeterKwh()));
             }
+            liveKwhText.setText(String.format(Locale.US, "%.2f",
+                    Math.max(0, session.getVerifiedKwhConsumed())));
+            long end = session.getEndTimeMs() > 0 ? session.getEndTimeMs()
+                    : System.currentTimeMillis();
+            int minutes = (int) Math.max(1, (end - session.getStartTimeMs()) / 60_000L);
+            liveTimeText.setText(Formatters.minutes(minutes));
+            liveCostText.setText(session.getTotalPaid() > 0
+                    ? Formatters.money(session.getTotalPaid()) : "—");
             summaryText.setText("Session " + session.getStatus() + " · verified "
                     + Formatters.kwh(session.getVerifiedKwhConsumed()) + " · billed "
                     + Formatters.money(session.getTotalPaid()));

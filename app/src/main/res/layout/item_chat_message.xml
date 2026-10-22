@@ -4,7 +4,8 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:paddingVertical="@dimen/amp_space_xs">
+    android:paddingTop="@dimen/amp_space_xs"
+    android:paddingBottom="@dimen/amp_space_xs">
 
     <com.google.android.material.card.MaterialCardView
         android:id="@+id/messageCard"
@@ -28,7 +29,8 @@
                 android:id="@+id/messageText"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:textAppearance="@style/TextAppearance.Amperly.BodyStrong" />
+                android:layout_marginTop="2dp"
+                android:textAppearance="@style/TextAppearance.Amperly.Body" />
 
             <TextView
                 android:id="@+id/messageWarningText"

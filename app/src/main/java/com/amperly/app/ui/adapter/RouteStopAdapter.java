@@ -66,7 +66,7 @@ public class RouteStopAdapter extends RecyclerView.Adapter<RouteStopAdapter.Stop
 
     public static StopRow fromCandidate(RoutePlannerEngine.CandidateEvaluation evaluation,
                                        int sequence, boolean planned) {
-        String badge = planned ? "PLANNED" : evaluation.isReachable() ? "CANDIDATE" : "UNREACHABLE";
+        String badge = planned ? "Planned" : evaluation.isReachable() ? "Candidate" : "Unreachable";
         String detail = String.format(Locale.US, "%s · %.1f km along the route · +%.1f km detour (+%d min) · %s/kWh",
                 evaluation.getStation().getName().isEmpty() ? "Charger" : evaluation.getStation().getLocationType(),
                 evaluation.getDistanceAlongRouteKm(), evaluation.getDetourKm(),
@@ -77,7 +77,7 @@ public class RouteStopAdapter extends RecyclerView.Adapter<RouteStopAdapter.Stop
     }
 
     public static StopRow fromPlannedStop(RoutePlannerEngine.PlannedStop stop) {
-        String badge = stop.isBackup() ? "BACKUP" : "PLANNED";
+        String badge = stop.isBackup() ? "Backup" : "Planned";
         String detail = String.format(Locale.US, "%.1f km along the route · +%.1f km detour (+%d min) · %d min charge · %s",
                 stop.getDistanceAlongRouteKm(), stop.getDetourKm(), stop.getDetourMinutes(),
                 stop.getChargingMinutes(), Formatters.moneyShort(stop.getEstimatedCost()));

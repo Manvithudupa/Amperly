@@ -2,31 +2,30 @@
 <!--
   Sign in / create account.
 
-  This is the only way into the app, because every read and write is authorised against the
-  signed-in Supabase account: with no session, Row Level Security returns no rows at all.
-
-  There is deliberately no "continue offline" path. A local demo identity would show rows the
-  server would never authorise, which is exactly the fabricated data this build removes.
+  No illustration, no centred hero: the name sits where a studio would put it, one line
+  says what the app is for, and the fields are the page. Every read and write is
+  authorised against the signed-in account, so there is no offline way in.
 -->
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="@color/amp_background"
     android:fillViewport="true">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="@dimen/amp_screen_padding"
+        android:paddingStart="@dimen/amp_screen_padding"
         android:paddingTop="@dimen/amp_space_xl"
+        android:paddingEnd="@dimen/amp_screen_padding"
         android:paddingBottom="@dimen/amp_space_xl">
 
-        <!-- Brand lock-up: the lime square and the serif wordmark -->
         <LinearLayout
-            android:layout_width="match_parent"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:gravity="center_horizontal"
+            android:gravity="center_vertical"
             android:orientation="horizontal">
 
             <FrameLayout
@@ -40,121 +39,98 @@
                     android:layout_gravity="center"
                     android:contentDescription="@null"
                     android:src="@drawable/ic_brand_mark"
-                    app:tint="@color/amp_on_lime" />
+                    app:tint="@color/amp_on_primary" />
             </FrameLayout>
 
             <TextView
                 android:id="@+id/signInTitleText"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="10dp"
-                android:text="@string/app_name"
-                android:textAppearance="@style/TextAppearance.Amperly.Wordmark" />
+                android:layout_marginStart="8dp"
+                android:text="@string/brand_wordmark"
+                android:textAppearance="@style/TextAppearance.Amperly.Wordmark"
+                android:textSize="24sp" />
         </LinearLayout>
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/amp_space_xl"
-            android:fontFamily="@font/fraunces"
-            android:letterSpacing="-0.04"
-            android:text="Welcome back."
+            android:layout_marginTop="@dimen/amp_space_xxl"
+            android:text="@string/auth_title"
             android:textAppearance="@style/TextAppearance.Amperly.Display" />
 
         <TextView
             android:id="@+id/signInTaglineText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:text="@string/app_tagline"
-            android:textAppearance="@style/TextAppearance.Amperly.Body" />
+            android:layout_marginTop="@dimen/amp_space_s"
+            android:text="@string/auth_value_line"
+            android:textAppearance="@style/TextAppearance.Amperly.Body"
+            android:textColor="@color/amp_ink_secondary" />
 
         <TextView
             android:id="@+id/signInIntroText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/amp_space_m"
+            android:layout_marginTop="@dimen/amp_space_l"
             android:text="@string/auth_intro"
             android:textAppearance="@style/TextAppearance.Amperly.BodySmall" />
 
-        <com.google.android.material.card.MaterialCardView
-            style="@style/Widget.Amperly.Card"
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/emailInputLayout"
+            style="@style/Widget.Amperly.TextInput"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/amp_space_l">
+            android:layout_marginTop="@dimen/amp_space_l"
+            android:hint="@string/auth_email">
 
-            <LinearLayout
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/signInEmailEdit"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="@dimen/amp_space_m">
+                android:layout_height="56dp"
+                android:autofillHints="emailAddress"
+                android:imeOptions="actionNext"
+                android:inputType="textEmailAddress"
+                android:maxLines="1"
+                android:textAppearance="@style/TextAppearance.Amperly.Body" />
+        </com.google.android.material.textfield.TextInputLayout>
 
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="6dp"
-                    android:text="EMAIL"
-                    android:textAppearance="@style/TextAppearance.Amperly.Eyebrow" />
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/passwordInputLayout"
+            style="@style/Widget.Amperly.TextInput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/amp_space_m"
+            android:hint="@string/auth_password"
+            app:endIconMode="password_toggle">
 
-                <com.google.android.material.textfield.TextInputLayout
-                    android:id="@+id/emailInputLayout"
-                    style="@style/Widget.Amperly.TextInput"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:hint="@string/auth_email">
-
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/signInEmailEdit"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:autofillHints="emailAddress"
-                        android:imeOptions="actionNext"
-                        android:inputType="textEmailAddress"
-                        android:maxLines="1" />
-                </com.google.android.material.textfield.TextInputLayout>
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="@dimen/amp_space_m"
-                    android:layout_marginBottom="6dp"
-                    android:text="PASSWORD"
-                    android:textAppearance="@style/TextAppearance.Amperly.Eyebrow" />
-
-                <com.google.android.material.textfield.TextInputLayout
-                    android:id="@+id/passwordInputLayout"
-                    style="@style/Widget.Amperly.TextInput"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:hint="@string/auth_password"
-                    app:endIconMode="password_toggle">
-
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/signInPasswordEdit"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:autofillHints="password"
-                        android:imeOptions="actionDone"
-                        android:inputType="textPassword"
-                        android:maxLines="1" />
-                </com.google.android.material.textfield.TextInputLayout>
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/signInPasswordEdit"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:autofillHints="password"
+                android:imeOptions="actionDone"
+                android:inputType="textPassword"
+                android:maxLines="1"
+                android:textAppearance="@style/TextAppearance.Amperly.Body" />
+        </com.google.android.material.textfield.TextInputLayout>
 
         <com.google.android.material.progressindicator.LinearProgressIndicator
             android:id="@+id/signInProgress"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/amp_space_s"
+            android:layout_marginTop="@dimen/amp_space_m"
             android:indeterminate="true"
-            android:visibility="gone" />
+            android:visibility="gone"
+            app:trackCornerRadius="2dp"
+            app:trackThickness="3dp" />
 
         <TextView
             android:id="@+id/signInErrorText"
             style="@style/Widget.Amperly.Notice.Error"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/amp_space_s"
+            android:layout_marginTop="@dimen/amp_space_m"
             android:visibility="gone" />
 
         <TextView
@@ -162,7 +138,7 @@
             style="@style/Widget.Amperly.Notice.Info"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/amp_space_s"
+            android:layout_marginTop="@dimen/amp_space_m"
             android:visibility="gone" />
 
         <com.google.android.material.button.MaterialButton
@@ -175,10 +151,10 @@
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/createAccountButton"
-            style="@style/Widget.Amperly.Button.Outlined"
+            style="@style/Widget.Amperly.Button.Text"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/amp_space_s"
+            android:layout_marginTop="@dimen/amp_space_xs"
             android:text="@string/auth_create_account" />
 
         <TextView
@@ -194,8 +170,8 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/amp_space_l"
-            android:drawablePadding="6dp"
-            android:text="Every station, reservation and meter reading comes from your Amperly account."
-            android:textAppearance="@style/TextAppearance.Amperly.BodySmall" />
+            android:text="@string/auth_footer_note"
+            android:textAppearance="@style/TextAppearance.Amperly.BodySmall"
+            android:textColor="@color/amp_ink_secondary" />
     </LinearLayout>
 </ScrollView>
