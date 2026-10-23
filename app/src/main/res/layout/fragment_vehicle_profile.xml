@@ -26,7 +26,8 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/amp_space_l"
             android:text="@string/vehicle_title"
-            android:textAppearance="@style/TextAppearance.Amperly.Display" />
+            android:textAppearance="@style/TextAppearance.Amperly.Display"
+            android:accessibilityHeading="true" />
 
         <TextView
             android:layout_width="match_parent"
@@ -345,6 +346,6 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/amp_space_l"
-            android:text="@string/action_save" />
+            android:text="@string/action_save_vehicle" />
     </LinearLayout>
 </ScrollView>

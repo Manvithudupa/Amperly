@@ -107,23 +107,23 @@ public class AdminDashboardFragment extends Fragment {
 
             @Override
             public void onWarning(Dispute dispute) {
-                applyEnforcement(dispute, AppConstants.ENFORCEMENT_WARNING, 0.0);
+                confirmEnforcement(dispute, AppConstants.ENFORCEMENT_WARNING, 0.0);
             }
 
             @Override
             public void onFine(Dispute dispute) {
-                applyEnforcement(dispute, AppConstants.ENFORCEMENT_FINE,
+                confirmEnforcement(dispute, AppConstants.ENFORCEMENT_FINE,
                         EnforcementPolicyEngine.DEFAULT_FINE_INR);
             }
 
             @Override
             public void onSuspend(Dispute dispute) {
-                applyEnforcement(dispute, AppConstants.ENFORCEMENT_SUSPENSION, 0.0);
+                confirmEnforcement(dispute, AppConstants.ENFORCEMENT_SUSPENSION, 0.0);
             }
 
             @Override
             public void onBan(Dispute dispute) {
-                applyEnforcement(dispute, AppConstants.ENFORCEMENT_BAN, 0.0);
+                confirmEnforcement(dispute, AppConstants.ENFORCEMENT_BAN, 0.0);
             }
         });
         disputes.setAdapter(disputeAdapter);
@@ -180,6 +180,16 @@ public class AdminDashboardFragment extends Fragment {
             pendingAdapter.submit(data.pending);
             disputeAdapter.submit(data.disputes);
             reportAdapter.submit(data.reports);
+            // An empty section says so instead of looking like a screen that failed to load.
+            View root = getView();
+            if (root != null) {
+                root.findViewById(R.id.adminQueueEmptyText).setVisibility(
+                        data.pending.isEmpty() ? View.VISIBLE : View.GONE);
+                root.findViewById(R.id.adminDisputesEmptyText).setVisibility(
+                        data.disputes.isEmpty() ? View.VISIBLE : View.GONE);
+                root.findViewById(R.id.adminReportsEmptyText).setVisibility(
+                        data.reports.isEmpty() ? View.VISIBLE : View.GONE);
+            }
             analyticsText.setText(getString(R.string.admin_platform_summary,
                     data.pending.size(), data.disputes.size(), data.reports.size(),
                     data.analytics.getSessionsCompleted(),
@@ -208,7 +218,8 @@ public class AdminDashboardFragment extends Fragment {
                     : AppConstants.APPROVAL_REJECTED);
             station.setVerified(approve && station.supportsPaidEnergyBilling());
             station.setReviewNote(approve
-                    ? "Approved: meter level " + station.getVerificationLevel() + " confirmed by an administrator."
+                    ? "Approved: " + Formatters.verificationLevel(station.getVerificationLevel())
+                    + " confirmed by an administrator."
                     : "Rejected: documentation did not match the submitted details.");
             station.setLastUpdatedMs(System.currentTimeMillis());
             // The server makes the approval decision and notifies the host; the local
@@ -224,10 +235,26 @@ public class AdminDashboardFragment extends Fragment {
         });
     }
 
+    /**
+     * Refunds are irreversible, so the button asks before it moves money.
+     *
+     * <p>The refund is computed from the invoice server-side; this dialog only decides whether
+     * to start it, and names the consequence in the same terms the result will use.
+     */
     private void resolveWithRefund(Dispute dispute) {
         if (!canActAsAdmin()) {
             return;
         }
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
+                .setTitle(R.string.admin_confirm_refund_title)
+                .setMessage(R.string.admin_confirm_refund_body)
+                .setNegativeButton(R.string.action_cancel, null)
+                .setPositiveButton(R.string.admin_refund,
+                        (dialog, which) -> performRefund(dispute))
+                .show();
+    }
+
+    private void performRefund(Dispute dispute) {
         repo.background(() -> {
             Invoice invoice = dispute.getSessionId() == null ? null
                     : repo.getInvoiceBySessionSync(dispute.getSessionId());
@@ -252,6 +279,44 @@ public class AdminDashboardFragment extends Fragment {
                 load();
             }
         });
+    }
+
+    /**
+     * Enforcement changes the host's standing and can pause a live station, so each action is
+     * confirmed first. The dialog names the action and its immediate effect; the policy ladder
+     * is still attached to the recorded note by {@link #applyEnforcement}.
+     */
+    private void confirmEnforcement(Dispute dispute, String action, double fineAmount) {
+        if (!canActAsAdmin()) {
+            return;
+        }
+        int title;
+        String message;
+        int positive;
+        if (AppConstants.ENFORCEMENT_WARNING.equals(action)) {
+            title = R.string.admin_confirm_warning_title;
+            message = getString(R.string.admin_confirm_warning_body);
+            positive = R.string.admin_warning;
+        } else if (AppConstants.ENFORCEMENT_FINE.equals(action)) {
+            title = R.string.admin_confirm_fine_title;
+            message = getString(R.string.admin_confirm_fine_body, Formatters.money(fineAmount));
+            positive = R.string.admin_fine;
+        } else if (AppConstants.ENFORCEMENT_SUSPENSION.equals(action)) {
+            title = R.string.admin_confirm_suspend_title;
+            message = getString(R.string.admin_confirm_suspend_body);
+            positive = R.string.admin_suspend;
+        } else {
+            title = R.string.admin_confirm_ban_title;
+            message = getString(R.string.admin_confirm_ban_body);
+            positive = R.string.admin_ban;
+        }
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
+                .setTitle(title)
+                .setMessage(message)
+                .setNegativeButton(R.string.action_cancel, null)
+                .setPositiveButton(positive,
+                        (dialog, which) -> applyEnforcement(dispute, action, fineAmount))
+                .show();
     }
 
     private void applyEnforcement(Dispute dispute, String action, double fineAmount) {

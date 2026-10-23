@@ -1,5 +1,7 @@
 package com.amperly.app.core.common;
 
+import androidx.annotation.Nullable;
+
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
@@ -105,5 +107,152 @@ public final class Formatters {
         int hours = (minutesFromMidnight / 60) % 24;
         int minutes = minutesFromMidnight % 60;
         return String.format(Locale.US, "%02d:%02d", hours, minutes);
+    }
+
+    // ------------------------------------------------------- stored codes
+    // The values in the database are API codes. They are fine to store and to compare, but they
+    // are not what a driver reads on a screen: "TYPE_2_AC" is "Type 2 AC". These four turn one
+    // into the other in a single place, so a new screen cannot accidentally print the code.
+
+    /** One connector code, as people say it. */
+    public static String connectorType(@Nullable String stored) {
+        if (stored == null || stored.trim().isEmpty()) {
+            return "";
+        }
+        String code = stored.trim().toUpperCase(Locale.US);
+        if (code.equals("TYPE_2_AC") || code.equals("TYPE2_AC")) {
+            return "Type 2 AC";
+        }
+        if (code.equals("TYPE_2") || code.equals("TYPE2")) {
+            return "Type 2";
+        }
+        if (code.startsWith("CCS")) {
+            return "CCS2";
+        }
+        if (code.equals("CHADEMO")) {
+            return "CHAdeMO";
+        }
+        if (code.equals("GB_T") || code.equals("GBT")) {
+            return "GB/T";
+        }
+        return humanize(stored);
+    }
+
+    /** A comma-separated connector list, each code expanded and joined back together. */
+    public static String connectorTypes(@Nullable String storedCsv) {
+        if (storedCsv == null || storedCsv.trim().isEmpty()) {
+            return "";
+        }
+        StringBuilder out = new StringBuilder();
+        for (String part : storedCsv.split(",")) {
+            String label = connectorType(part);
+            if (label.isEmpty()) {
+                continue;
+            }
+            if (out.length() > 0) {
+                out.append(", ");
+            }
+            out.append(label);
+        }
+        return out.toString();
+    }
+
+    /** A station's review state, in the words a host or admin would use. */
+    public static String approvalStatus(@Nullable String stored) {
+        if (stored == null || stored.trim().isEmpty()) {
+            return "";
+        }
+        String code = stored.trim().toUpperCase(Locale.US);
+        if (code.equals("PENDING")) {
+            return "Pending review";
+        }
+        if (code.equals("APPROVED")) {
+            return "Approved";
+        }
+        if (code.equals("REJECTED")) {
+            return "Rejected";
+        }
+        return humanize(stored);
+    }
+
+    /** How a meter was verified, without leaking "LEVEL_1" onto the screen. */
+    public static String verificationLevel(@Nullable String stored) {
+        if (stored == null || stored.trim().isEmpty()) {
+            return "No verified meter";
+        }
+        String code = stored.trim().toUpperCase(Locale.US);
+        if (code.startsWith("LEVEL_1")) {
+            return "Level 1 meter";
+        }
+        if (code.startsWith("LEVEL_2")) {
+            return "Level 2 meter";
+        }
+        if (code.startsWith("LEVEL_3") || code.equals("NONE")) {
+            return "No verified meter";
+        }
+        return humanize(stored);
+    }
+
+    /** A port's state, as a person reads it. */
+    public static String portStatus(@Nullable String stored) {
+        if (stored == null || stored.trim().isEmpty()) {
+            return "";
+        }
+        String code = stored.trim().toUpperCase(Locale.US);
+        if (code.equals("AVAILABLE") || code.equals("FREE")) {
+            return "Available";
+        }
+        if (code.equals("IN_USE") || code.equals("OCCUPIED") || code.equals("CHARGING")) {
+            return "In use";
+        }
+        if (code.equals("BLOCKED")) {
+            return "Blocked";
+        }
+        if (code.equals("OFFLINE")) {
+            return "Offline";
+        }
+        return humanize(stored);
+    }
+
+    /** A reservation or session state, in sentence case. */
+    public static String bookingStatus(@Nullable String stored) {
+        if (stored == null || stored.trim().isEmpty()) {
+            return "";
+        }
+        String code = stored.trim().toUpperCase(Locale.US);
+        if (code.equals("CHECKED_IN")) {
+            return "Checked in";
+        }
+        if (code.equals("RESERVED")) {
+            return "Reserved";
+        }
+        if (code.equals("CHARGING")) {
+            return "Charging";
+        }
+        if (code.equals("COMPLETED")) {
+            return "Completed";
+        }
+        if (code.equals("CANCELLED")) {
+            return "Cancelled";
+        }
+        if (code.equals("EXPIRED")) {
+            return "Expired";
+        }
+        if (code.equals("DISPUTED")) {
+            return "Disputed";
+        }
+        if (code.equals("REFUNDED")) {
+            return "Refunded";
+        }
+        return humanize(stored);
+    }
+
+    /** "SOME_CODE" becomes "Some code", the fallback for a value with no written label yet. */
+    private static String humanize(String stored) {
+        String words = stored.trim().replace('_', ' ').toLowerCase(Locale.US);
+        if (words.isEmpty()) {
+            return "";
+        }
+        return Character.toUpperCase(words.charAt(0)) + words.substring(1);
     }
 }

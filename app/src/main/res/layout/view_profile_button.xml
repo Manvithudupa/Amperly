@@ -7,7 +7,6 @@
     android:layout_marginEnd="@dimen/amp_space_s"
     android:background="@drawable/bg_profile_chip"
     android:clickable="true"
-    android:contentDescription="@string/account_title"
     android:focusable="true"
     android:gravity="center_vertical"
     android:orientation="horizontal"

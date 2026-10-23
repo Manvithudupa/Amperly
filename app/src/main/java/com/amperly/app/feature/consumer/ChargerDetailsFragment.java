@@ -165,9 +165,8 @@ public class ChargerDetailsFragment extends Fragment {
             View row = LayoutInflater.from(requireContext()).inflate(R.layout.item_port, portsContainer, false);
             TextView label = row.findViewById(R.id.portLabelText);
             TextView status = row.findViewById(R.id.portStatusText);
-            label.setText(getString(R.string.details_port_line, AvailabilityEngine.portLabel(port),
-                    getString(port.isDc() ? R.string.details_dc_fast : R.string.details_ac)));
-            status.setText(port.getStatus());
+            label.setText(AvailabilityEngine.portLabel(port));
+            status.setText(Formatters.portStatus(port.getStatus()));
             portsContainer.addView(row);
         }
         if (ports.isEmpty()) {
@@ -320,14 +319,21 @@ public class ChargerDetailsFragment extends Fragment {
         Calendar now = Calendar.getInstance();
         int minutesOfDay = now.get(Calendar.HOUR_OF_DAY) * 60 + now.get(Calendar.MINUTE);
         int current = Math.min(free.length - 1, Math.max(0, minutesOfDay / slotMinutes));
-        boolean freeNow = total[current] > 0 && free[current] > 0;
-        String base = getString(freeNow ? R.string.timeline_free_now : R.string.timeline_busy_now);
+        // Three states, not two: a slot with no published schedule is closed, which is not the
+        // same thing as a port that is busy, and saying "taken" for a closed charger is a lie.
+        boolean closedNow = total[current] == 0;
+        boolean freeNow = !closedNow && free[current] > 0;
+        String base = getString(closedNow ? R.string.timeline_closed_now
+                : freeNow ? R.string.timeline_free_now : R.string.timeline_busy_now);
         for (int i = current + 1; i < free.length; i++) {
-            boolean freeThen = total[i] > 0 && free[i] > 0;
-            if (freeThen != freeNow) {
+            boolean closedThen = total[i] == 0;
+            boolean freeThen = !closedThen && free[i] > 0;
+            if (closedThen != closedNow || freeThen != freeNow) {
                 int minutes = i * slotMinutes;
                 String clock = String.format(Locale.US, "%02d:%02d", minutes / 60, minutes % 60);
-                return base + " " + getString(R.string.timeline_changes_at, clock);
+                int nextString = closedNow ? R.string.timeline_opens_at
+                        : R.string.timeline_changes_at;
+                return base + " " + getString(nextString, clock);
             }
         }
         return base + " " + getString(R.string.timeline_rest_of_day);

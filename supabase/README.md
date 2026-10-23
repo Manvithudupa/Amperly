@@ -6,6 +6,9 @@ code, config or hidden SQL in this repository.
 | File | What it is |
 |---|---|
 | `schema.sql` | All 23 tables, Row Level Security, policies, helper functions, indexes, grants, the settlement functions money is written through, the `auth.users` trigger that gives every account its profile, and the backfill that repairs accounts created before it. **This is the file you were looking for.** |
+| `security_hardening.sql` | Locks the columns an attacker would use to skip review: listing self-approval, forged reputation, dispute self-resolution and self-marked payments. **Run this on any project created before it existed.** |
+| `create_admin.sql` | Creates the platform administrator (`admin@amperly.app`) with a bcrypt password and the ADMIN role. |
+| `coastal_stations.sql` | Nine live chargers from Mangaluru to Udupi, including Karkala, with 20 ports and a full week of schedules — plus one PENDING listing for the verification queue. |
 | `pilot_seed.sql` | Optional demo data (6 stations, 12 ports, 84 schedules, and the records the demo script needs). |
 | `link_pilot_users.sql` | Connects the seeded users to real Supabase Auth accounts. |
 
@@ -27,7 +30,30 @@ The last statement in the file prints every Auth account next to the application
 profile it resolves to. Every row must show an `app_user_id`: a blank one is the
 single cause of an app that signs in and then shows nothing at all.
 
-### 2. (Optional) Add the pilot data
+### 1b. Close the listing-review holes (existing projects only)
+
+If the project already had `schema.sql` applied before `security_hardening.sql`
+existed, run `security_hardening.sql` now. It is idempotent and only replaces
+trigger functions.
+
+### 1c. Create the administrator
+
+Edit `create_admin.sql` first and set `v_password` to a password of at least 12
+characters — the file refuses to run with the placeholder in place, and a real
+password must never be committed. Then paste the file into a new query and
+**Run**. Email defaults to `admin@amperly.app`.
+
+After the first sign-in you can change the password from Authentication → Users
+in the dashboard, but then update your own copy of that password: the SQL file
+only creates the account, it does not store it for you.
+
+### 2. Add the coastal charger corridor
+
+New query → paste `coastal_stations.sql` → **Run**. Nine stations from
+Mangaluru to Udupi (including Karkala), owned by the administrator account, so
+they can be verified, paused or rejected from the admin desk.
+
+### 2b. (Optional) Add the pilot data
 
 New query → paste `pilot_seed.sql` → **Run**.
 

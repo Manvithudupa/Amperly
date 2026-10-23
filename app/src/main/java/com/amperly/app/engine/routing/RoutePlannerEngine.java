@@ -310,7 +310,9 @@ public class RoutePlannerEngine {
             }
             if (vehicle != null && !isConnectorCompatible(station, vehicle)) {
                 excluded.add(new ExcludedStation(station,
-                        "Connector " + station.getConnectorTypes() + " is not supported by your "
+                        "Connector " + com.amperly.app.core.common.Formatters
+                                .connectorTypes(station.getConnectorTypes())
+                                + " is not supported by your "
                                 + (vehicle.getMake() == null ? "vehicle" : vehicle.getMake() + " " + vehicle.getModel())));
                 continue;
             }

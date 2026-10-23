@@ -21,14 +21,8 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/route_title"
-            android:textAppearance="@style/TextAppearance.Amperly.Display" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/amp_space_xs"
-            android:text="@string/route_intro"
-            android:textAppearance="@style/TextAppearance.Amperly.BodySmall" />
+            android:textAppearance="@style/TextAppearance.Amperly.Display"
+            android:accessibilityHeading="true" />
 
         <!-- ========================================================== Step 1 -->
         <LinearLayout
@@ -314,7 +308,8 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/amp_space_s"
-            android:visibility="gone" />
+            android:visibility="gone"
+            android:accessibilityLiveRegion="polite" />
 
         <!-- Calm out-of-range panel: a heading, the truth, three alternatives. -->
         <com.google.android.material.card.MaterialCardView

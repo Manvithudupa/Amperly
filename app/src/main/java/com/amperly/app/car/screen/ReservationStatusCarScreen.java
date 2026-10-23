@@ -70,7 +70,8 @@ public class ReservationStatusCarScreen extends Screen {
         }
 
         Row statusRow = new Row.Builder()
-                .setTitle("Booking " + reservation.getBookingCode() + " · " + reservation.getStatus())
+                .setTitle("Booking " + reservation.getBookingCode() + " · "
+                        + Formatters.bookingStatus(reservation.getStatus()))
                 .addText((reservation.getStationName() == null ? reservation.getStationId()
                         : reservation.getStationName()) + " · " + reservation.getPortLabel())
                 .addText(Formatters.dayAndSlot(reservation.getStartTimeMs(), reservation.getEndTimeMs()))

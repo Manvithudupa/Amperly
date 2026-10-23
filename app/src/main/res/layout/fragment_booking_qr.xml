@@ -18,7 +18,8 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/qr_title"
-            android:textAppearance="@style/TextAppearance.Amperly.Display" />
+            android:textAppearance="@style/TextAppearance.Amperly.Display"
+            android:accessibilityHeading="true" />
 
         <TextView
             android:layout_width="match_parent"
@@ -40,7 +41,7 @@
                 android:id="@+id/qrImageView"
                 android:layout_width="@dimen/amp_qr_size"
                 android:layout_height="@dimen/amp_qr_size"
-                android:contentDescription="@string/qr_title"
+                android:contentDescription="@null"
                 android:padding="@dimen/amp_space_m" />
         </com.google.android.material.card.MaterialCardView>
 

@@ -13,7 +13,8 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="@string/notifications_title"
-        android:textAppearance="@style/TextAppearance.Amperly.Display" />
+        android:textAppearance="@style/TextAppearance.Amperly.Display"
+        android:accessibilityHeading="true" />
 
     <TextView
         android:layout_width="match_parent"

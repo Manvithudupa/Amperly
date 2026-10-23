@@ -16,6 +16,8 @@ import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+
 import com.amperly.app.R;
 import com.amperly.app.communication.ChatManager;
 import com.amperly.app.core.common.AppConstants;
@@ -163,7 +165,8 @@ public class ReservationFragment extends Fragment implements ReservationAdapter.
             }
             station = data.station;
             stationText.setText(getString(R.string.reserve_station_meta, station.getName(),
-                    station.getAddress(), station.getOperatingHours(), station.getConnectorTypes()));
+                    station.getAddress(), station.getOperatingHours(),
+                    Formatters.connectorTypes(station.getConnectorTypes())));
             meterWarning.setVisibility(station.supportsPaidEnergyBilling() ? View.GONE : View.VISIBLE);
             if (!station.supportsPaidEnergyBilling()) {
                 meterWarning.setText(R.string.meter_gating_warning);
@@ -395,8 +398,29 @@ public class ReservationFragment extends Fragment implements ReservationAdapter.
         Navigator.open(this, new HostChatFragment(), "chat");
     }
 
+    /**
+     * Cancelling releases the slot and, outside the free window, charges a fee.
+     *
+     * <p>A button that only said "Cancel" used to do both on one tap, next to a row of other
+     * actions. The dialog states the fee before anything happens, so the choice is explicit.
+     */
     @Override
     public void onCancel(Reservation reservation) {
+        BillingEngine.CancellationResult preview =
+                BillingEngine.calculateCancellation(reservation, System.currentTimeMillis());
+        String message = preview.isFree()
+                ? getString(R.string.booking_cancel_free_body)
+                : getString(R.string.booking_cancel_fee_body, Formatters.money(preview.getFee()));
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle(R.string.booking_cancel_title)
+                .setMessage(message)
+                .setNegativeButton(R.string.booking_cancel_keep, null)
+                .setPositiveButton(R.string.booking_cancel_action,
+                        (dialog, which) -> performCancel(reservation))
+                .show();
+    }
+
+    private void performCancel(Reservation reservation) {
         repo.background(() -> {
             BillingEngine.CancellationResult result =
                     BillingEngine.calculateCancellation(reservation, System.currentTimeMillis());

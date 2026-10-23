@@ -1849,8 +1849,14 @@ begin
        or new."pricePerKwh"  is distinct from old."pricePerKwh"
        or new."serviceFee"   is distinct from old."serviceFee"
        or new."gatewayFee"   is distinct from old."gatewayFee"
-       or new."bookingCode"  is distinct from old."bookingCode" then
-        raise exception 'A reservation slot, port and price are fixed when the booking is made.';
+       or new."bookingCode"  is distinct from old."bookingCode"
+       -- Payment state is written by authorize_payment() and the cancellation
+       -- function. A consumer could otherwise PATCH isPaid=true, clear the late
+       -- cancellation fee, or detach the payment from the booking.
+       or new."isPaid"          is distinct from old."isPaid"
+       or new."paymentId"       is distinct from old."paymentId"
+       or new."cancellationFee" is distinct from old."cancellationFee" then
+        raise exception 'A reservation slot, port, price and payment state are fixed when the booking is made.';
     end if;
 
     return new;
@@ -1863,8 +1869,89 @@ create trigger prevent_reservation_tampering
     for each row execute function public.prevent_reservation_tampering();
 
 
+-- A host may edit their own station, but the review state is administrator-owned.
+-- Without this, a signed-in account could POST a station with approvalStatus=APPROVED
+-- and isVerified=true and skip the verification queue entirely, or PATCH its own
+-- rating and reliability score. A policy cannot express "but not these columns".
+-- See supabase/security_hardening.sql for the full explanation.
+create or replace function public.prevent_station_review_tampering()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+    if public.is_trusted_sql_context() or public.is_platform_admin() then
+        return new;
+    end if;
+
+    if tg_op = 'INSERT' then
+        new."approvalStatus"     := 'PENDING';
+        new."isVerified"         := false;
+        new."reviewNote"         := '';
+        new.rating               := 0;
+        new."reliabilityScore"   := 0;
+        new."incidentCount"      := 0;
+        return new;
+    end if;
+
+    new."approvalStatus"    := old."approvalStatus";
+    new."isVerified"        := old."isVerified";
+    new."verificationLevel" := old."verificationLevel";
+    new."reviewNote"        := old."reviewNote";
+    new."hostId"            := old."hostId";
+    new.rating              := old.rating;
+    new."reliabilityScore"  := old."reliabilityScore";
+    new."incidentCount"     := old."incidentCount";
+
+    return new;
+end;
+$$;
+
+drop trigger if exists prevent_station_review_tampering on public.charger_stations;
+create trigger prevent_station_review_tampering
+    before insert or update on public.charger_stations
+    for each row execute function public.prevent_station_review_tampering();
+
+
+-- A host may answer a dispute, but resolving one, refunding it or releasing a
+-- frozen payout is an administrator decision. The UPDATE policy has to let both
+-- parties write the row (the host response lives on it), so the columns that
+-- carry money and outcome are pinned here; the refund function runs as the
+-- table owner and is unaffected.
+create or replace function public.prevent_dispute_self_resolution()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+    if public.is_trusted_sql_context() or public.is_platform_admin() then
+        return new;
+    end if;
+
+    new.status             := old.status;
+    new."refundAmount"     := old."refundAmount";
+    new."resolutionNote"   := old."resolutionNote";
+    new."isPayoutFrozen"   := old."isPayoutFrozen";
+    new."enforcementAction" := old."enforcementAction";
+    new."resolvedAtMs"     := old."resolvedAtMs";
+    new."consumerId"       := old."consumerId";
+    new."hostId"           := old."hostId";
+    new."sessionId"        := old."sessionId";
+
+    return new;
+end;
+$$;
+
+drop trigger if exists prevent_dispute_self_resolution on public.disputes;
+create trigger prevent_dispute_self_resolution
+    before update on public.disputes
+    for each row execute function public.prevent_dispute_self_resolution();
+
+
 -- None of these is API surface: they are called by triggers, or are internal helpers.
 -- Strip the default PUBLIC execute grant.
+revoke all on function public.prevent_station_review_tampering() from public;
+revoke all on function public.prevent_dispute_self_resolution() from public;
 revoke all on function public.prevent_billing_tampering() from public;
 revoke all on function public.prevent_session_billing_on_insert() from public;
 revoke all on function public.prevent_payment_tampering() from public;

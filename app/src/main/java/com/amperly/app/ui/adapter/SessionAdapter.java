@@ -79,11 +79,12 @@ public class SessionAdapter extends RecyclerView.Adapter<SessionAdapter.SessionV
         void bind(ChargingSession session) {
             android.content.Context context = itemView.getContext();
             station.setText(session.getStationName() == null ? session.getStationId() : session.getStationName());
-            status.setText(session.getStatus());
+            status.setText(Formatters.bookingStatus(session.getStatus()));
             meta.setText(Formatters.dateTime(session.getStartTimeMs())
                     + context.getString(session.isMeterSimulated()
                     ? R.string.session_meta_demo : R.string.session_meta_verified)
-                    + (session.getVerificationLevel() == null ? "" : " (" + session.getVerificationLevel() + ")"));
+                    + (session.getVerificationLevel() == null ? ""
+                    : " (" + Formatters.verificationLevel(session.getVerificationLevel()) + ")"));
             kwh.setText(context.getString(R.string.session_kwh_line,
                     String.format(java.util.Locale.US, "%.2f", session.getStartingMeterKwh()),
                     String.format(java.util.Locale.US, "%.2f", session.getEndingMeterKwh()),

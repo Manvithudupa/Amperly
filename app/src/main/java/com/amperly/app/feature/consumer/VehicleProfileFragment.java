@@ -11,6 +11,7 @@ import android.widget.ArrayAdapter;
 import android.widget.EditText;
 import android.widget.TextView;
 
+import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
@@ -21,6 +22,7 @@ import com.amperly.app.core.state.AppStateStore;
 import com.amperly.app.data.local.entity.Vehicle;
 import com.amperly.app.data.repository.AmperlyRepository;
 import com.amperly.app.ui.Ux;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.textfield.MaterialAutoCompleteTextView;
 import com.google.android.material.textfield.TextInputLayout;
 
@@ -52,6 +54,10 @@ public class VehicleProfileFragment extends Fragment {
     private String vehicleId;
     /** The choice the removed Spinner used to hold as its selected position. */
     private int connectorIndex;
+
+    /** Field values as they were loaded, so Back can tell an edit from an untouched form. */
+    @Nullable
+    private String baseline;
 
     @Nullable
     @Override
@@ -87,6 +93,7 @@ public class VehicleProfileFragment extends Fragment {
         connectorDropdown.setText(CONNECTOR_LABELS[0], false);
         connectorDropdown.setOnItemClickListener((parent, v, position, id) -> connectorIndex = position);
         clearErrorsWhileEditing();
+        guardBackWhileEditing();
 
         String userId = AuthManager.getInstance().getCurrentUserId();
         repo.background(() -> repo.getVehicleSync(userId), vehicle -> {
@@ -96,6 +103,7 @@ public class VehicleProfileFragment extends Fragment {
             if (vehicle == null) {
                 vehicleId = UUID.randomUUID().toString();
                 derivedText.setText(R.string.vehicle_empty_hint);
+                baseline = snapshot();
                 return;
             }
             vehicleId = vehicle.getId();
@@ -115,10 +123,57 @@ public class VehicleProfileFragment extends Fragment {
             connectorDropdown.setText(CONNECTOR_LABELS[connectorIndex], false);
             AppStateStore.get().setVehicle(vehicle);
             updateDerived(vehicle);
+            baseline = snapshot();
         });
 
         view.findViewById(R.id.saveVehicleButton).setOnClickListener(v -> save(userId));
         buildDerivedPreview();
+    }
+
+    /**
+     * Asks before Back throws away typed edits.
+     *
+     * <p>The form is long enough that a stray gesture loses a minute of typing, and nothing else
+     * on this screen persists until Save is pressed. The guard only speaks when something changed.
+     */
+    private void guardBackWhileEditing() {
+        requireActivity().getOnBackPressedDispatcher().addCallback(getViewLifecycleOwner(),
+                new OnBackPressedCallback(true) {
+                    @Override
+                    public void handleOnBackPressed() {
+                        if (!hasUnsavedChanges()) {
+                            setEnabled(false);
+                            requireActivity().getOnBackPressedDispatcher().onBackPressed();
+                            return;
+                        }
+                        new MaterialAlertDialogBuilder(requireContext())
+                                .setTitle(R.string.unsaved_changes_title)
+                                .setMessage(R.string.unsaved_changes_body)
+                                .setNegativeButton(R.string.unsaved_changes_keep, null)
+                                .setPositiveButton(R.string.unsaved_changes_discard,
+                                        (dialog, which) -> {
+                                            setEnabled(false);
+                                            requireActivity().getOnBackPressedDispatcher()
+                                                    .onBackPressed();
+                                        })
+                                .show();
+                    }
+                });
+    }
+
+    private boolean hasUnsavedChanges() {
+        return baseline != null && !snapshot().equals(baseline);
+    }
+
+    /** Everything the driver can change, in one comparable string. */
+    private String snapshot() {
+        StringBuilder out = new StringBuilder();
+        for (EditText field : new EditText[]{makeEdit, modelEdit, variantEdit, yearEdit,
+                capacityEdit, maxAcEdit, maxDcEdit, efficiencyEdit, healthEdit,
+                minArrivalEdit, maxChargeEdit, plateEdit}) {
+            out.append(field == null ? "" : field.getText().toString()).append('\u0001');
+        }
+        return out.append(connectorIndex).toString();
     }
 
     private int indexOf(String connector) {
@@ -220,6 +275,7 @@ public class VehicleProfileFragment extends Fragment {
         AppStateStore.get().setVehicle(vehicle);
         AppStateStore.get().setUserId(userId);
         updateDerived(vehicle);
+        baseline = snapshot();
         Ux.success(this, getString(R.string.vehicle_saved));
     }
 

@@ -111,7 +111,7 @@
             android:layout_marginStart="@dimen/amp_space_s"
             android:layout_weight="1"
             android:minWidth="0dp"
-            android:text="@string/action_cancel"
+            android:text="@string/booking_cancel_action"
             android:textColor="@color/amp_error"
             app:iconTint="@color/amp_error" />
     </LinearLayout>

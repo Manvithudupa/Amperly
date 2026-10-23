@@ -14,7 +14,8 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/safety_title"
-            android:textAppearance="@style/TextAppearance.Amperly.Display" />
+            android:textAppearance="@style/TextAppearance.Amperly.Display"
+            android:accessibilityHeading="true" />
 
         <TextView
             android:id="@+id/sosNoticeText"
@@ -38,7 +39,8 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/amp_space_s"
-            android:textAppearance="@style/TextAppearance.Amperly.BodySmall" />
+            android:textAppearance="@style/TextAppearance.Amperly.BodySmall"
+            android:accessibilityLiveRegion="assertive" />
 
         <!-- Contacts -->
         <TextView
@@ -63,6 +65,7 @@
                 android:id="@+id/contactNameEdit"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:autofillHints="name"
                 android:inputType="textPersonName"
                 android:textAppearance="@style/TextAppearance.Amperly.Body" />
         </com.google.android.material.textfield.TextInputLayout>
@@ -79,6 +82,7 @@
                 android:id="@+id/contactPhoneEdit"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:autofillHints="phone"
                 android:inputType="phone"
                 android:textAppearance="@style/TextAppearance.Amperly.Body" />
         </com.google.android.material.textfield.TextInputLayout>

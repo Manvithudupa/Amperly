@@ -149,9 +149,9 @@ public class ActiveSessionFragment extends Fragment {
             endMeterEdit.setEnabled(false);
             return;
         }
-        stateText.setText(getString(R.string.session_state, reservation.getStatus()));
+        stateText.setText(Formatters.bookingStatus(reservation.getStatus()));
         String meterLine = station == null ? "" : getString(R.string.session_meter_line,
-                station.getVerificationLevel(),
+                Formatters.verificationLevel(station.getVerificationLevel()),
                 getString(station.supportsPaidEnergyBilling()
                         ? R.string.session_billing_enabled : R.string.session_billing_unavailable));
         infoText.setText(getString(R.string.session_info_combo,

@@ -394,6 +394,7 @@ public class RoutePlannerFragment extends Fragment implements RouteStopAdapter.L
         }
 
         showStatus(getString(R.string.route_planning));
+        revealPlanStatus();
         navigationProvider.calculateRoute(request, new NavigationProvider.RouteCallback() {
             @Override
             public void onRoute(@NonNull NavigationProvider.RouteResult result) {
@@ -410,6 +411,7 @@ public class RoutePlannerFragment extends Fragment implements RouteStopAdapter.L
                     return;
                 }
                 showStatus(message);
+                revealPlanStatus();
                 // A free-text destination Google could not geocode has no coordinates to fall back
                 // on, so the plan honestly stops instead of inventing a location.
                 if (destination != null) {
@@ -769,6 +771,21 @@ public class RoutePlannerFragment extends Fragment implements RouteStopAdapter.L
     private void showStatus(String message) {
         planStatusText.setVisibility(View.VISIBLE);
         planStatusText.setText(message);
+    }
+
+    /**
+     * Brings the status line into view.
+     *
+     * <p>The button that starts a plan sits above the map and the status line sits below it, so a
+     * failing plan used to write its reason somewhere the driver could not see and the button
+     * looked broken. Scrolling to the line is what makes "why nothing happened" visible.
+     */
+    private void revealPlanStatus() {
+        View root = getView();
+        if (root instanceof android.widget.ScrollView) {
+            root.post(() -> ((android.widget.ScrollView) root)
+                    .smoothScrollTo(0, Math.max(0, planStatusText.getTop() - 24)));
+        }
     }
 
     /** One line inside a section built at runtime, styled by the shared type scale. */

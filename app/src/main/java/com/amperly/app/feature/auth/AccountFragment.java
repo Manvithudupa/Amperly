@@ -57,7 +57,6 @@ public class AccountFragment extends Fragment {
     private TextView emailText;
     private TextView authorityText;
     private TextView syncStatusText;
-    private TextView demoNoteText;
     private TextView roleNoteText;
     private MaterialButton editNameButton;
     private MaterialButton accountSignInButton;
@@ -87,7 +86,6 @@ public class AccountFragment extends Fragment {
         emailText = view.findViewById(R.id.accountEmailText);
         authorityText = view.findViewById(R.id.accountAuthorityText);
         syncStatusText = view.findViewById(R.id.accountSyncStatusText);
-        demoNoteText = view.findViewById(R.id.accountDemoNoteText);
         roleNoteText = view.findViewById(R.id.accountRoleNoteText);
         editNameButton = view.findViewById(R.id.editNameButton);
         accountSignInButton = view.findViewById(R.id.accountSignInButton);
@@ -103,7 +101,6 @@ public class AccountFragment extends Fragment {
         signOutButton.setVisibility(signedIn ? View.VISIBLE : View.GONE);
         // There is no demo mode to explain any more; the note only appears when a session has
         // lapsed and the account page can no longer show real data.
-        demoNoteText.setVisibility(signedIn ? View.GONE : View.VISIBLE);
         roleNoteText.setVisibility(signedIn ? View.VISIBLE : View.GONE);
         accountSignInButton.setVisibility(!signedIn && configured ? View.VISIBLE : View.GONE);
 
@@ -193,7 +190,7 @@ public class AccountFragment extends Fragment {
             avatarBadge.setVisibility(View.GONE);
             editNameButton.setVisibility(View.GONE);
             authorityText.setVisibility(View.GONE);
-            nameText.setText(R.string.account_demo_mode);
+            nameText.setText(R.string.account_signed_out);
             emailText.setText("");
             return;
         }
@@ -303,7 +300,7 @@ public class AccountFragment extends Fragment {
                 .setTitle(R.string.account_edit_name_title)
                 .setView(content)
                 .setNegativeButton(R.string.action_cancel, null)
-                .setPositiveButton(R.string.action_save, null)
+                .setPositiveButton(R.string.action_save_name, null)
                 .create();
 
         dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE)

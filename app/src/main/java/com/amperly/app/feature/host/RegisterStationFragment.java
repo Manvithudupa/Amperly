@@ -15,6 +15,7 @@ import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.TextView;
 
+import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
@@ -36,6 +37,7 @@ import com.amperly.app.data.local.entity.User;
 import com.amperly.app.data.repository.AmperlyRepository;
 import com.amperly.app.engine.meter.MeterSimulator;
 import com.amperly.app.ui.Ux;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.textfield.MaterialAutoCompleteTextView;
 import com.google.android.material.textfield.TextInputLayout;
 
@@ -75,6 +77,10 @@ public class RegisterStationFragment extends Fragment {
     private MapPanel mapPanel;
     /** Set while the map, rather than the host, is writing the coordinate fields. */
     private boolean applyingPickedLocation;
+
+    /** Field values as they were opened, so Back can tell an edit from an untouched form. */
+    @Nullable
+    private String baseline;
 
     /** The choices the removed Spinners used to hold as their selected position. */
     private int locationTypeIndex;
@@ -121,6 +127,61 @@ public class RegisterStationFragment extends Fragment {
         clearErrorsWhileEditing();
 
         view.findViewById(R.id.saveStationButton).setOnClickListener(v -> save(view));
+
+        baseline = snapshot(view);
+        guardBackWhileEditing();
+    }
+
+    /**
+     * Asks before Back throws away a half-filled listing.
+     *
+     * <p>Nothing here is saved until Submit, and the form has a map, a price and ports on it, so
+     * losing the work to a back gesture is worth one question. Untouched forms pass straight
+     * through.
+     */
+    private void guardBackWhileEditing() {
+        requireActivity().getOnBackPressedDispatcher().addCallback(getViewLifecycleOwner(),
+                new OnBackPressedCallback(true) {
+                    @Override
+                    public void handleOnBackPressed() {
+                        if (!hasUnsavedChanges()) {
+                            setEnabled(false);
+                            requireActivity().getOnBackPressedDispatcher().onBackPressed();
+                            return;
+                        }
+                        new MaterialAlertDialogBuilder(requireContext())
+                                .setTitle(R.string.unsaved_changes_title)
+                                .setMessage(R.string.unsaved_changes_body)
+                                .setNegativeButton(R.string.unsaved_changes_keep, null)
+                                .setPositiveButton(R.string.unsaved_changes_discard,
+                                        (dialog, which) -> {
+                                            setEnabled(false);
+                                            requireActivity().getOnBackPressedDispatcher()
+                                                    .onBackPressed();
+                                        })
+                                .show();
+                    }
+                });
+    }
+
+    private boolean hasUnsavedChanges() {
+        View view = getView();
+        return baseline != null && view != null && !snapshot(view).equals(baseline);
+    }
+
+    /** Everything the host can change, in one comparable string. */
+    private String snapshot(View view) {
+        StringBuilder out = new StringBuilder();
+        for (int id : new int[]{R.id.stationNameEdit, R.id.addressEdit, R.id.latitudeEdit,
+                R.id.longitudeEdit, R.id.hoursEdit, R.id.priceEdit, R.id.serviceFeeEdit,
+                R.id.gatewayFeeEdit, R.id.portCountEdit, R.id.portPowerEdit, R.id.accessRulesEdit}) {
+            out.append(text(view, id)).append('\u0001');
+        }
+        CheckBox dc = view.findViewById(R.id.portDcCheck);
+        out.append(dc != null && dc.isChecked()).append('\u0001');
+        return out.append(locationTypeIndex).append('\u0001')
+                .append(meterLevelIndex).append('\u0001')
+                .append(portConnectorIndex).toString();
     }
 
     /** A field-level error disappears the moment the host starts correcting the field. */

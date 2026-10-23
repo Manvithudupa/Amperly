@@ -281,7 +281,9 @@ public class MainActivity extends AppCompatActivity {
         // Capacity is switched on the Profile page, so the shell itself stays identical.
         if (bottomNavigationView != null) bottomNavigationView.setVisibility(View.VISIBLE);
         setChromeVisible(true);
-        applyRole(AppConstants.ROLE_CONSUMER);
+        // An administrator signs in to work the verification queue, not to browse chargers;
+        // landing them in Consumer hid the only screens their account exists for.
+        applyRole(user.isPlatformAdmin() ? AppConstants.ROLE_ADMIN : AppConstants.ROLE_CONSUMER);
         invalidateOptionsMenu();
         Ux.toast(this, getString(R.string.auth_signed_in_as) + " " + user.getName());
         if (repo.didProfileWriteFail()) {
@@ -596,7 +598,7 @@ public class MainActivity extends AppCompatActivity {
             // Selecting the item runs the listener above, which loads the screen. Calling
             // loadRoot here as well built a second fragment and detached the first one while its
             // map was still being attached — the crash this method used to cause on sign-in.
-            bottomNavigationView.setSelectedItemId(R.id.nav_host_dashboard);
+            selectNavigationItem(R.id.nav_host_dashboard);
             return;
         }
 
@@ -605,7 +607,7 @@ public class MainActivity extends AppCompatActivity {
             menu.add(0, R.id.nav_admin_disputes, 1, R.string.nav_admin_disputes).setIcon(R.drawable.ic_gavel);
             menu.add(0, R.id.nav_admin_reports, 2, R.string.nav_admin_reports).setIcon(R.drawable.ic_flag);
             bottomNavigationView.setOnItemSelectedListener(item -> loadAdminScreen(item.getItemId()));
-            bottomNavigationView.setSelectedItemId(R.id.nav_admin_queue);
+            selectNavigationItem(R.id.nav_admin_queue);
             return;
         }
 
@@ -614,7 +616,38 @@ public class MainActivity extends AppCompatActivity {
         menu.add(0, R.id.nav_reserve, 2, R.string.nav_bookings).setIcon(R.drawable.ic_reserve);
         menu.add(0, R.id.nav_profile, 3, R.string.nav_profile).setIcon(R.drawable.ic_account);
         bottomNavigationView.setOnItemSelectedListener(item -> loadConsumerScreen(item.getItemId()));
-        bottomNavigationView.setSelectedItemId(R.id.nav_discover);
+        selectNavigationItem(R.id.nav_discover);
+    }
+
+    /**
+     * Selects a tab, and loads its screen even when that tab was already the selected one.
+     *
+     * <p>{@code setSelectedItemId} fires the listener only when the id actually changes. After a
+     * pull the shell rebuilds the menu with the same tab still selected, so the listener never ran
+     * and the screen kept the rows it had read from an empty cache. Loading explicitly is what
+     * makes the post-sync rebuild do something.
+     */
+    private void selectNavigationItem(int itemId) {
+        if (bottomNavigationView == null) {
+            return;
+        }
+        if (bottomNavigationView.getSelectedItemId() == itemId) {
+            loadNavigationItem(itemId);
+            return;
+        }
+        bottomNavigationView.setSelectedItemId(itemId);
+    }
+
+    /** Routes a tab id to the loader for the role that is currently acting. */
+    private void loadNavigationItem(int itemId) {
+        String role = AuthManager.getInstance().getCurrentRole();
+        if (AppConstants.ROLE_HOST.equals(role)) {
+            loadHostScreen(itemId);
+        } else if (AppConstants.ROLE_ADMIN.equals(role)) {
+            loadAdminScreen(itemId);
+        } else {
+            loadConsumerScreen(itemId);
+        }
     }
 
     private boolean loadConsumerScreen(int itemId) {

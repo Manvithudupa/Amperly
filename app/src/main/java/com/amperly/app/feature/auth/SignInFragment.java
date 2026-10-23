@@ -24,6 +24,7 @@ import com.amperly.app.data.remote.SupabaseRest;
 import com.amperly.app.data.repository.AmperlyRepository;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.progressindicator.LinearProgressIndicator;
+import com.google.android.material.textfield.TextInputLayout;
 
 /**
  * Sign in or create an account.
@@ -43,6 +44,8 @@ public class SignInFragment extends Fragment {
     private AmperlyRepository repo;
     private EditText emailEdit;
     private EditText passwordEdit;
+    private TextInputLayout emailField;
+    private TextInputLayout passwordField;
     private TextView errorText;
     private TextView infoText;
     private TextView offlineNoteText;
@@ -64,6 +67,8 @@ public class SignInFragment extends Fragment {
 
         emailEdit = view.findViewById(R.id.signInEmailEdit);
         passwordEdit = view.findViewById(R.id.signInPasswordEdit);
+        emailField = view.findViewById(R.id.emailInputLayout);
+        passwordField = view.findViewById(R.id.passwordInputLayout);
         errorText = view.findViewById(R.id.signInErrorText);
         infoText = view.findViewById(R.id.signInInfoText);
         offlineNoteText = view.findViewById(R.id.signInOfflineNoteText);
@@ -78,6 +83,10 @@ public class SignInFragment extends Fragment {
 
         signInButton.setOnClickListener(v -> submit(false));
         createAccountButton.setOnClickListener(v -> submit(true));
+        // A field-level error belongs on the field, and it goes away as soon as the field is
+        // edited rather than staying until the next submit.
+        emailEdit.addTextChangedListener(clearErrorOnEdit(emailField));
+        passwordEdit.addTextChangedListener(clearErrorOnEdit(passwordField));
         passwordEdit.setOnEditorActionListener((v, actionId, event) -> {
             if (actionId == EditorInfo.IME_ACTION_DONE) {
                 submit(false);
@@ -105,14 +114,20 @@ public class SignInFragment extends Fragment {
         String email = emailEdit.getText().toString().trim();
         String password = passwordEdit.getText().toString();
         hideMessages();
+        if (emailField != null) emailField.setError(null);
+        if (passwordField != null) passwordField.setError(null);
 
         if (TextUtils.isEmpty(email) || !email.contains("@")) {
-            showError(getString(R.string.auth_email_required));
+            if (emailField != null) {
+                emailField.setError(getString(R.string.auth_email_required));
+            }
             emailEdit.requestFocus();
             return;
         }
         if (password.length() < 6) {
-            showError(getString(R.string.auth_password_too_short));
+            if (passwordField != null) {
+                passwordField.setError(getString(R.string.auth_password_too_short));
+            }
             passwordEdit.requestFocus();
             return;
         }
@@ -198,6 +213,25 @@ public class SignInFragment extends Fragment {
     private void hideMessages() {
         errorText.setVisibility(View.GONE);
         infoText.setVisibility(View.GONE);
+    }
+
+    private android.text.TextWatcher clearErrorOnEdit(final TextInputLayout field) {
+        return new android.text.TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+            }
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+            }
+
+            @Override
+            public void afterTextChanged(android.text.Editable s) {
+                if (field != null) {
+                    field.setError(null);
+                }
+            }
+        };
     }
 
     private void showError(String message) {

@@ -11,6 +11,7 @@ import androidx.car.app.model.Row;
 import androidx.car.app.model.Template;
 
 import com.amperly.app.car.CarBridge;
+import com.amperly.app.core.common.Formatters;
 import com.amperly.app.core.nav.Navigator;
 import com.amperly.app.data.local.entity.ChargerPort;
 import com.amperly.app.data.local.entity.ChargerStation;
@@ -59,7 +60,8 @@ public class ChargerDetailsCarScreen extends Screen {
         Row stationRow = new Row.Builder()
                 .setTitle(station.getName())
                 .addText(station.getAddress())
-                .addText(station.getConnectorTypes() + " · " + (int) station.getMaxPowerKw() + " kW · "
+                .addText(Formatters.connectorTypes(station.getConnectorTypes())
+                        + " · " + (int) station.getMaxPowerKw() + " kW · "
                         + String.format(Locale.US, "₹%.0f", station.getPricePerKwh()) + "/kWh + ₹"
                         + (int) station.getServiceFee() + " service + ₹" + (int) station.getGatewayFee()
                         + " gateway")
@@ -70,7 +72,8 @@ public class ChargerDetailsCarScreen extends Screen {
                 .addText(station.getAccessRules() == null ? "No access rules published."
                         : station.getAccessRules())
                 .addText(station.supportsPaidEnergyBilling()
-                        ? "Verified meter (" + station.getVerificationLevel() + ") — paid energy billing enabled"
+                        ? "Verified meter (" + Formatters.verificationLevel(station.getVerificationLevel())
+                        + ") — paid energy billing enabled"
                         : "No verified meter — discovery only, no automatic paid billing")
                 .build();
 

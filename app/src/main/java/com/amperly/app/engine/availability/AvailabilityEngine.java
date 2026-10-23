@@ -263,7 +263,9 @@ public final class AvailabilityEngine {
         if (port == null) {
             return "";
         }
-        return "Port " + port.getPortNumber() + " · " + port.getConnectorType()
-                + " · " + (int) port.getPowerKw() + " kW" + (port.isDc() ? " DC" : " AC");
+        // The connector label already says AC or DC, so it is not repeated on the power figure.
+        return "Port " + port.getPortNumber() + " · "
+                + com.amperly.app.core.common.Formatters.connectorType(port.getConnectorType())
+                + " · " + (int) port.getPowerKw() + " kW";
     }
 }

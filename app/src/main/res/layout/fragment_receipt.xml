@@ -38,7 +38,8 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/amp_space_xs"
             android:text="@string/receipt_title"
-            android:textAppearance="@style/TextAppearance.Amperly.Display" />
+            android:textAppearance="@style/TextAppearance.Amperly.Display"
+            android:accessibilityHeading="true" />
 
         <TextView
             android:id="@+id/receiptStationText"

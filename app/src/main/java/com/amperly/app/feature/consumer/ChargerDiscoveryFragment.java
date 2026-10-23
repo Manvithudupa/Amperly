@@ -174,7 +174,9 @@ public class ChargerDiscoveryFragment extends Fragment implements StationAdapter
             String vehicleLabel = vehicle == null
                     ? getString(R.string.discovery_vehicle_none)
                     : getString(R.string.discovery_vehicle_value, vehicle.getMake(),
-                    vehicle.getModel(), vehicle.getConnectorType());
+                    vehicle.getModel(),
+                    com.amperly.app.core.common.Formatters.connectorType(
+                            vehicle.getConnectorType()));
             String summary = getString(R.string.discovery_vehicle_line, vehicleLabel);
             DiscoveredData data = new DiscoveredData(rows, summary);
             // Distances are measured from the driver's real position, never a fixed pilot point.
@@ -379,8 +381,8 @@ public class ChargerDiscoveryFragment extends Fragment implements StationAdapter
             filtered.add(row);
         }
         adapter.submit(filtered);
-        resultCountText.setText(getString(R.string.discovery_shown, filtered.size(),
-                filterLabel()));
+        resultCountText.setText(getResources().getQuantityString(R.plurals.discovery_shown,
+                filtered.size(), filtered.size(), filterLabel()));
 
         boolean empty = filtered.isEmpty();
         if (emptyStateContainer != null) {

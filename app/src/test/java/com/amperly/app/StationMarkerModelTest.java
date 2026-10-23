@@ -44,7 +44,9 @@ public class StationMarkerModelTest {
     @Test
     public void theSnippetCarriesConnectorPowerAndPorts() {
         String snippet = StationMarkerModel.snippet(station(AppConstants.LEVEL_1_VERIFIED_MANUAL, true));
-        assertTrue(snippet.contains("CCS_2_DC"));
+        // The marker names the connector the way a driver does, not as the stored code.
+        assertTrue(snippet.contains("CCS2"));
+        assertFalse(snippet.contains("CCS_2_DC"));
         assertTrue(snippet.contains("60"));
         assertTrue(snippet.contains("port"));
     }

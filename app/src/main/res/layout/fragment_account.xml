@@ -19,15 +19,8 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/account_title"
-            android:textAppearance="@style/TextAppearance.Amperly.Display" />
-
-        <TextView
-            android:id="@+id/accountSubtitleText"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/amp_space_xs"
-            android:text="@string/account_description"
-            android:textAppearance="@style/TextAppearance.Amperly.BodySmall" />
+            android:textAppearance="@style/TextAppearance.Amperly.Display"
+            android:accessibilityHeading="true" />
 
         <!-- Identity -->
         <com.google.android.material.card.MaterialCardView
@@ -187,7 +180,8 @@
             android:id="@+id/accountSyncStatusText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textAppearance="@style/TextAppearance.Amperly.BodySmall" />
+            android:textAppearance="@style/TextAppearance.Amperly.BodySmall"
+            android:accessibilityLiveRegion="polite" />
 
         <TextView
             android:id="@+id/accountRoleNoteText"
@@ -196,15 +190,6 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/amp_space_m"
             android:text="@string/account_role_note" />
-
-        <TextView
-            android:id="@+id/accountDemoNoteText"
-            style="@style/Widget.Amperly.Notice.Warning"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/amp_space_s"
-            android:text="@string/account_demo_note"
-            android:visibility="gone" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/notificationsButton"

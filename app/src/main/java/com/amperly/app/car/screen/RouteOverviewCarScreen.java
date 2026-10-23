@@ -1,9 +1,11 @@
 package com.amperly.app.car.screen;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.OptIn;
 import androidx.car.app.CarContext;
 import androidx.car.app.CarToast;
 import androidx.car.app.Screen;
+import androidx.car.app.annotations.ExperimentalCarApi;
 import androidx.car.app.model.Action;
 import androidx.car.app.model.ActionStrip;
 import androidx.car.app.model.ItemList;
@@ -41,6 +43,7 @@ public class RouteOverviewCarScreen extends Screen {
 
     @NonNull
     @Override
+    @OptIn(markerClass = ExperimentalCarApi.class)
     public Template onGetTemplate() {
         if (snapshot == null) {
             CarBridge.load(repo, value -> {
@@ -133,7 +136,8 @@ public class RouteOverviewCarScreen extends Screen {
                         .setTitle("Reservation " + snapshot.getReservation().getBookingCode())
                         .addText((snapshot.getReservation().getStationName() == null ? ""
                                 : snapshot.getReservation().getStationName())
-                                + " - " + snapshot.getReservation().getStatus())
+                                + " - " + com.amperly.app.core.common.Formatters
+                                .bookingStatus(snapshot.getReservation().getStatus()))
                         .setOnClickListener(() -> getScreenManager().push(
                                 new ReservationStatusCarScreen(getCarContext())))
                         .build());

@@ -77,9 +77,16 @@
             </intent-filter>
         </activity>
 
+        <!--
+          Exported because the Android Auto host is a different application and can only bind
+          to an exported car app service; the androidx.car.app contract has no permission it
+          could require instead. tools:ignore records why lint's ExportedService warning does
+          not apply here.
+        -->
         <service
             android:name=".car.AmperlyCarAppService"
-            android:exported="true">
+            android:exported="true"
+            tools:ignore="ExportedService">
             <intent-filter>
                 <action android:name="androidx.car.app.CarAppService" />
                 <category android:name="androidx.car.app.category.CHARGING" />

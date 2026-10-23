@@ -78,9 +78,10 @@ public class PendingStationAdapter extends RecyclerView.Adapter<PendingStationAd
             host.setText(context.getString(R.string.pending_host_line,
                     station.getHostName() == null ? station.getHostId() : station.getHostName()));
             meta.setText(context.getString(R.string.pending_station_meta,
-                    station.getAddress(), station.getConnectorTypes(), (int) station.getMaxPowerKw(),
+                    station.getAddress(), Formatters.connectorTypes(station.getConnectorTypes()),
+                    (int) station.getMaxPowerKw(),
                     station.getPortCount(), station.getOperatingHours(),
-                    station.getVerificationLevel(),
+                    Formatters.verificationLevel(station.getVerificationLevel()),
                     Formatters.agoFromNow(station.getLastUpdatedMs()),
                     station.getAccessRules() == null
                             ? context.getString(R.string.pending_access_none)

@@ -98,14 +98,18 @@ public final class ReservationEngine {
         if (vehicle != null && vehicle.getConnectorType() != null && port.getConnectorType() != null
                 && !port.getConnectorType().equalsIgnoreCase(vehicle.getConnectorType())) {
             return new BookingCheck(false, "Port " + port.getPortNumber() + " ("
-                    + port.getConnectorType() + ") is not compatible with your vehicle connector ("
-                    + vehicle.getConnectorType() + ").", false);
+                    + com.amperly.app.core.common.Formatters.connectorType(port.getConnectorType())
+                    + ") is not compatible with your vehicle connector ("
+                    + com.amperly.app.core.common.Formatters.connectorType(vehicle.getConnectorType())
+                    + ").", false);
         }
         if (vehicle != null && station.getConnectorTypes() != null
                 && !com.amperly.app.engine.routing.RoutePlannerEngine.isConnectorCompatible(station, vehicle)) {
-            return new BookingCheck(false, "This station publishes " + station.getConnectorTypes()
+            return new BookingCheck(false, "This station publishes "
+                    + com.amperly.app.core.common.Formatters.connectorTypes(station.getConnectorTypes())
                     + ", which does not match your vehicle connector ("
-                    + vehicle.getConnectorType() + ").", false);
+                    + com.amperly.app.core.common.Formatters.connectorType(vehicle.getConnectorType())
+                    + ").", false);
         }
         boolean paid = station.supportsPaidEnergyBilling();
         if (!paid) {

@@ -125,7 +125,8 @@ public final class CarBridge {
                         }
                     }
                     detail = "Detour +" + String.format(java.util.Locale.US, "%.1f", detour)
-                            + " km · " + recommended.getConnectorTypes() + " · "
+                            + " km · " + com.amperly.app.core.common.Formatters
+                            .connectorTypes(recommended.getConnectorTypes()) + " · "
                             + (int) recommended.getMaxPowerKw() + " kW · "
                             + String.format(java.util.Locale.US, "₹%.0f", recommended.getPricePerKwh()) + "/kWh";
                 }

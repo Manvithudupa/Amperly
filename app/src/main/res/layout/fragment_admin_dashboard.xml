@@ -15,7 +15,8 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/admin_title"
-            android:textAppearance="@style/TextAppearance.Amperly.Display" />
+            android:textAppearance="@style/TextAppearance.Amperly.Display"
+            android:accessibilityHeading="true" />
 
         <TextView
             android:layout_width="match_parent"
@@ -43,6 +44,15 @@
             android:layout_height="wrap_content"
             android:nestedScrollingEnabled="false" />
 
+        <TextView
+            android:id="@+id/adminQueueEmptyText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/amp_space_s"
+            android:text="@string/admin_queue_empty"
+            android:textAppearance="@style/TextAppearance.Amperly.BodySmall"
+            android:visibility="gone" />
+
         <!-- Disputes -->
         <TextView
             android:id="@+id/adminDisputesSection"
@@ -55,6 +65,15 @@
             android:layout_height="wrap_content"
             android:nestedScrollingEnabled="false" />
 
+        <TextView
+            android:id="@+id/adminDisputesEmptyText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/amp_space_s"
+            android:text="@string/admin_disputes_empty"
+            android:textAppearance="@style/TextAppearance.Amperly.BodySmall"
+            android:visibility="gone" />
+
         <!-- Reports -->
         <TextView
             android:id="@+id/adminReportsSection"
@@ -66,6 +85,15 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:nestedScrollingEnabled="false" />
+
+        <TextView
+            android:id="@+id/adminReportsEmptyText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/amp_space_s"
+            android:text="@string/admin_reports_empty"
+            android:textAppearance="@style/TextAppearance.Amperly.BodySmall"
+            android:visibility="gone" />
 
         <TextView
             android:id="@+id/policyNoteText"

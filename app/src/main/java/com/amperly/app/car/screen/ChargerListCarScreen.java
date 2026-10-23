@@ -9,6 +9,7 @@ import androidx.car.app.model.ListTemplate;
 import androidx.car.app.model.Row;
 import androidx.car.app.model.Template;
 
+import com.amperly.app.core.common.Formatters;
 import com.amperly.app.data.local.entity.ChargerStation;
 import com.amperly.app.data.repository.AmperlyRepository;
 import com.amperly.app.engine.availability.AvailabilityEngine;
@@ -48,10 +49,12 @@ public class ChargerListCarScreen extends Screen {
                 final String stationId = station.getId();
                 list.addItem(new Row.Builder()
                         .setTitle(station.getName())
-                        .addText(station.getConnectorTypes() + " · " + (int) station.getMaxPowerKw()
+                        .addText(Formatters.connectorTypes(station.getConnectorTypes())
+                                + " · " + (int) station.getMaxPowerKw()
                                 + " kW · " + String.format(Locale.US, "₹%.0f", station.getPricePerKwh()) + "/kWh")
                         .addText(station.supportsPaidEnergyBilling()
-                                ? "Verified meter: " + station.getVerificationLevel()
+                                ? "Verified meter: "
+                                + Formatters.verificationLevel(station.getVerificationLevel())
                                 : "Discovery only — no verified meter")
                         .setOnClickListener(() -> getScreenManager().push(
                                 new ChargerDetailsCarScreen(getCarContext(), stationId)))

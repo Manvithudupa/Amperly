@@ -57,7 +57,8 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/amp_space_xxl"
             android:text="@string/auth_title"
-            android:textAppearance="@style/TextAppearance.Amperly.Display" />
+            android:textAppearance="@style/TextAppearance.Amperly.Display"
+            android:accessibilityHeading="true" />
 
         <TextView
             android:id="@+id/signInTaglineText"
@@ -67,14 +68,6 @@
             android:text="@string/auth_value_line"
             android:textAppearance="@style/TextAppearance.Amperly.Body"
             android:textColor="@color/amp_ink_secondary" />
-
-        <TextView
-            android:id="@+id/signInIntroText"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/amp_space_l"
-            android:text="@string/auth_intro"
-            android:textAppearance="@style/TextAppearance.Amperly.BodySmall" />
 
         <com.google.android.material.textfield.TextInputLayout
             android:id="@+id/emailInputLayout"
@@ -123,7 +116,8 @@
             android:indeterminate="true"
             android:visibility="gone"
             app:trackCornerRadius="2dp"
-            app:trackThickness="3dp" />
+            app:trackThickness="3dp"
+            android:contentDescription="@string/auth_signing_in" />
 
         <TextView
             android:id="@+id/signInErrorText"
@@ -131,7 +125,8 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/amp_space_m"
-            android:visibility="gone" />
+            android:visibility="gone"
+            android:accessibilityLiveRegion="polite" />
 
         <TextView
             android:id="@+id/signInInfoText"
@@ -139,7 +134,8 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/amp_space_m"
-            android:visibility="gone" />
+            android:visibility="gone"
+            android:accessibilityLiveRegion="polite" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/signInButton"
@@ -166,12 +162,5 @@
             android:text="@string/auth_offline_note"
             android:visibility="gone" />
 
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/amp_space_l"
-            android:text="@string/auth_footer_note"
-            android:textAppearance="@style/TextAppearance.Amperly.BodySmall"
-            android:textColor="@color/amp_ink_secondary" />
     </LinearLayout>
 </ScrollView>

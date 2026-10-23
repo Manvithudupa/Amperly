@@ -48,8 +48,9 @@ public final class StationMarkerModel {
     @NonNull
     public static String snippet(@NonNull ChargerStation station) {
         StringBuilder builder = new StringBuilder();
-        builder.append(station.getConnectorTypes() == null || station.getConnectorTypes().isEmpty()
-                ? "Connector not published" : station.getConnectorTypes());
+        String connectors = com.amperly.app.core.common.Formatters
+                .connectorTypes(station.getConnectorTypes());
+        builder.append(connectors.isEmpty() ? "Connector not published" : connectors);
         builder.append(" · ").append(String.format(Locale.US, "%.1f", station.getMaxPowerKw()))
                 .append(" kW");
         builder.append(" · ").append(station.getPortCount()).append(" port")

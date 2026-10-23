@@ -179,8 +179,10 @@ public class HostDashboardFragment extends Fragment {
         ((TextView) view.findViewById(R.id.statsSessionsText)).setText(String.valueOf(analytics.getSessionsCompleted()));
         ((TextView) view.findViewById(R.id.statsEnergyText)).setText(
                 String.format(Locale.US, "%.1f", analytics.getEnergyDeliveredKwh()));
+        // A bare "0%" under three labelled numbers reads as a broken value; say what it measures.
         ((TextView) view.findViewById(R.id.statsUtilizationText)).setText(
-                Formatters.percent(analytics.getUtilizationPercent()));
+                getString(R.string.analytics_utilization_short,
+                        Formatters.percent(analytics.getUtilizationPercent())));
         ((TextView) view.findViewById(R.id.statsRevenueText)).setText(
                 Formatters.moneyShort(analytics.getRevenue()));
     }
@@ -254,10 +256,16 @@ public class HostDashboardFragment extends Fragment {
         void bind(ChargerStation station) {
             name.setText(station.getName());
             meta.setText(itemView.getContext().getString(R.string.host_station_meta,
-                    station.getAddress(), station.getConnectorTypes(), (int) station.getMaxPowerKw(),
-                    station.getPortCount(), Formatters.money(station.getPricePerKwh())));
-            status.setText(itemView.getContext().getString(R.string.host_station_status,
-                    station.getApprovalStatus(), station.getVerificationLevel(),
+                    station.getAddress(), Formatters.connectorTypes(station.getConnectorTypes()),
+                    (int) station.getMaxPowerKw(), station.getPortCount(),
+                    Formatters.money(station.getPricePerKwh())));
+            // The review state, the meter and the paused flag all in words, never the stored codes.
+            String review = Formatters.approvalStatus(station.getApprovalStatus())
+                    + " · " + Formatters.verificationLevel(station.getVerificationLevel());
+            if (station.isPaused()) {
+                review = getString(R.string.host_station_paused_state, review);
+            }
+            status.setText(itemView.getContext().getString(R.string.host_station_status, review,
                     Formatters.agoFromNow(station.getLastUpdatedMs())));
             pause.setText(station.isPaused() ? R.string.host_resume_station : R.string.host_pause_station);
             pause.setOnClickListener(v -> togglePause(station));

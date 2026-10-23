@@ -90,7 +90,7 @@ public class EngineUnitTest {
         for (RoutePlannerEngine.ExcludedStation excluded : result.getExcluded()) {
             reasons.append(excluded.getReason()).append(" | ");
         }
-        assertTrue(reasons.toString().contains("CHADEMO"));
+        assertTrue(reasons.toString().contains("CHAdeMO"));
     }
 
     @Test
@@ -248,8 +248,9 @@ public class EngineUnitTest {
         ChargerPort port = new ChargerPort("p1", "st_1", "2", "CCS_2_DC", 30.0, true,
                 AppConstants.PORT_AVAILABLE);
         String label = com.amperly.app.engine.availability.AvailabilityEngine.portLabel(port);
-        assertTrue(label.contains("CCS_2_DC"));
+        // Chargers are labelled for people: the raw CCS_2_DC code stays in the database.
+        assertTrue(label.contains("CCS2"));
+        assertFalse(label.contains("CCS_2_DC"));
         assertTrue(label.contains("30 kW"));
-        assertTrue(label.contains("DC"));
     }
 }

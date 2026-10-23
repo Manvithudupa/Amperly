@@ -28,7 +28,8 @@
                 android:id="@+id/detailsNameText"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:textAppearance="@style/TextAppearance.Amperly.Display" />
+                android:textAppearance="@style/TextAppearance.Amperly.Display"
+                android:accessibilityHeading="true" />
 
             <TextView
                 android:id="@+id/detailsAddressText"
