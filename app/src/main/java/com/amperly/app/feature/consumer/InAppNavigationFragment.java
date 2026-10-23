@@ -3,11 +3,11 @@ package com.amperly.app.feature.consumer;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import android.text.InputType;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.EditText;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -30,6 +30,9 @@ import com.amperly.app.core.security.AuthManager;
 import com.amperly.app.core.state.AppStateStore;
 import com.amperly.app.core.state.SocStore;
 import com.amperly.app.ui.Ux;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+import com.google.android.material.textfield.TextInputEditText;
+import com.google.android.material.textfield.TextInputLayout;
 
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
@@ -90,7 +93,7 @@ public class InAppNavigationFragment extends Fragment {
         super.onViewCreated(view, savedInstanceState);
         Bundle args = getArguments();
         if (args == null) {
-            Ux.toast(this, getString(R.string.nav_route_failed));
+            Ux.error(this, getString(R.string.nav_route_failed));
             return;
         }
         originLat = args.getDouble(ARG_ORIGIN_LAT);
@@ -98,7 +101,8 @@ public class InAppNavigationFragment extends Fragment {
         destLat = args.getDouble(ARG_DEST_LAT);
         destLng = args.getDouble(ARG_DEST_LNG);
         String rawLabel = args.getString(ARG_LABEL);
-        label = rawLabel == null || rawLabel.isEmpty() ? "your destination" : rawLabel;
+        label = rawLabel == null || rawLabel.isEmpty()
+                ? getString(R.string.nav_destination_fallback) : rawLabel;
 
         nextTurnText = view.findViewById(R.id.navNextTurnText);
         instructionText = view.findViewById(R.id.navInstructionText);
@@ -241,13 +245,15 @@ public class InAppNavigationFragment extends Fragment {
         DirectionsRoute.Step next = RouteProgress.nextStep(current, fraction);
         if (next != null && !next.getInstruction().isEmpty()) {
             nextTurnText.setVisibility(View.VISIBLE);
-            nextTurnText.setText(getString(R.string.nav_next_maneuver, next.getDistanceText().isEmpty()
-                    ? "continue" : next.getDistanceText()));
+            nextTurnText.setText(getString(R.string.nav_next_maneuver,
+                    next.getDistanceText().isEmpty()
+                            ? getString(R.string.nav_continue) : next.getDistanceText()));
             instructionText.setText(next.getInstruction());
         } else {
             nextTurnText.setVisibility(View.VISIBLE);
-            nextTurnText.setText(getString(R.string.nav_next_maneuver, "continue"));
-            instructionText.setText("Continue on the route to " + label + ".");
+            nextTurnText.setText(getString(R.string.nav_next_maneuver,
+                    getString(R.string.nav_continue)));
+            instructionText.setText(getString(R.string.nav_continue_to, label));
         }
 
         remainingText.setText(getString(R.string.nav_remaining, remainingKm,
@@ -273,28 +279,52 @@ public class InAppNavigationFragment extends Fragment {
     }
 
     private void promptBatteryUpdate() {
-        EditText input = new EditText(requireContext());
-        input.setInputType(InputType.TYPE_CLASS_NUMBER);
-        input.setHint(R.string.route_current_soc);
-        new androidx.appcompat.app.AlertDialog.Builder(requireContext())
+        View content = LayoutInflater.from(requireContext())
+                .inflate(R.layout.dialog_input_number, null, false);
+        final TextInputLayout field = content.findViewById(R.id.numberField);
+        final TextInputEditText input = content.findViewById(R.id.numberInput);
+        input.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+            }
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+            }
+
+            @Override
+            public void afterTextChanged(Editable s) {
+                field.setError(null);
+            }
+        });
+
+        final androidx.appcompat.app.AlertDialog dialog = new MaterialAlertDialogBuilder(requireContext())
                 .setTitle(R.string.soc_update_title)
-                .setMessage("Enter the battery percentage shown on your dashboard. The remaining "
-                        + "route and charger recommendations are recalculated from it.")
-                .setView(input)
+                .setMessage(R.string.soc_update_message)
+                .setView(content)
                 .setNegativeButton(R.string.action_close, null)
-                .setPositiveButton(R.string.soc_update_action, (dialog, which) -> {
-                    int soc = parseInt(input.getText().toString());
+                .setPositiveButton(R.string.soc_update_action, null)
+                .create();
+
+        // Validated inside the dialog: an out-of-range value keeps it open and marks the field.
+        dialog.setOnShowListener(ignored -> dialog
+                .getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE)
+                .setOnClickListener(v -> {
+                    int soc = parseInt(input.getText() == null ? "" : input.getText().toString());
                     if (soc < 0 || soc > 100) {
-                        Ux.toast(this, "Battery percentage must be between 0 and 100.");
+                        field.setError(getString(R.string.soc_update_invalid));
                         return;
                     }
+                    field.setError(null);
+                    dialog.dismiss();
                     AppStateStore.get().applySocCorrection(AppStateStore.get().getCurrentSoc(), soc);
                     SocStore.save(getContext(), AuthManager.getInstance().getCurrentUserId(), soc);
                     AppStateStore.get().setLastRecalculationSummary(
-                            "Dashboard value " + soc + "% is now authoritative for the remaining trip.");
+                            getString(R.string.soc_update_authoritative, soc));
                     recalculateFromPosition();
-                })
-                .show();
+                }));
+        dialog.show();
+        input.requestFocus();
     }
 
     /** Recalculates from the latest real position after the driver corrects the battery. */

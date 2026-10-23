@@ -92,19 +92,19 @@ public class HostChatFragment extends Fragment {
         view.findViewById(R.id.sendChatButton).setOnClickListener(v -> sendMessage());
         view.findViewById(R.id.reportThreadButton).setOnClickListener(v -> {
             if (activeThread == null) {
-                Ux.toast(this, "Select a conversation first.");
+                Ux.error(this, getString(R.string.host_chat_select_first));
                 return;
             }
             repo.reportThread(activeThread.getId());
-            Ux.toast(this, "Conversation reported. The admin team will review the messages and evidence.");
+            Ux.success(this, getString(R.string.host_chat_reported));
         });
         view.findViewById(R.id.blockThreadButton).setOnClickListener(v -> {
             if (activeThread == null) {
-                Ux.toast(this, "Select a conversation first.");
+                Ux.error(this, getString(R.string.host_chat_select_first));
                 return;
             }
             repo.blockThread(activeThread.getId());
-            Ux.toast(this, "This conversation is blocked. Contact support if the issue continues.");
+            Ux.success(this, getString(R.string.host_chat_blocked));
         });
 
         if (hostMode) {
@@ -117,16 +117,15 @@ public class HostChatFragment extends Fragment {
     private void bindThreads(List<CommunicationThread> threads) {
         threadsChipGroup.removeAllViews();
         if (threads == null || threads.isEmpty()) {
-            threadTitle.setText(hostMode ? "No host conversations yet" : "No conversations yet");
-            threadExpiry.setText("Conversations appear here once a reservation exists. They close "
-                    + "automatically after the reservation or dispute window.");
+            threadTitle.setText(hostMode ? R.string.host_chat_none_host : R.string.host_chat_none);
+            threadExpiry.setText(R.string.host_chat_empty_body);
             emptyText.setVisibility(View.VISIBLE);
             return;
         }
         for (CommunicationThread thread : threads) {
             Chip chip = new Chip(requireContext());
             String label = hostMode ? thread.getConsumerName() : thread.getHostName();
-            chip.setText(label == null ? "Conversation" : label);
+            chip.setText(label == null ? getString(R.string.host_chat_conversation) : label);
             chip.setCheckable(true);
             chip.setChecked(!thread.isBlocked() && thread == firstThread(threads));
             chip.setOnClickListener(v -> selectThread(thread));
@@ -141,14 +140,15 @@ public class HostChatFragment extends Fragment {
 
     private void selectThread(CommunicationThread thread) {
         activeThread = thread;
-        User consumer = AuthManager.getInstance().getCurrentUser();
-        threadTitle.setText((hostMode ? thread.getConsumerName() : thread.getHostName())
-                + " · booking " + thread.getReservationId());
+        threadTitle.setText(getString(R.string.host_chat_title,
+                hostMode ? thread.getConsumerName() : thread.getHostName(),
+                thread.getReservationId()));
         boolean open = ChatManager.isThreadOpen(thread, System.currentTimeMillis());
-        threadExpiry.setText("Masked numbers: consumer " + thread.getMaskedConsumerNumber()
-                + " · host " + thread.getMaskedHostNumber()
-                + "\nConversation " + (open ? "closes on " + ChatManager.expiryLabel(thread.getExpiresAtMs())
-                : "has expired"));
+        String expiry = open
+                ? getString(R.string.host_chat_closes_on, ChatManager.expiryLabel(thread.getExpiresAtMs()))
+                : getString(R.string.host_chat_has_expired);
+        threadExpiry.setText(getString(R.string.host_chat_masked,
+                thread.getMaskedConsumerNumber(), thread.getMaskedHostNumber(), expiry));
         if (!open) {
             emptyText.setVisibility(View.VISIBLE);
             emptyText.setText(R.string.chat_expired);
@@ -166,7 +166,7 @@ public class HostChatFragment extends Fragment {
             return;
         }
         if (activeThread == null) {
-            Ux.toast(this, "Select a conversation, or create a reservation first.");
+            Ux.error(this, getString(R.string.host_chat_select_or_reserve));
             return;
         }
         if (!ChatManager.isThreadOpen(activeThread, System.currentTimeMillis())) {

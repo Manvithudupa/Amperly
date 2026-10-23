@@ -67,7 +67,6 @@ public class AppConstants {
      * because silently using a fixed point as the user's location is forbidden. The driver's real
      * position comes from {@code LocationProvider} and, when there is none, the screen says so.
      */
-    public static final String PILOT_NAME = "Mysore pilot";
 
     public static final double DEFAULT_CORRIDOR_KM = 10.0;
 }

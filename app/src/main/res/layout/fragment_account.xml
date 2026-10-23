@@ -207,6 +207,14 @@
             android:visibility="gone" />
 
         <com.google.android.material.button.MaterialButton
+            android:id="@+id/notificationsButton"
+            style="@style/Widget.Amperly.Button.Outlined"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/amp_space_l"
+            android:text="@string/notifications_title" />
+
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/accountSignInButton"
             style="@style/Widget.Amperly.Button"
             android:layout_width="match_parent"

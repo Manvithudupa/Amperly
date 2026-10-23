@@ -3,11 +3,14 @@ package com.amperly.app.core.routing;
 import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import com.amperly.app.R;
 import com.amperly.app.core.common.GoogleConfig;
+import com.amperly.app.core.common.UserMessages;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -78,6 +81,9 @@ public final class GoogleDirectionsClient {
         void onError(@NonNull String message);
     }
 
+    private static final String TAG = "GoogleDirections";
+    /** Used only when no Context is available to resolve a resource (the navigation provider). */
+    private static final String MAP_UNAVAILABLE = "The map service is unavailable right now.";
     private static final String BASE_URL = "https://maps.googleapis.com/maps/api/directions/json";
     private static final OkHttpClient HTTP = new OkHttpClient.Builder()
             .connectTimeout(8, TimeUnit.SECONDS)
@@ -104,7 +110,7 @@ public final class GoogleDirectionsClient {
                 DirectionsRoute route = fetch(mode, format(fromLat, fromLng), format(toLat, toLng));
                 main.post(() -> callback.onRoute(route));
             } catch (Exception e) {
-                String message = describe(e);
+                String message = describe(context, e);
                 main.post(() -> callback.onError(message));
             }
         }, "google-directions").start();
@@ -124,7 +130,9 @@ public final class GoogleDirectionsClient {
             return;
         }
         if (destination.trim().isEmpty()) {
-            main.post(() -> callback.onError("Enter a destination to plan the trip."));
+            main.post(() -> callback.onError(context == null
+                    ? MAP_UNAVAILABLE
+                    : context.getString(R.string.route_needs_destination)));
             return;
         }
         new Thread(() -> {
@@ -132,7 +140,7 @@ public final class GoogleDirectionsClient {
                 DirectionsRoute route = fetch(mode, format(fromLat, fromLng), destination.trim());
                 main.post(() -> callback.onRoute(route));
             } catch (Exception e) {
-                String message = describe(e);
+                String message = describe(context, e);
                 main.post(() -> callback.onError(message));
             }
         }, "google-directions").start();
@@ -320,11 +328,15 @@ public final class GoogleDirectionsClient {
                 .trim();
     }
 
-    private static String describe(Exception e) {
-        String message = e.getMessage();
-        if (message == null || message.trim().isEmpty()) {
-            return "Could not reach Google Directions.";
+    /**
+     * Logs the technical reason and returns a plain-language line. The raw message never reaches
+     * the screen, and never reaches the car display either.
+     */
+    private static String describe(@Nullable Context context, Exception e) {
+        Log.w(TAG, "Directions request failed", e);
+        if (context == null) {
+            return MAP_UNAVAILABLE;
         }
-        return message;
+        return UserMessages.from(context.getApplicationContext(), e, R.string.error_map_unavailable);
     }
 }

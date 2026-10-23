@@ -1,5 +1,6 @@
 package com.amperly.app.ui.adapter;
 
+import android.content.Context;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -64,24 +65,31 @@ public class RouteStopAdapter extends RecyclerView.Adapter<RouteStopAdapter.Stop
         notifyDataSetChanged();
     }
 
-    public static StopRow fromCandidate(RoutePlannerEngine.CandidateEvaluation evaluation,
+    public static StopRow fromCandidate(Context context,
+                                       RoutePlannerEngine.CandidateEvaluation evaluation,
                                        int sequence, boolean planned) {
-        String badge = planned ? "Planned" : evaluation.isReachable() ? "Candidate" : "Unreachable";
-        String detail = String.format(Locale.US, "%s · %.1f km along the route · +%.1f km detour (+%d min) · %s/kWh",
-                evaluation.getStation().getName().isEmpty() ? "Charger" : evaluation.getStation().getLocationType(),
+        String badge = context.getString(planned ? R.string.stop_badge_planned
+                : evaluation.isReachable() ? R.string.stop_badge_candidate
+                : R.string.stop_badge_unreachable);
+        String detail = context.getString(R.string.stop_detail_candidate,
+                evaluation.getStation().getName().isEmpty()
+                        ? context.getString(R.string.location_type_charger)
+                        : evaluation.getStation().getLocationType(),
                 evaluation.getDistanceAlongRouteKm(), evaluation.getDetourKm(),
-                evaluation.getDetourMinutes(), Formatters.moneyShort(evaluation.getStation().getPricePerKwh()));
-        return new StopRow(badge, sequence > 0 ? String.valueOf(sequence) : "★",
+                evaluation.getDetourMinutes(),
+                Formatters.moneyShort(evaluation.getStation().getPricePerKwh()));
+        return new StopRow(badge, sequence > 0 ? String.valueOf(sequence) : "\u2605",
                 evaluation.getStation().getName(), detail, evaluation.getReason(),
                 evaluation.isReachable(), evaluation.getStation().getId());
     }
 
-    public static StopRow fromPlannedStop(RoutePlannerEngine.PlannedStop stop) {
-        String badge = stop.isBackup() ? "Backup" : "Planned";
-        String detail = String.format(Locale.US, "%.1f km along the route · +%.1f km detour (+%d min) · %d min charge · %s",
+    public static StopRow fromPlannedStop(Context context, RoutePlannerEngine.PlannedStop stop) {
+        String badge = context.getString(stop.isBackup()
+                ? R.string.stop_badge_backup : R.string.stop_badge_planned);
+        String detail = context.getString(R.string.stop_detail_planned,
                 stop.getDistanceAlongRouteKm(), stop.getDetourKm(), stop.getDetourMinutes(),
                 stop.getChargingMinutes(), Formatters.moneyShort(stop.getEstimatedCost()));
-        return new StopRow(badge, stop.isBackup() ? "•" : String.valueOf(stop.getSequence()),
+        return new StopRow(badge, stop.isBackup() ? "\u2022" : String.valueOf(stop.getSequence()),
                 stop.getStation().getName(), detail, stop.getRecommendationReason(), false,
                 stop.getStation().getId());
     }

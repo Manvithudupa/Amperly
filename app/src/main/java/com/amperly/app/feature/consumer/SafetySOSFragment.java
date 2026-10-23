@@ -1,6 +1,8 @@
 package com.amperly.app.feature.consumer;
 
 import android.os.Bundle;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -21,6 +23,8 @@ import com.amperly.app.data.local.entity.TrustedContact;
 import com.amperly.app.data.repository.AmperlyRepository;
 import com.amperly.app.ui.Ux;
 import com.amperly.app.ui.adapter.ContactAdapter;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+import com.google.android.material.textfield.TextInputLayout;
 
 import java.util.List;
 import java.util.UUID;
@@ -38,6 +42,8 @@ public class SafetySOSFragment extends Fragment implements ContactAdapter.Listen
     private TextView sosStatusText;
     private TextView sharingStatusText;
     private TextView historyText;
+    private TextInputLayout contactNameField;
+    private TextInputLayout contactPhoneField;
     private String userId;
     private SafetyEvent activeSharing;
 
@@ -57,6 +63,8 @@ public class SafetySOSFragment extends Fragment implements ContactAdapter.Listen
         sosStatusText = view.findViewById(R.id.sosStatusText);
         sharingStatusText = view.findViewById(R.id.sharingStatusText);
         historyText = view.findViewById(R.id.safetyHistoryText);
+        contactNameField = view.findViewById(R.id.contactNameField);
+        contactPhoneField = view.findViewById(R.id.contactPhoneField);
 
         RecyclerView contacts = view.findViewById(R.id.contactsRecyclerView);
         contacts.setLayoutManager(new LinearLayoutManager(requireContext()));
@@ -70,12 +78,10 @@ public class SafetySOSFragment extends Fragment implements ContactAdapter.Listen
         });
 
         ((TextView) view.findViewById(R.id.emergencyNumbersText)).setText(
-                "Local emergency guidance\n• India: 112 (all emergencies) · 108 (ambulance) · 100 (police)\n"
-                        + "• Amperly is not an emergency service and cannot dispatch help.\n"
-                        + "• Support is alerted with your reservation ID and station location when you trigger SOS.");
+                R.string.safety_emergency_guidance_line);
 
         View sosButton = view.findViewById(R.id.sosButton);
-        sosButton.setOnClickListener(v -> Ux.toast(this, getString(R.string.safety_confirm_sos)));
+        sosButton.setOnClickListener(v -> Ux.info(this, getString(R.string.safety_confirm_sos)));
         sosButton.setOnLongClickListener(v -> {
             triggerSos();
             return true;
@@ -85,8 +91,41 @@ public class SafetySOSFragment extends Fragment implements ContactAdapter.Listen
         view.findViewById(R.id.shareLocationButton).setOnClickListener(v -> startSharing());
         view.findViewById(R.id.stopSharingButton).setOnClickListener(v -> stopSharing());
 
+        clearErrorsWhileEditing(view);
+
         repo.expireStaleLocationSharing();
         loadState();
+    }
+
+    /** A field-level error disappears the moment the contact is corrected. */
+    private void clearErrorsWhileEditing(View view) {
+        TextWatcher clear = new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+            }
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+            }
+
+            @Override
+            public void afterTextChanged(Editable s) {
+                if (contactNameField != null) {
+                    contactNameField.setError(null);
+                }
+                if (contactPhoneField != null) {
+                    contactPhoneField.setError(null);
+                }
+            }
+        };
+        android.widget.EditText nameEdit = view.findViewById(R.id.contactNameEdit);
+        android.widget.EditText phoneEdit = view.findViewById(R.id.contactPhoneEdit);
+        if (nameEdit != null) {
+            nameEdit.addTextChangedListener(clear);
+        }
+        if (phoneEdit != null) {
+            phoneEdit.addTextChangedListener(clear);
+        }
     }
 
     @Override
@@ -105,17 +144,19 @@ public class SafetySOSFragment extends Fragment implements ContactAdapter.Listen
             if (events == null || !isAdded()) {
                 return;
             }
-            StringBuilder history = new StringBuilder("Safety history: " + events.size() + " event(s)\n");
+            StringBuilder history = new StringBuilder(
+                    getString(R.string.safety_history_header, events.size()));
             int shown = 0;
             for (SafetyEvent event : events) {
                 if (shown++ >= 3) {
                     break;
                 }
-                history.append("• ").append(event.getEmergencyType())
-                        .append(" · ").append(Formatters.dateTime(event.getCreatedAtMs()))
-                        .append(event.isLiveLocationSharingActive() ? " · sharing active" : "")
+                history.append(getString(R.string.safety_history_line, event.getEmergencyType(),
+                        Formatters.dateTime(event.getCreatedAtMs())))
+                        .append(event.isLiveLocationSharingActive()
+                                ? getString(R.string.safety_sharing_active_suffix) : "")
                         .append(event.getExpiresAtMs() > 0 && event.getExpiresAtMs() < System.currentTimeMillis()
-                                ? " · sharing ended automatically" : "")
+                                ? getString(R.string.safety_sharing_ended_suffix) : "")
                         .append("\n");
             }
             historyText.setText(history.toString());
@@ -130,8 +171,7 @@ public class SafetySOSFragment extends Fragment implements ContactAdapter.Listen
                     activeSharing.getTrustedContactPhone(),
                     Formatters.dateTime(activeSharing.getExpiresAtMs())));
         } else {
-            sharingStatusText.setText("Live location sharing is off. Sharing is opt-in, time limited and "
-                    + "expires automatically when the window ends. Amperly never shares your location by default.");
+            sharingStatusText.setText(R.string.safety_sharing_off);
         }
     }
 
@@ -146,7 +186,7 @@ public class SafetySOSFragment extends Fragment implements ContactAdapter.Listen
             return Boolean.TRUE;
         }, ok -> {
             sosStatusText.setText(getString(R.string.safety_sos_active));
-            Ux.toast(this, getString(R.string.safety_sos_active));
+            Ux.success(this, getString(R.string.safety_sos_active));
             loadState();
         });
     }
@@ -154,7 +194,7 @@ public class SafetySOSFragment extends Fragment implements ContactAdapter.Listen
     private void startSharing() {
         List<TrustedContact> contacts = repo.getTrustedContactsSync(userId);
         if (contacts.isEmpty()) {
-            Ux.toast(this, "Add a trusted contact first.");
+            Ux.error(this, getString(R.string.safety_add_contact_first));
             return;
         }
         TrustedContact contact = contacts.get(0);
@@ -168,14 +208,14 @@ public class SafetySOSFragment extends Fragment implements ContactAdapter.Listen
         }, event -> {
             activeSharing = event;
             updateSharingStatus();
-            Ux.toast(this, "Live location sharing started for 60 minutes with " + contact.getName() + ".");
+            Ux.success(this, getString(R.string.safety_sharing_started, contact.getName()));
             loadState();
         });
     }
 
     private void stopSharing() {
         if (activeSharing == null) {
-            Ux.toast(this, "Sharing is already off.");
+            Ux.info(this, getString(R.string.safety_sharing_already_off));
             return;
         }
         repo.background(() -> {
@@ -186,7 +226,7 @@ public class SafetySOSFragment extends Fragment implements ContactAdapter.Listen
         }, ok -> {
             activeSharing = null;
             updateSharingStatus();
-            Ux.toast(this, "Live location sharing stopped.");
+            Ux.success(this, getString(R.string.safety_sharing_stopped));
             loadState();
         });
     }
@@ -196,8 +236,20 @@ public class SafetySOSFragment extends Fragment implements ContactAdapter.Listen
         android.widget.EditText phoneEdit = view.findViewById(R.id.contactPhoneEdit);
         String name = nameEdit.getText().toString().trim();
         String phone = phoneEdit.getText().toString().trim();
-        if (name.isEmpty() || phone.length() < 6) {
-            Ux.toast(this, "Enter a name and a valid phone number.");
+        boolean valid = true;
+        if (name.isEmpty()) {
+            if (contactNameField != null) {
+                contactNameField.setError(getString(R.string.safety_contact_invalid));
+            }
+            valid = false;
+        }
+        if (phone.length() < 6) {
+            if (contactPhoneField != null) {
+                contactPhoneField.setError(getString(R.string.safety_contact_invalid));
+            }
+            valid = false;
+        }
+        if (!valid) {
             return;
         }
         repo.background(() -> {
@@ -206,7 +258,7 @@ public class SafetySOSFragment extends Fragment implements ContactAdapter.Listen
         }, ok -> {
             nameEdit.setText("");
             phoneEdit.setText("");
-            Ux.toast(this, "Trusted contact saved. Amperly only shares your location with this person when you ask it to.");
+            Ux.success(this, getString(R.string.safety_contact_saved));
         });
     }
 
@@ -217,7 +269,15 @@ public class SafetySOSFragment extends Fragment implements ContactAdapter.Listen
 
     @Override
     public void onDelete(TrustedContact contact) {
-        repo.deleteTrustedContact(contact);
-        Ux.toast(this, "Trusted contact removed.");
+        // Removing a contact is destructive: the person can no longer receive a shared location.
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle(R.string.safety_delete_contact_title)
+                .setMessage(getString(R.string.safety_delete_contact_body, contact.getName()))
+                .setNegativeButton(R.string.action_cancel, null)
+                .setPositiveButton(R.string.action_delete, (dialog, which) -> {
+                    repo.deleteTrustedContact(contact);
+                    Ux.success(this, getString(R.string.safety_contact_removed));
+                })
+                .show();
     }
 }

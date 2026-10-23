@@ -23,6 +23,8 @@ import com.amperly.app.data.local.entity.User;
 import com.amperly.app.data.remote.SupabaseAuth;
 import com.amperly.app.data.remote.SupabaseConfig;
 import com.amperly.app.data.repository.AmperlyRepository;
+import com.amperly.app.core.nav.Navigator;
+import com.amperly.app.feature.common.NotificationsFragment;
 import com.amperly.app.ui.Ux;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.chip.Chip;
@@ -59,6 +61,7 @@ public class AccountFragment extends Fragment {
     private TextView roleNoteText;
     private MaterialButton editNameButton;
     private MaterialButton accountSignInButton;
+    private MaterialButton notificationsButton;
     private MaterialButton signOutButton;
     private ChipGroup roleChipGroup;
 
@@ -88,6 +91,9 @@ public class AccountFragment extends Fragment {
         roleNoteText = view.findViewById(R.id.accountRoleNoteText);
         editNameButton = view.findViewById(R.id.editNameButton);
         accountSignInButton = view.findViewById(R.id.accountSignInButton);
+        notificationsButton = view.findViewById(R.id.notificationsButton);
+        notificationsButton.setOnClickListener(v ->
+                Navigator.open(this, new NotificationsFragment(), "notifications"));
         signOutButton = view.findViewById(R.id.signOutButton);
         roleChipGroup = view.findViewById(R.id.roleChipGroup);
 
@@ -330,14 +336,14 @@ public class AccountFragment extends Fragment {
             }
             editNameButton.setEnabled(true);
             if (updated == null) {
-                Ux.toast(requireContext(), getString(R.string.account_name_update_failed));
+                Ux.error(requireContext(), getString(R.string.account_name_update_failed));
                 return;
             }
             render(updated, SupabaseAuth.isSignedIn());
             if (getActivity() instanceof MainActivity) {
                 ((MainActivity) getActivity()).refreshProfileBadge();
             }
-            Ux.toast(requireContext(), getString(R.string.account_edit_name_saved));
+            Ux.success(requireContext(), getString(R.string.account_edit_name_saved));
             loadSyncStatus();
         });
     }

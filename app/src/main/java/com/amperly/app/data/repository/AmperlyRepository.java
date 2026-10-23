@@ -515,6 +515,24 @@ public class AmperlyRepository {
         });
     }
 
+    /**
+     * Local-only port status write.
+     *
+     * <p>The server is the source of truth for port status: {@code finalize_charging_session} and
+     * {@code cancel_reservation} set the port back to available, and the
+     * {@code ports_write_host_or_admin} policy only lets the station's host or an admin write
+     * {@code charger_ports} — a consumer's write would be refused. So this updates Room only.
+     */
+    public void updatePortStatusLocally(ChargerPort port, String status) {
+        if (port == null) {
+            return;
+        }
+        run(() -> {
+            port.setStatus(status);
+            db.chargerPortDao().update(port);
+        });
+    }
+
     // ----------------------------------------------------------- schedules
 
     public List<AvailabilitySchedule> getSchedulesSync(String stationId) {

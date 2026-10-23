@@ -7,19 +7,23 @@
     android:paddingTop="@dimen/amp_space_s"
     android:paddingEnd="@dimen/amp_screen_padding">
 
-    <TextView
+    <com.google.android.material.textfield.TextInputLayout
+        android:id="@+id/reportTypeField"
+        style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="@dimen/amp_space_xs"
-        android:text="@string/report_reason"
-        android:textAppearance="@style/TextAppearance.Amperly.LabelStrong" />
+        android:hint="@string/report_reason">
 
-    <Spinner
-        android:id="@+id/reportTypeSpinner"
-        android:layout_width="match_parent"
-        android:layout_height="@dimen/amp_touch_target" />
+        <com.google.android.material.textfield.MaterialAutoCompleteTextView
+            android:id="@+id/reportTypeDropdown"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:contentDescription="@string/report_reason"
+            android:inputType="none" />
+    </com.google.android.material.textfield.TextInputLayout>
 
     <com.google.android.material.textfield.TextInputLayout
+        android:id="@+id/reportDetailsField"
         style="@style/Widget.Amperly.TextInput"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"

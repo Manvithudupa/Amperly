@@ -81,7 +81,10 @@ public class ChatMessageAdapter extends RecyclerView.Adapter<ChatMessageAdapter.
             card.setBackgroundTintList(ContextCompat.getColorStateList(itemView.getContext(),
                     mine ? R.color.amp_primary_container : R.color.amp_surface_variant));
 
-            meta.setText(mine ? "You" : "Host · " + Formatters.dateTime(message.getCreatedAtMs()));
+            meta.setText(mine
+                    ? itemView.getContext().getString(R.string.chat_you)
+                    : itemView.getContext().getString(R.string.chat_host_meta,
+                    Formatters.dateTime(message.getCreatedAtMs())));
             text.setText(message.getMessageText());
 
             boolean flagged = ChatManager.containsOffPlatformPaymentRequest(message.getMessageText());

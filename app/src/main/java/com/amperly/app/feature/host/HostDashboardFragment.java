@@ -18,14 +18,13 @@ import com.amperly.app.core.common.AppConstants;
 import com.amperly.app.core.common.Formatters;
 import com.amperly.app.core.nav.Navigator;
 import com.amperly.app.core.security.AuthManager;
-import com.amperly.app.data.local.entity.AvailabilitySchedule;
+import com.amperly.app.core.security.RoleGuard;
 import com.amperly.app.data.local.entity.ChargerPort;
 import com.amperly.app.data.local.entity.ChargerStation;
 import com.amperly.app.data.local.entity.ChargingSession;
-import com.amperly.app.data.local.entity.Dispute;
-import com.amperly.app.data.local.entity.Invoice;
 import com.amperly.app.data.local.entity.MeterReading;
 import com.amperly.app.data.local.entity.Reservation;
+import com.amperly.app.data.local.entity.User;
 import com.amperly.app.data.repository.AmperlyRepository;
 import com.amperly.app.engine.analytics.HostAnalyticsEngine;
 import com.amperly.app.engine.billing.BillingEngine;
@@ -35,8 +34,6 @@ import com.amperly.app.ui.adapter.ReservationAdapter;
 import com.amperly.app.ui.adapter.SessionAdapter;
 import com.amperly.app.ui.dialog.MeterEvidenceDialog;
 
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
@@ -72,8 +69,8 @@ public class HostDashboardFragment extends Fragment {
         emptyText = view.findViewById(R.id.hostEmptyText);
 
         ((TextView) view.findViewById(R.id.hostNameText)).setText(
-                AuthManager.getInstance().getCurrentUser().getName()
-                        + " · your chargers and what they earned");
+                getString(R.string.host_greeting_subtitle,
+                        AuthManager.getInstance().getCurrentUser().getName()));
 
         RecyclerView stations = view.findViewById(R.id.stationsRecyclerView);
         stations.setLayoutManager(new LinearLayoutManager(requireContext()));
@@ -113,14 +110,14 @@ public class HostDashboardFragment extends Fragment {
         final SessionAdapter sessionAdapter = new SessionAdapter(new SessionAdapter.Listener() {
             @Override
             public void onViewReceipt(ChargingSession session) {
-                Ux.toast(HostDashboardFragment.this, "Receipt for " + session.getStationName() + ": "
-                        + Formatters.money(session.getTotalPaid()) + " ("
-                        + Formatters.kwh(session.getVerifiedKwhConsumed()) + " verified)");
+                Ux.info(HostDashboardFragment.this, getString(R.string.host_receipt_toast,
+                        session.getStationName(), Formatters.money(session.getTotalPaid()),
+                        Formatters.kwh(session.getVerifiedKwhConsumed())));
             }
 
             @Override
             public void onReportSession(ChargingSession session) {
-                Ux.toast(HostDashboardFragment.this, "This session is linked to a dispute if one is open.");
+                Ux.info(HostDashboardFragment.this, getString(R.string.host_session_dispute_note));
             }
         });
         sessions.setAdapter(sessionAdapter);
@@ -190,15 +187,21 @@ public class HostDashboardFragment extends Fragment {
 
     private void bindAnalytics(HostAnalyticsEngine.HostAnalytics analytics) {
         analyticsContainer.removeAllViews();
-        addRow("Repeat consumers", String.valueOf(analytics.getRepeatConsumers()));
-        addRow("Cancellation rate", Formatters.percent(analytics.getCancellationRatePercent()));
-        addRow("Utilisation of published hours",
+        addRow(getString(R.string.host_analytics_repeat), String.valueOf(analytics.getRepeatConsumers()));
+        addRow(getString(R.string.host_analytics_cancellation),
+                Formatters.percent(analytics.getCancellationRatePercent()));
+        addRow(getString(R.string.host_analytics_utilisation),
                 Formatters.percent(analytics.getUtilizationPercent()));
-        addRow("Average session size", Formatters.kwh(analytics.getAverageSessionKwh()));
-        addRow("Disputes", analytics.getDisputes() + " (" + analytics.getOpenDisputes() + " open)");
-        addRow("Refunds and adjustments", Formatters.money(analytics.getRefundsAndAdjustments()));
-        addRow("Active reservations", String.valueOf(analytics.getActiveReservations()));
-        addRow("Ports published", String.valueOf(analytics.getPorts()));
+        addRow(getString(R.string.host_analytics_average_session),
+                Formatters.kwh(analytics.getAverageSessionKwh()));
+        addRow(getString(R.string.host_analytics_disputes),
+                getString(R.string.host_analytics_disputes_value, analytics.getDisputes(),
+                        analytics.getOpenDisputes()));
+        addRow(getString(R.string.host_analytics_refunds),
+                Formatters.money(analytics.getRefundsAndAdjustments()));
+        addRow(getString(R.string.host_analytics_active_reservations),
+                String.valueOf(analytics.getActiveReservations()));
+        addRow(getString(R.string.host_analytics_ports), String.valueOf(analytics.getPorts()));
         ((TextView) requireView().findViewById(R.id.analyticsNoteText)).setText(analytics.getUtilizationNote());
     }
 
@@ -250,38 +253,54 @@ public class HostDashboardFragment extends Fragment {
 
         void bind(ChargerStation station) {
             name.setText(station.getName());
-            meta.setText(station.getAddress() + "\n" + station.getConnectorTypes() + " · "
-                    + (int) station.getMaxPowerKw() + " kW · " + station.getPortCount() + " port(s) · "
-                    + Formatters.money(station.getPricePerKwh()) + "/kWh");
-            status.setText("Approval: " + station.getApprovalStatus()
-                    + " · meter: " + station.getVerificationLevel()
-                    + " · availability updated " + Formatters.agoFromNow(station.getLastUpdatedMs()));
+            meta.setText(itemView.getContext().getString(R.string.host_station_meta,
+                    station.getAddress(), station.getConnectorTypes(), (int) station.getMaxPowerKw(),
+                    station.getPortCount(), Formatters.money(station.getPricePerKwh())));
+            status.setText(itemView.getContext().getString(R.string.host_station_status,
+                    station.getApprovalStatus(), station.getVerificationLevel(),
+                    Formatters.agoFromNow(station.getLastUpdatedMs())));
             pause.setText(station.isPaused() ? R.string.host_resume_station : R.string.host_pause_station);
             pause.setOnClickListener(v -> togglePause(station));
             evidence.setOnClickListener(v -> captureEvidence(station));
         }
     }
 
+    /** The station actions are host-owned; RLS is the real gate, this fails early with a message. */
+    private boolean canManage(ChargerStation station) {
+        User user = AuthManager.getInstance().getCurrentUser();
+        if (station == null || !RoleGuard.canManageStation(user, station.getHostId())) {
+            Ux.error(this, getString(R.string.error_not_allowed));
+            return false;
+        }
+        return true;
+    }
+
     private void togglePause(ChargerStation station) {
+        if (!canManage(station)) {
+            return;
+        }
         boolean newState = !station.isPaused();
         station.setPaused(newState);
         station.setLastUpdatedMs(System.currentTimeMillis());
         repo.updateStation(station);
         repo.blockStation(station.getId(), newState, newState ? "Paused by the host" : null);
-        Ux.toast(this, newState ? "Station paused. Consumers can no longer reserve it."
-                : "Station reopened. Availability is refreshed for consumers.");
+        Ux.success(this, getString(newState
+                ? R.string.host_station_paused : R.string.host_station_reopened));
         Navigator.openRoot(requireActivity(), new HostDashboardFragment(), "host_dashboard");
     }
 
     private void captureEvidence(ChargerStation station) {
+        if (!canManage(station)) {
+            return;
+        }
         MeterEvidenceDialog.show(this, station.getName(), station.getId(),
                 MeterSimulator.currentReading(station.getId()), (start, end, note) -> {
                     if (!MeterSimulator.isValidReading(start, end)) {
-                        Ux.toast(this, getString(R.string.session_invalid_reading));
+                        Ux.error(this, getString(R.string.session_invalid_reading));
                         return;
                     }
                     if (MeterSimulator.isOffline(station.getId())) {
-                        Ux.toast(this, getString(R.string.session_meter_offline));
+                        Ux.info(this, getString(R.string.session_meter_offline));
                     }
                     MeterSimulator.setReading(station.getId(), end);
                     repo.background(() -> {
@@ -290,15 +309,14 @@ public class HostDashboardFragment extends Fragment {
                                 station.getVerificationLevel(), System.currentTimeMillis(), true);
                         repo.saveMeterReading(reading);
                         return Boolean.TRUE;
-                    }, ok -> Ux.toast(this, "Meter evidence saved ("
-                            + String.format(Locale.US, "%.2f kWh", end - start)
-                            + "). Readings are labelled as simulated or manually entered."));
+                    }, ok -> Ux.success(this, getString(R.string.host_meter_evidence_saved,
+                            String.format(Locale.US, "%.2f kWh", end - start))));
                 });
     }
 
     private void hostScanBooking(Reservation reservation) {
-        Ux.toast(this, "Booking " + reservation.getBookingCode() + " verified for "
-                + reservation.getStationName() + ". Consumer: " + reservation.getConsumerId());
+        Ux.info(this, getString(R.string.host_booking_verified, reservation.getBookingCode(),
+                reservation.getStationName(), reservation.getConsumerId()));
     }
 
     private void hostStartSession(Reservation reservation) {
@@ -318,8 +336,8 @@ public class HostDashboardFragment extends Fragment {
             return start;
         }, start -> {
             if (start != null) {
-                Ux.toast(this, "Session started. Starting reading "
-                        + String.format(Locale.US, "%.2f kWh", start) + " (demo meter).");
+                Ux.success(this, getString(R.string.host_session_started,
+                        String.format(Locale.US, "%.2f kWh", start)));
                 Navigator.openRoot(requireActivity(), new HostDashboardFragment(), "host_dashboard");
             }
         });
@@ -336,14 +354,14 @@ public class HostDashboardFragment extends Fragment {
             List<ChargerPort> ports = repo.getPortsSync(reservation.getStationId());
             for (ChargerPort port : ports) {
                 if (port.getId().equals(reservation.getPortId())) {
-                    port.setStatus(AppConstants.PORT_AVAILABLE);
-                    repo.database().chargerPortDao().update(port);
+                    // The host owns this station, so the status is pushed as well as cached.
+                    repo.setPortStatus(port, AppConstants.PORT_AVAILABLE);
                 }
             }
             return result.getMessage();
         }, message -> {
             if (message != null) {
-                Ux.toast(this, message);
+                Ux.info(this, message);
                 Navigator.openRoot(requireActivity(), new HostDashboardFragment(), "host_dashboard");
             }
         });

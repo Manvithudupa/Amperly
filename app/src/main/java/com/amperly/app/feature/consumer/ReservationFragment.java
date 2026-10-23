@@ -1,5 +1,6 @@
 package com.amperly.app.feature.consumer;
 
+import android.content.Context;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -7,7 +8,6 @@ import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.LinearLayout;
-import android.widget.Spinner;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -20,8 +20,10 @@ import com.amperly.app.R;
 import com.amperly.app.communication.ChatManager;
 import com.amperly.app.core.common.AppConstants;
 import com.amperly.app.core.common.Formatters;
+import com.amperly.app.core.common.UserMessages;
 import com.amperly.app.core.nav.Navigator;
 import com.amperly.app.core.security.AuthManager;
+import com.amperly.app.core.security.RoleGuard;
 import com.amperly.app.core.state.AppStateStore;
 import com.amperly.app.data.local.entity.ChargerPort;
 import com.amperly.app.data.local.entity.ChargerStation;
@@ -38,6 +40,7 @@ import com.amperly.app.engine.booking.ReservationEngine;
 import com.amperly.app.payment.PaymentManager;
 import com.amperly.app.ui.Ux;
 import com.amperly.app.ui.adapter.ReservationAdapter;
+import com.google.android.material.textfield.MaterialAutoCompleteTextView;
 
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -61,8 +64,11 @@ public class ReservationFragment extends Fragment implements ReservationAdapter.
     private ChargerStation station;
     private final List<ChargerPort> ports = new ArrayList<>();
     private final List<AvailabilityEngine.Slot> slots = new ArrayList<>();
-    private Spinner portSpinner;
-    private Spinner slotSpinner;
+    private MaterialAutoCompleteTextView portDropdown;
+    private MaterialAutoCompleteTextView slotDropdown;
+    /** The choice the removed Spinner used to hold as its selected position. */
+    private int selectedPortIndex;
+    private int selectedSlotIndex;
 
     @Nullable
     @Override
@@ -97,7 +103,7 @@ public class ReservationFragment extends Fragment implements ReservationAdapter.
         TextView policy = view.findViewById(R.id.policyText);
         policy.setText(ReservationEngine.CANCELLATION_POLICY);
         TextView priceNote = view.findViewById(R.id.priceNoteText);
-        priceNote.setText("Energy is estimated from the slot length; the final amount is always based on verified meter readings.");
+        priceNote.setText(R.string.reserve_price_note);
         authorize.setText(R.string.action_pay);
 
         final String userId = AuthManager.getInstance().getCurrentUserId();
@@ -126,8 +132,8 @@ public class ReservationFragment extends Fragment implements ReservationAdapter.
             }
             if (resolvedId == null) {
                 formContainer.setVisibility(View.GONE);
-                stationText.setText("Choose a station from Discover to start a reservation. Your existing reservations are listed below.");
-                reserveStatusText.setText("No station selected yet.");
+                stationText.setText(R.string.reserve_no_station_body);
+                reserveStatusText.setText(R.string.reserve_no_station_status);
                 return;
             }
             stationId = resolvedId;
@@ -140,8 +146,8 @@ public class ReservationFragment extends Fragment implements ReservationAdapter.
         TextView stationText = view.findViewById(R.id.reserveStationText);
         TextView slotHint = view.findViewById(R.id.slotHintText);
         TextView meterWarning = view.findViewById(R.id.meterWarningText);
-        portSpinner = view.findViewById(R.id.portSpinner);
-        slotSpinner = view.findViewById(R.id.slotSpinner);
+        portDropdown = view.findViewById(R.id.portDropdown);
+        slotDropdown = view.findViewById(R.id.slotDropdown);
         Button authorize = view.findViewById(R.id.authorizeButton);
         authorize.setText(R.string.action_pay);
 
@@ -152,12 +158,12 @@ public class ReservationFragment extends Fragment implements ReservationAdapter.
             return new BookingData(loaded, vehicle, stationPorts);
         }, data -> {
             if (data == null || data.station == null || !isAdded()) {
-                Ux.toast(this, "Station not found.");
+                Ux.error(this, getString(R.string.error_station_not_found));
                 return;
             }
             station = data.station;
-            stationText.setText(station.getName() + " · " + station.getAddress() + "\n"
-                    + station.getOperatingHours() + " · " + station.getConnectorTypes());
+            stationText.setText(getString(R.string.reserve_station_meta, station.getName(),
+                    station.getAddress(), station.getOperatingHours(), station.getConnectorTypes()));
             meterWarning.setVisibility(station.supportsPaidEnergyBilling() ? View.GONE : View.VISIBLE);
             if (!station.supportsPaidEnergyBilling()) {
                 meterWarning.setText(R.string.meter_gating_warning);
@@ -172,25 +178,32 @@ public class ReservationFragment extends Fragment implements ReservationAdapter.
                 }
             }
             if (ports.isEmpty()) {
-                slotHint.setText("All ports are busy or under maintenance right now.");
+                slotHint.setText(R.string.reserve_all_ports_busy);
             }
-            portSpinner.setAdapter(new ArrayAdapter<>(requireContext(),
-                    android.R.layout.simple_spinner_dropdown_item, portLabels));
-            portSpinner.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
-                @Override
-                public void onItemSelected(android.widget.AdapterView<?> parent, View view1, int position, long id) {
-                    if (position < ports.size()) {
-                        loadSlots(ports.get(position));
-                    }
-                }
-
-                @Override
-                public void onNothingSelected(android.widget.AdapterView<?> parent) {
-                }
-            });
+            selectedPortIndex = 0;
+            bindPortDropdown(portLabels);
 
             view.findViewById(R.id.authorizeButton).setOnClickListener(v -> authorizeBooking(userId));
         });
+    }
+
+    /** Rebuilds the port list and re-runs the selection the Spinner used to perform by default. */
+    private void bindPortDropdown(List<String> labels) {
+        if (portDropdown == null) {
+            return;
+        }
+        portDropdown.setAdapter(new ArrayAdapter<>(requireContext(),
+                R.layout.item_dropdown, new ArrayList<>(labels)));
+        portDropdown.setText(labels.isEmpty() ? "" : labels.get(0), false);
+        portDropdown.setOnItemClickListener((parent, view, position, id) -> {
+            selectedPortIndex = position;
+            if (position < ports.size()) {
+                loadSlots(ports.get(position));
+            }
+        });
+        if (selectedPortIndex < ports.size()) {
+            loadSlots(ports.get(selectedPortIndex));
+        }
     }
 
     private void loadSlots(ChargerPort port) {
@@ -213,7 +226,7 @@ public class ReservationFragment extends Fragment implements ReservationAdapter.
             }
             return free;
         }, freeSlots -> {
-            if (!isAdded()) {
+            if (!isAdded() || slotDropdown == null) {
                 return;
             }
             slots.clear();
@@ -225,8 +238,12 @@ public class ReservationFragment extends Fragment implements ReservationAdapter.
             if (labels.isEmpty()) {
                 labels.add(getString(R.string.reserve_no_slots));
             }
-            slotSpinner.setAdapter(new ArrayAdapter<>(requireContext(),
-                    android.R.layout.simple_spinner_dropdown_item, labels));
+            selectedSlotIndex = 0;
+            slotDropdown.setAdapter(new ArrayAdapter<>(requireContext(),
+                    R.layout.item_dropdown, new ArrayList<>(labels)));
+            slotDropdown.setText(labels.get(0), false);
+            slotDropdown.setOnItemClickListener((parent, view, position, id) ->
+                    selectedSlotIndex = position);
             updatePricePreview(port);
         });
     }
@@ -245,26 +262,32 @@ public class ReservationFragment extends Fragment implements ReservationAdapter.
         if (view == null) {
             return;
         }
-        ((TextView) view.findViewById(R.id.priceEnergyText)).setText("Estimated energy "
-                + String.format(java.util.Locale.US, "%.1f kWh", preview.getEstimatedKwh()) + " · "
-                + Formatters.money(preview.getEnergyCharge()) + " at "
-                + Formatters.money(station.getPricePerKwh()) + "/kWh");
-        ((TextView) view.findViewById(R.id.priceServiceText)).setText("Amperly service fee: "
-                + Formatters.money(preview.getServiceFee()));
-        ((TextView) view.findViewById(R.id.priceGatewayText)).setText("Payment gateway charge: "
-                + Formatters.money(preview.getGatewayFee()));
-        ((TextView) view.findViewById(R.id.priceTotalText)).setText("Estimated total "
-                + Formatters.money(preview.getEstimatedTotal()) + " · authorize up to "
-                + Formatters.money(preview.getAuthorizedAmount()));
+        ((TextView) view.findViewById(R.id.priceEnergyText)).setText(
+                getString(R.string.reserve_estimated_energy,
+                        String.format(java.util.Locale.US, "%.1f kWh", preview.getEstimatedKwh()),
+                        Formatters.money(preview.getEnergyCharge()),
+                        Formatters.money(station.getPricePerKwh())));
+        ((TextView) view.findViewById(R.id.priceServiceText)).setText(
+                getString(R.string.reserve_service_line, Formatters.money(preview.getServiceFee())));
+        ((TextView) view.findViewById(R.id.priceGatewayText)).setText(
+                getString(R.string.reserve_gateway_line, Formatters.money(preview.getGatewayFee())));
+        ((TextView) view.findViewById(R.id.priceTotalText)).setText(
+                getString(R.string.reserve_total_line,
+                        Formatters.money(preview.getEstimatedTotal()),
+                        Formatters.money(preview.getAuthorizedAmount())));
     }
 
     private void authorizeBooking(String userId) {
-        if (station == null) {
-            Ux.toast(this, "Select a station first.");
+        if (!RoleGuard.canReservePort(AuthManager.getInstance().getCurrentUser())) {
+            Ux.error(this, getString(R.string.error_not_allowed));
             return;
         }
-        int portIndex = portSpinner == null ? -1 : portSpinner.getSelectedItemPosition();
-        int slotIndex = slotSpinner == null ? -1 : slotSpinner.getSelectedItemPosition();
+        if (station == null) {
+            Ux.error(this, getString(R.string.reserve_select_station_first));
+            return;
+        }
+        final int portIndex = selectedPortIndex;
+        final int slotIndex = selectedSlotIndex;
         ChargerPort port = portIndex >= 0 && portIndex < ports.size() ? ports.get(portIndex) : null;
         AvailabilityEngine.Slot slot = slotIndex >= 0 && slotIndex < slots.size() ? slots.get(slotIndex) : null;
 
@@ -273,6 +296,7 @@ public class ReservationFragment extends Fragment implements ReservationAdapter.
             return;
         }
 
+        final Context appContext = requireContext().getApplicationContext();
         repo.background(() -> {
             Vehicle vehicle = repo.getVehicleSync(userId);
             int conflicts = repo.countSlotConflicts(port.getId(), slot.getStartMs(), slot.getEndMs());
@@ -288,7 +312,10 @@ public class ReservationFragment extends Fragment implements ReservationAdapter.
             PaymentManager.PaymentResult paymentResult = PaymentManager.authorize(userId,
                     station.getHostId(), null, preview.getAuthorizedAmount(), idempotencyKey);
             if (!paymentResult.isSuccess()) {
-                return new BookingOutcome(false, paymentResult.getMessage(), null, null, null);
+                return new BookingOutcome(false,
+                        UserMessages.fromText(appContext, paymentResult.getMessage(),
+                                R.string.reserve_payment_failed),
+                        null, null, null);
             }
 
             String reservationId = UUID.randomUUID().toString();
@@ -315,12 +342,15 @@ public class ReservationFragment extends Fragment implements ReservationAdapter.
             // its owner by Row Level Security, so a notification addressed to the host was
             // refused by the server on every attempt; it never reached the database.
             repo.saveNotification(new Notification(UUID.randomUUID().toString(), userId,
-                    "Reservation confirmed", bookingCode + " at " + station.getName()
-                    + ". Show the booking code at the entrance.", false, System.currentTimeMillis()));
+                    appContext.getString(R.string.notification_reservation_title),
+                    appContext.getString(R.string.notification_reservation_body, bookingCode,
+                            station.getName()),
+                    false, System.currentTimeMillis()));
 
             AppStateStore.get().setActiveReservation(reservation);
             AppStateStore.get().setLastBookingCode(bookingCode);
-            return new BookingOutcome(true, "Reservation confirmed. Booking code " + bookingCode,
+            return new BookingOutcome(true,
+                    appContext.getString(R.string.reserve_success, bookingCode),
                     reservationId, bookingCode, payment.getId());
         }, outcome -> {
             if (outcome == null || !isAdded()) {
@@ -328,9 +358,10 @@ public class ReservationFragment extends Fragment implements ReservationAdapter.
             }
             reserveStatusText.setText(outcome.message);
             if (!outcome.success) {
-                Ux.toast(this, outcome.message);
+                Ux.error(this, outcome.message);
                 return;
             }
+            Ux.success(this, outcome.message);
             BookingQrFragment fragment = new BookingQrFragment();
             Bundle args = new Bundle();
             args.putString(BookingQrFragment.ARG_RESERVATION_ID, outcome.reservationId);
@@ -386,7 +417,7 @@ public class ReservationFragment extends Fragment implements ReservationAdapter.
         }, message -> {
             if (message != null) {
                 reserveStatusText.setText(message);
-                Ux.toast(this, message);
+                Ux.info(this, message);
             }
         });
     }

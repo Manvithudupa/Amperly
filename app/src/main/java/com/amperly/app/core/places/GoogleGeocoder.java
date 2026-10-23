@@ -1,12 +1,16 @@
 package com.amperly.app.core.places;
 
+import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import com.amperly.app.R;
 import com.amperly.app.core.common.GoogleConfig;
+import com.amperly.app.core.common.UserMessages;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -36,6 +40,7 @@ public final class GoogleGeocoder {
         void onError(@NonNull String message);
     }
 
+    private static final String TAG = "GoogleGeocoder";
     private static final String BASE_URL = "https://maps.googleapis.com/maps/api/geocode/json";
     private static final OkHttpClient HTTP = new OkHttpClient.Builder()
             .connectTimeout(8, TimeUnit.SECONDS)
@@ -46,8 +51,10 @@ public final class GoogleGeocoder {
     }
 
     /** Resolves a coordinate to a formatted address. The callback fires on the main thread. */
-    public static void reverseGeocode(double latitude, double longitude, @NonNull Callback callback) {
+    public static void reverseGeocode(@NonNull Context context, double latitude, double longitude,
+                                      @NonNull Callback callback) {
         final Handler main = new Handler(Looper.getMainLooper());
+        final Context appContext = context.getApplicationContext();
         if (!GoogleConfig.isConfigured()) {
             main.post(() -> callback.onError(GoogleConfig.setupMessage()));
             return;
@@ -71,7 +78,9 @@ public final class GoogleGeocoder {
                     main.post(() -> callback.onAddress(address));
                 }
             } catch (Exception e) {
-                String message = e.getMessage() == null ? "Could not look up that address." : e.getMessage();
+                // The raw reason is logged; the driver only ever sees a plain-language line.
+                Log.w(TAG, "Reverse geocoding failed", e);
+                String message = UserMessages.from(appContext, e, R.string.error_address_lookup);
                 main.post(() -> callback.onError(message));
             }
         }, "google-geocode").start();

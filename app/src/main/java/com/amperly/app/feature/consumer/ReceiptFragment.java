@@ -67,8 +67,8 @@ public class ReceiptFragment extends Fragment {
         TextView totalText = view.findViewById(R.id.receiptTotalText);
 
         if (data.session == null) {
-            title.setText("No receipt yet");
-            stationText.setText("Complete a charging session and the receipt shows up here, itemised from verified meter readings.");
+            title.setText(R.string.receipt_none_title);
+            stationText.setText(R.string.receipt_none_body);
             totalText.setText("");
             view.findViewById(R.id.receiptPaidBlock).setVisibility(View.GONE);
             view.findViewById(R.id.reportIssueButton).setVisibility(View.GONE);
@@ -79,20 +79,24 @@ public class ReceiptFragment extends Fragment {
                 : data.session.getStationName())
                 + "\n" + Formatters.dateTime(data.session.getStartTimeMs())
                 + (data.session.isMeterSimulated()
-                ? "\nDemo meter — readings are simulated or manually entered, not read from live hardware."
-                : "\nVerified meter readings."));
+                ? getString(R.string.receipt_demo_meter_note)
+                : getString(R.string.receipt_verified_note)));
 
         container.removeAllViews();
-        addLine("Starting meter reading", String.format(Locale.US, "%.2f kWh", data.session.getStartingMeterKwh()));
-        addLine("Ending meter reading", String.format(Locale.US, "%.2f kWh", data.session.getEndingMeterKwh()));
-        addLine("Verified energy consumed", Formatters.kwh(data.session.getVerifiedKwhConsumed()));
-        addLine("Energy charge", Formatters.money(data.session.getEnergyCharge()));
-        addLine("Amperly service fee", Formatters.money(data.session.getServiceFee()));
-        addLine("Payment gateway charge", Formatters.money(data.session.getGatewayFee()));
+        addLine(getString(R.string.receipt_start_reading),
+                String.format(Locale.US, "%.2f kWh", data.session.getStartingMeterKwh()));
+        addLine(getString(R.string.receipt_end_reading),
+                String.format(Locale.US, "%.2f kWh", data.session.getEndingMeterKwh()));
+        addLine(getString(R.string.receipt_verified_kwh), Formatters.kwh(data.session.getVerifiedKwhConsumed()));
+        addLine(getString(R.string.receipt_energy_charge), Formatters.money(data.session.getEnergyCharge()));
+        addLine(getString(R.string.receipt_service_fee), Formatters.money(data.session.getServiceFee()));
+        addLine(getString(R.string.receipt_gateway_fee), Formatters.money(data.session.getGatewayFee()));
         if (data.invoice != null && data.invoice.getAdjustment() > 0) {
-            addLine("Refund or adjustment", "-" + Formatters.money(data.invoice.getAdjustment()));
+            addLine(getString(R.string.receipt_adjustment),
+                    "-" + Formatters.money(data.invoice.getAdjustment()));
         }
-        totalText.setText("Final amount " + Formatters.money(data.session.getTotalPaid()));
+        totalText.setText(getString(R.string.receipt_final_amount,
+                Formatters.money(data.session.getTotalPaid())));
 
         view.findViewById(R.id.reportIssueButton).setOnClickListener(v ->
                 ReportDialog.show(this, getString(R.string.report_title), null, (type, details) -> {
@@ -103,11 +107,12 @@ public class ReceiptFragment extends Fragment {
                                         AuthManager.getInstance().getCurrentUser().getName(),
                                         data.session.getStationId(), data.session.getHostId(),
                                         data.session.getId(), type,
-                                        details == null || details.isEmpty() ? "(no details provided)" : details,
+                                        details == null || details.isEmpty()
+                                                ? getString(R.string.report_no_details) : details,
                                         "OPEN", System.currentTimeMillis());
                         repo.saveReport(report);
                         return Boolean.TRUE;
-                    }, ok -> Ux.toast(this, getString(R.string.report_submitted)));
+                    }, ok -> Ux.success(this, getString(R.string.report_submitted)));
                 }));
     }
 

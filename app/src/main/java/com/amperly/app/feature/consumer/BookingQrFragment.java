@@ -66,8 +66,8 @@ public class BookingQrFragment extends Fragment {
                 return;
             }
             if (reservation == null) {
-                codeText.setText("No reservation");
-                stationText.setText("Reserve a port to get a booking code.");
+                codeText.setText(R.string.qr_no_reservation_title);
+                stationText.setText(R.string.qr_no_reservation_body);
                 return;
             }
             codeText.setText(reservation.getBookingCode());
@@ -109,7 +109,7 @@ public class BookingQrFragment extends Fragment {
             bitmap.setPixels(pixels, 0, size, 0, 0, size, size);
             return bitmap;
         } catch (WriterException e) {
-            Ux.toast(this, "Could not render the booking QR code.");
+            Ux.error(this, getString(R.string.qr_render_failed));
             return null;
         }
     }

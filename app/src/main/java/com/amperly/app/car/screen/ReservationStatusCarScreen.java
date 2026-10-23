@@ -10,6 +10,7 @@ import androidx.car.app.model.PaneTemplate;
 import androidx.car.app.model.Row;
 import androidx.car.app.model.Template;
 
+import com.amperly.app.R;
 import com.amperly.app.car.CarBridge;
 import com.amperly.app.core.common.Formatters;
 import com.amperly.app.core.nav.Navigator;
@@ -95,7 +96,7 @@ public class ReservationStatusCarScreen extends Screen {
         paneBuilder.addAction(new Action.Builder()
                 .setTitle("Amperly is not emergency services")
                 .setOnClickListener(() -> CarToast.makeText(getCarContext(),
-                        "In an emergency call 112. Amperly cannot dispatch help.",
+                        getCarContext().getString(R.string.car_emergency_notice),
                         CarToast.LENGTH_LONG).show())
                 .build());
 

@@ -1,5 +1,6 @@
 package com.amperly.app.ui.adapter;
 
+import android.content.Context;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -88,12 +89,15 @@ public class ReservationAdapter extends RecyclerView.Adapter<ReservationAdapter.
             status.setText(reservation.getStatus());
             slot.setText(Formatters.dayAndSlot(reservation.getStartTimeMs(), reservation.getEndTimeMs())
                     + (reservation.getPortLabel() == null ? "" : " · " + reservation.getPortLabel()));
-            code.setText("Booking code " + reservation.getBookingCode());
+            Context context = itemView.getContext();
+            code.setText(context.getString(R.string.reservation_code_line,
+                    reservation.getBookingCode()));
             String paymentLine = reservation.isPaid()
-                    ? "Authorized: " + Formatters.money(reservation.getPricePerKwh()) .replace("₹", "₹") + "/kWh + "
-                    + Formatters.money(reservation.getServiceFee()) + " service + "
-                    + Formatters.money(reservation.getGatewayFee()) + " gateway. Captured after the meter is verified."
-                    : "Reservation without automatic billing. No energy-based payment is captured at this station.";
+                    ? context.getString(R.string.reservation_authorized_line,
+                    Formatters.money(reservation.getPricePerKwh()),
+                    Formatters.money(reservation.getServiceFee()),
+                    Formatters.money(reservation.getGatewayFee()))
+                    : context.getString(R.string.reservation_no_billing);
             amount.setText(paymentLine);
 
             boolean active = reservation.isActive();
@@ -101,7 +105,7 @@ public class ReservationAdapter extends RecyclerView.Adapter<ReservationAdapter.
             checkIn.setEnabled(active);
             cancel.setVisibility(active ? View.VISIBLE : View.GONE);
             cancel.setText(reservation.isInFreeCancellationWindow(System.currentTimeMillis())
-                    ? "Cancel (free)" : "Cancel (₹20 late fee)");
+                    ? R.string.reservation_cancel_free : R.string.reservation_cancel_late);
 
             openQr.setOnClickListener(v -> {
                 if (listener != null) listener.onOpenQr(reservation);

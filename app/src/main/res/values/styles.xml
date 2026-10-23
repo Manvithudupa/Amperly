@@ -466,6 +466,31 @@
     <!-- Legacy role chip, kept for the account page's capacity switcher. -->
     <style name="Widget.Amperly.RoleChip" parent="Widget.Amperly.Chip" />
 
+    <!-- ================================================== Feedback and menus -->
+
+    <!--
+      Themed feedback. A Snackbar uses the inverse surface role (already declared in the
+      theme), so it reads correctly in light and dark mode without a night override.
+    -->
+    <style name="Widget.Amperly.Snackbar" parent="Widget.Material3.Snackbar">
+        <item name="backgroundTint">?attr/colorSurfaceInverse</item>
+        <item name="shapeAppearance">@style/ShapeAppearance.Amperly.Medium</item>
+        <item name="elevation">2dp</item>
+    </style>
+
+    <style name="Widget.Amperly.SnackbarButton" parent="Widget.Material3.Button.TextButton.Snackbar">
+        <item name="android:textColor">?attr/colorOnSurfaceInverse</item>
+        <item name="android:textAllCaps">false</item>
+    </style>
+
+    <!--
+      Dropdown list popup and overflow menu. The Material 3 parents already draw the app's
+      surface colour and rounded shape, so the theme only has to name them once.
+    -->
+    <style name="Widget.Amperly.PopupWindow" parent="Widget.Material3.PopupMenu.ListPopupWindow" />
+
+    <style name="Widget.Amperly.PopupMenu" parent="Widget.Material3.PopupMenu" />
+
     <!-- ================================== Transitional aliases ============== -->
     <!-- Old layout names, pointed at the new scale. Removed once every screen
          has been rebuilt against the current style names. -->

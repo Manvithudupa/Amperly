@@ -16,6 +16,7 @@ import androidx.car.app.navigation.model.RoutingInfo;
 import androidx.car.app.navigation.model.Step;
 import androidx.car.app.navigation.model.TravelEstimate;
 
+import com.amperly.app.R;
 import com.amperly.app.core.state.AppStateStore;
 import com.amperly.app.data.local.entity.RoutePlan;
 import com.amperly.app.data.local.entity.RouteStop;
@@ -56,12 +57,12 @@ public class NavigationCarScreen extends Screen {
         boolean authoritative = AppStateStore.get().isSocAuthoritative();
 
         Action batteryAction = new Action.Builder()
-                .setTitle("Battery")
+                .setTitle(getCarContext().getString(R.string.nav_car_battery_action))
                 .setOnClickListener(() -> getScreenManager().push(new SoCUpdateCarScreen(getCarContext())))
                 .build();
 
         Action stopAction = new Action.Builder()
-                .setTitle("Stop")
+                .setTitle(getCarContext().getString(R.string.nav_car_stop_action))
                 .setOnClickListener(() -> getScreenManager().pop())
                 .build();
 
@@ -71,8 +72,9 @@ public class NavigationCarScreen extends Screen {
                 .build();
 
         if (plan == null) {
-            NavigationTemplate.NavigationInfo info = new MessageInfo.Builder("No active trip")
-                    .setText("Plan a trip on your phone, then reconnect. Charging stays glanceable here.")
+            NavigationTemplate.NavigationInfo info = new MessageInfo.Builder(
+                    getCarContext().getString(R.string.nav_car_no_trip_title))
+                    .setText(getCarContext().getString(R.string.nav_car_no_trip_body))
                     .build();
             return new NavigationTemplate.Builder()
                     .setNavigationInfo(info)
@@ -90,11 +92,15 @@ public class NavigationCarScreen extends Screen {
         }
 
         Step current = new Step.Builder()
-                .setCue("Continue toward " + plan.getDestination())
-                .setRoad(Math.round(plan.getTotalDistanceKm()) + " km total")
+                .setCue(getCarContext().getString(R.string.nav_car_continue_toward,
+                        plan.getDestination()))
+                .setRoad(getCarContext().getString(R.string.nav_car_distance_total,
+                        Math.round(plan.getTotalDistanceKm())))
                 .build();
         Step next = new Step.Builder()
-                .setCue("Battery " + soc + "% (" + (authoritative ? "actual" : "estimated") + ")")
+                .setCue(getCarContext().getString(R.string.nav_car_battery_cue, soc,
+                        getCarContext().getString(authoritative
+                                ? R.string.nav_car_actual : R.string.nav_car_estimated)))
                 .build();
 
         NavigationTemplate.NavigationInfo info = new RoutingInfo.Builder()
@@ -126,7 +132,7 @@ public class NavigationCarScreen extends Screen {
                 .append(plan.getDestination());
         String stopName = nextStopName();
         if (stopName != null) {
-            line.append(" · next stop: ").append(stopName);
+            line.append(getCarContext().getString(R.string.nav_car_next_stop, stopName));
         }
         return CarText.create(line.toString());
     }

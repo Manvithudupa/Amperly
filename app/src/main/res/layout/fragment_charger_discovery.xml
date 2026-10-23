@@ -134,7 +134,6 @@
 
     <!-- The sheet. Peek shows filters and the first charger; drag for the full list. -->
     <LinearLayout
-        android:id="@+id/discoverSheet"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:background="@drawable/bg_sheet_top"

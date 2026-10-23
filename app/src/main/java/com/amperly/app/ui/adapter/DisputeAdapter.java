@@ -1,5 +1,6 @@
 package com.amperly.app.ui.adapter;
 
+import android.content.Context;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -106,26 +107,34 @@ public class DisputeAdapter extends RecyclerView.Adapter<DisputeAdapter.DisputeV
         }
 
         void bind(DisputeRow row) {
+            Context context = itemView.getContext();
             Dispute dispute = row.getDispute();
             reason.setText(dispute.getReason() + " · " + dispute.getStatus());
-            meta.setText((dispute.getConsumerName() == null ? dispute.getConsumerId() : dispute.getConsumerName())
-                    + " vs " + (dispute.getStationName() == null ? dispute.getStationId() : dispute.getStationName())
-                    + " · raised " + Formatters.agoFromNow(dispute.getCreatedAtMs())
-                    + (dispute.isPayoutFrozen() ? " · payout held" : ""));
-            notes.setText("Consumer: " + (dispute.getConsumerNotes() == null ? "—" : dispute.getConsumerNotes()));
-            hostResponse.setText("Host: " + (dispute.getHostNotes() == null ? "not yet provided" : dispute.getHostNotes()));
+            meta.setText(context.getString(R.string.dispute_meta,
+                    dispute.getConsumerName() == null ? dispute.getConsumerId() : dispute.getConsumerName(),
+                    dispute.getStationName() == null ? dispute.getStationId() : dispute.getStationName(),
+                    Formatters.agoFromNow(dispute.getCreatedAtMs()))
+                    + (dispute.isPayoutFrozen() ? context.getString(R.string.dispute_payout_held) : ""));
+            notes.setText(context.getString(R.string.dispute_consumer_line,
+                    dispute.getConsumerNotes() == null ? "\u2014" : dispute.getConsumerNotes()));
+            hostResponse.setText(context.getString(R.string.dispute_host_line,
+                    dispute.getHostNotes() == null
+                            ? context.getString(R.string.dispute_host_none) : dispute.getHostNotes()));
 
-            StringBuilder evidenceText = new StringBuilder("Meter evidence: ");
+            StringBuilder evidenceText = new StringBuilder(
+                    context.getString(R.string.dispute_evidence_header));
             if (row.evidence == null || row.evidence.isEmpty()) {
-                evidenceText.append("no evidence uploaded yet.");
+                evidenceText.append(context.getString(R.string.dispute_evidence_none));
             } else {
                 for (MeterReading reading : row.evidence) {
-                    evidenceText.append(String.format(Locale.US, "\n• %s → %s = %.2f kWh%s",
+                    evidenceText.append("\n").append(context.getString(R.string.dispute_evidence_line,
                             fmt(reading.getStartMeterKwh()), fmt(reading.getEndMeterKwh()),
                             reading.getEndMeterKwh() - reading.getStartMeterKwh(),
-                            reading.isSimulated() ? " (simulated)" : ""));
+                            reading.isSimulated()
+                                    ? context.getString(R.string.dispute_simulated_suffix) : ""));
                     if (reading.getPhotoEvidenceUri() != null) {
-                        evidenceText.append(" · photo ").append(reading.getPhotoEvidenceUri());
+                        evidenceText.append(context.getString(R.string.dispute_photo_suffix,
+                                reading.getPhotoEvidenceUri()));
                     }
                 }
             }
@@ -133,12 +142,13 @@ public class DisputeAdapter extends RecyclerView.Adapter<DisputeAdapter.DisputeV
 
             String action = dispute.getEnforcementAction() == null
                     ? AppConstants.ENFORCEMENT_NONE : dispute.getEnforcementAction();
-            enforcement.setText("Enforcement: " + action
-                    + (dispute.getRefundAmount() > 0 ? " · refund " + Formatters.money(dispute.getRefundAmount()) : "")
+            enforcement.setText(context.getString(R.string.dispute_enforcement_line, action)
+                    + (dispute.getRefundAmount() > 0
+                    ? context.getString(R.string.dispute_refund_suffix,
+                    Formatters.money(dispute.getRefundAmount())) : "")
                     + (dispute.getResolutionNote() == null || dispute.getResolutionNote().isEmpty()
                     ? "" : "\n" + dispute.getResolutionNote())
-                    + "\nPolicy: evidence first, then warning → fine → suspension → ban. "
-                    + "Never a penalty on an unverified accusation.");
+                    + "\n" + context.getString(R.string.dispute_policy_note));
 
             boolean open = dispute.isOpen();
             setEnabledIfOpen(refund, open);

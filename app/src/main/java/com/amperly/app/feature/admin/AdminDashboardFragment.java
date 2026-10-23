@@ -16,6 +16,7 @@ import com.amperly.app.R;
 import com.amperly.app.core.common.AppConstants;
 import com.amperly.app.core.common.Formatters;
 import com.amperly.app.core.security.AuthManager;
+import com.amperly.app.core.security.RoleGuard;
 import com.amperly.app.data.local.entity.ChargerStation;
 import com.amperly.app.data.local.entity.Dispute;
 import com.amperly.app.data.local.entity.HostEnforcementAction;
@@ -95,10 +96,12 @@ public class AdminDashboardFragment extends Fragment {
 
             @Override
             public void onFreezePayout(Dispute dispute) {
+                if (!canActAsAdmin()) {
+                    return;
+                }
                 dispute.setPayoutFrozen(true);
                 repo.freezeDisputePayoutOnServer(dispute);
-                Ux.toast(AdminDashboardFragment.this,
-                        "Payout held while the host responds. Nothing is deducted yet.");
+                Ux.info(AdminDashboardFragment.this, getString(R.string.admin_payout_held));
                 load();
             }
 
@@ -177,18 +180,29 @@ public class AdminDashboardFragment extends Fragment {
             pendingAdapter.submit(data.pending);
             disputeAdapter.submit(data.disputes);
             reportAdapter.submit(data.reports);
-            analyticsText.setText("Platform: " + data.pending.size() + " station(s) awaiting verification · "
-                    + data.disputes.size() + " dispute(s) · " + data.reports.size() + " report(s)\n"
-                    + "Sessions " + data.analytics.getSessionsCompleted() + " · energy "
-                    + String.format(Locale.US, "%.1f kWh", data.analytics.getEnergyDeliveredKwh())
-                    + " · revenue " + Formatters.money(data.analytics.getRevenue())
-                    + " · refunds " + Formatters.money(data.analytics.getRefundsAndAdjustments())
-                    + "\nUtilization " + String.format(Locale.US, "%.0f%%",
-                    data.analytics.getUtilizationPercent()) + " (estimated: no charger telemetry).");
+            analyticsText.setText(getString(R.string.admin_platform_summary,
+                    data.pending.size(), data.disputes.size(), data.reports.size(),
+                    data.analytics.getSessionsCompleted(),
+                    String.format(Locale.US, "%.1f kWh", data.analytics.getEnergyDeliveredKwh()),
+                    Formatters.money(data.analytics.getRevenue()),
+                    Formatters.money(data.analytics.getRefundsAndAdjustments()),
+                    String.format(Locale.US, "%.0f%%", data.analytics.getUtilizationPercent())));
         });
     }
 
+    /** The admin desk is platform operations; RLS is the real gate, this fails early. */
+    private boolean canActAsAdmin() {
+        if (!RoleGuard.canPerformAdminAction(AuthManager.getInstance().getCurrentUser())) {
+            Ux.error(this, getString(R.string.error_not_allowed));
+            return false;
+        }
+        return true;
+    }
+
     private void decideStation(ChargerStation station, boolean approve) {
+        if (!canActAsAdmin()) {
+            return;
+        }
         repo.background(() -> {
             station.setApprovalStatus(approve ? AppConstants.APPROVAL_APPROVED
                     : AppConstants.APPROVAL_REJECTED);
@@ -203,13 +217,17 @@ public class AdminDashboardFragment extends Fragment {
             return station.getName();
         }, name -> {
             if (name != null) {
-                Ux.toast(this, name + (approve ? " approved and published." : " rejected. The host was notified."));
+                Ux.success(this, getString(approve
+                        ? R.string.admin_approved : R.string.admin_rejected, name));
                 load();
             }
         });
     }
 
     private void resolveWithRefund(Dispute dispute) {
+        if (!canActAsAdmin()) {
+            return;
+        }
         repo.background(() -> {
             Invoice invoice = dispute.getSessionId() == null ? null
                     : repo.getInvoiceBySessionSync(dispute.getSessionId());
@@ -230,14 +248,16 @@ public class AdminDashboardFragment extends Fragment {
             return refundAmount;
         }, amount -> {
             if (amount != null) {
-                Ux.toast(this, "Refunded " + Formatters.money(amount)
-                        + " and the payout stays held until the review closes.");
+                Ux.success(this, getString(R.string.admin_refunded, Formatters.money(amount)));
                 load();
             }
         });
     }
 
     private void applyEnforcement(Dispute dispute, String action, double fineAmount) {
+        if (!canActAsAdmin()) {
+            return;
+        }
         repo.background(() -> {
             int proven = repo.countProvenIncidents(dispute.getHostId()) + 1;
             boolean severe = AppConstants.ENFORCEMENT_BAN.equals(action);
@@ -272,8 +292,7 @@ public class AdminDashboardFragment extends Fragment {
             return action;
         }, applied -> {
             if (applied != null) {
-                Ux.toast(this, "Recorded " + applied + " with the evidence attached. "
-                        + "Hosts are never penalised on an unverified accusation.");
+                Ux.success(this, getString(R.string.admin_enforcement_recorded, applied));
                 load();
             }
         });

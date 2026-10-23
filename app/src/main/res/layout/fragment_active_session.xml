@@ -139,7 +139,6 @@
         </com.google.android.material.card.MaterialCardView>
 
         <TextView
-            android:id="@+id/demoMeterNotice"
             style="@style/Widget.Amperly.Notice.Warning"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

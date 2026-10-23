@@ -2,11 +2,11 @@ package com.amperly.app.feature.consumer;
 
 import android.Manifest;
 import android.os.Bundle;
-import android.text.InputType;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.TextView;
 
@@ -35,6 +35,9 @@ import com.amperly.app.engine.routing.RoutePlannerEngine;
 import com.amperly.app.ui.Ux;
 import com.amperly.app.ui.adapter.StationAdapter;
 import com.google.android.material.chip.ChipGroup;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+import com.google.android.material.textfield.TextInputEditText;
+import com.google.android.material.textfield.TextInputLayout;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -77,7 +80,7 @@ public class ChargerDiscoveryFragment extends Fragment implements StationAdapter
                 if (granted) {
                     resolveUserLocation();
                 } else if (isAdded()) {
-                    Ux.toast(this, getString(R.string.map_no_location_permission));
+                    Ux.error(this, getString(R.string.map_no_location_permission));
                 }
             });
 
@@ -168,12 +171,12 @@ public class ChargerDiscoveryFragment extends Fragment implements StationAdapter
         repo.background(() -> {
             vehicle = repo.getVehicleSync(userId);
             List<StationAdapter.StationRow> rows = new ArrayList<>();
-            StringBuilder summary = new StringBuilder();
-            summary.append("Vehicle: ")
-                    .append(vehicle == null ? "not set" : vehicle.getMake() + " " + vehicle.getModel()
-                            + " (" + vehicle.getConnectorType() + ")")
-                    .append(" · distances are from your current location when it is known");
-            DiscoveredData data = new DiscoveredData(rows, summary.toString());
+            String vehicleLabel = vehicle == null
+                    ? getString(R.string.discovery_vehicle_none)
+                    : getString(R.string.discovery_vehicle_value, vehicle.getMake(),
+                    vehicle.getModel(), vehicle.getConnectorType());
+            String summary = getString(R.string.discovery_vehicle_line, vehicleLabel);
+            DiscoveredData data = new DiscoveredData(rows, summary);
             // Distances are measured from the driver's real position, never a fixed pilot point.
             Double fromLat = userLat;
             Double fromLng = userLng;
@@ -184,7 +187,7 @@ public class ChargerDiscoveryFragment extends Fragment implements StationAdapter
                 if (fromLat != null && fromLng != null) {
                     double distance = GeoUtils.distanceKm(fromLat, fromLng, station.getLatitude(),
                             station.getLongitude());
-                    extra = String.format(Locale.US, "%.1f km away · %s", distance,
+                    extra = getString(R.string.discovery_distance_extra, distance,
                             station.getOperatingHours());
                 } else {
                     extra = station.getOperatingHours();
@@ -283,38 +286,68 @@ public class ChargerDiscoveryFragment extends Fragment implements StationAdapter
         if (!isAdded()) {
             return;
         }
-        final EditText input = new EditText(requireContext());
-        input.setInputType(InputType.TYPE_CLASS_NUMBER);
-        input.setHint(getString(R.string.discovery_set_battery_hint));
+        View content = LayoutInflater.from(requireContext())
+                .inflate(R.layout.dialog_input_number, null, false);
+        final TextInputLayout field = content.findViewById(R.id.numberField);
+        final TextInputEditText input = content.findViewById(R.id.numberInput);
         int current = AppStateStore.get().getCurrentSoc();
         if (current >= 0) {
             input.setText(String.valueOf(current));
             input.setSelection(input.getText().length());
         }
-        new androidx.appcompat.app.AlertDialog.Builder(requireContext())
+        input.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+            }
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+            }
+
+            @Override
+            public void afterTextChanged(Editable s) {
+                field.setError(null);
+            }
+        });
+
+        final androidx.appcompat.app.AlertDialog dialog = new MaterialAlertDialogBuilder(requireContext())
                 .setTitle(R.string.discovery_set_battery_title)
                 .setMessage(R.string.discovery_set_battery_message)
-                .setView(input)
+                .setView(content)
                 .setNegativeButton(R.string.action_close, null)
-                .setPositiveButton(R.string.action_save, (dialog, which) -> saveBattery(input))
-                .show();
+                .setPositiveButton(R.string.action_save, null)
+                .create();
+
+        // The positive button is wired by hand so an out-of-range value keeps the dialog open
+        // and points at the field, instead of dismissing and reporting the problem elsewhere.
+        dialog.setOnShowListener(ignored -> dialog
+                .getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE)
+                .setOnClickListener(v -> {
+                    int soc = parseInt(input.getText() == null ? "" : input.getText().toString());
+                    if (soc < 0 || soc > 100) {
+                        field.setError(getString(R.string.discovery_set_battery_invalid));
+                        return;
+                    }
+                    field.setError(null);
+                    dialog.dismiss();
+                    saveBattery(soc);
+                }));
+        dialog.show();
+        input.requestFocus();
     }
 
-    private void saveBattery(@NonNull EditText input) {
-        String text = input.getText().toString().trim();
-        int soc;
+    private int parseInt(String value) {
         try {
-            soc = Integer.parseInt(text);
+            return Integer.parseInt(value.trim());
         } catch (NumberFormatException e) {
-            soc = -1;
+            return -1;
         }
-        if (soc < 0 || soc > 100) {
-            Ux.toast(this, getString(R.string.discovery_set_battery_invalid));
-            return;
-        }
+    }
+
+    private void saveBattery(int soc) {
         AppStateStore.get().applySocCorrection(AppStateStore.get().getCurrentSoc(), soc);
         SocStore.save(requireContext(), AuthManager.getInstance().getCurrentUserId(), soc);
-        Ux.toast(this, getString(R.string.discovery_set_battery_saved, soc));
+        Ux.success(this, getString(R.string.discovery_set_battery_saved, soc));
         // Reloading redraws the hero, the range estimate and the compatibility labels with
         // the new reading rather than leaving the old figure on screen.
         loadStations();
@@ -425,7 +458,7 @@ public class ChargerDiscoveryFragment extends Fragment implements StationAdapter
                         if (isAdded()) {
                             // No silent substitution of a fixed coordinate: the list simply
                             // shows stations without a distance until a fix arrives.
-                            Ux.toast(ChargerDiscoveryFragment.this,
+                            Ux.error(ChargerDiscoveryFragment.this,
                                     getString(R.string.map_location_unavailable));
                         }
                     }
@@ -451,7 +484,7 @@ public class ChargerDiscoveryFragment extends Fragment implements StationAdapter
     @Override
     public void onNavigateToStation(ChargerStation station) {
         if (userLat == null || userLng == null) {
-            Ux.toast(this, getString(R.string.route_needs_origin));
+            Ux.error(this, getString(R.string.route_needs_origin));
             return;
         }
         // In-app navigation, not a handoff to an external maps app.

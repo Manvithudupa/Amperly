@@ -1,13 +1,14 @@
 package com.amperly.app.feature.consumer;
 
 import android.os.Bundle;
+import android.text.Editable;
 import android.text.TextUtils;
+import android.text.TextWatcher;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.EditText;
-import android.widget.Spinner;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -20,6 +21,8 @@ import com.amperly.app.core.state.AppStateStore;
 import com.amperly.app.data.local.entity.Vehicle;
 import com.amperly.app.data.repository.AmperlyRepository;
 import com.amperly.app.ui.Ux;
+import com.google.android.material.textfield.MaterialAutoCompleteTextView;
+import com.google.android.material.textfield.TextInputLayout;
 
 import java.util.Locale;
 import java.util.UUID;
@@ -27,6 +30,7 @@ import java.util.UUID;
 public class VehicleProfileFragment extends Fragment {
 
     private static final String[] CONNECTORS = {"TYPE_2_AC", "CCS_2_DC", "GB_T", "CHADEMO"};
+    private static final String[] CONNECTOR_LABELS = {"Type 2 (AC)", "CCS 2 (DC)", "GB/T", "CHAdeMO"};
 
     private AmperlyRepository repo;
     private EditText makeEdit;
@@ -41,9 +45,13 @@ public class VehicleProfileFragment extends Fragment {
     private EditText minArrivalEdit;
     private EditText maxChargeEdit;
     private EditText plateEdit;
-    private Spinner connectorSpinner;
+    private TextInputLayout makeField;
+    private TextInputLayout modelField;
+    private MaterialAutoCompleteTextView connectorDropdown;
     private TextView derivedText;
     private String vehicleId;
+    /** The choice the removed Spinner used to hold as its selected position. */
+    private int connectorIndex;
 
     @Nullable
     @Override
@@ -69,11 +77,16 @@ public class VehicleProfileFragment extends Fragment {
         minArrivalEdit = view.findViewById(R.id.minArrivalEdit);
         maxChargeEdit = view.findViewById(R.id.maxChargeEdit);
         plateEdit = view.findViewById(R.id.plateEdit);
-        connectorSpinner = view.findViewById(R.id.connectorSpinner);
+        makeField = view.findViewById(R.id.makeField);
+        modelField = view.findViewById(R.id.modelField);
+        connectorDropdown = view.findViewById(R.id.connectorDropdown);
         derivedText = view.findViewById(R.id.vehicleDerivedText);
 
-        connectorSpinner.setAdapter(new ArrayAdapter<>(requireContext(),
-                android.R.layout.simple_spinner_dropdown_item, CONNECTOR_LABELS));
+        connectorDropdown.setAdapter(new ArrayAdapter<>(requireContext(),
+                R.layout.item_dropdown, CONNECTOR_LABELS));
+        connectorDropdown.setText(CONNECTOR_LABELS[0], false);
+        connectorDropdown.setOnItemClickListener((parent, v, position, id) -> connectorIndex = position);
+        clearErrorsWhileEditing();
 
         String userId = AuthManager.getInstance().getCurrentUserId();
         repo.background(() -> repo.getVehicleSync(userId), vehicle -> {
@@ -82,8 +95,7 @@ public class VehicleProfileFragment extends Fragment {
             }
             if (vehicle == null) {
                 vehicleId = UUID.randomUUID().toString();
-                derivedText.setText("No vehicle saved yet. Add your vehicle so charger compatibility and "
-                        + "battery estimates use the right values.");
+                derivedText.setText(R.string.vehicle_empty_hint);
                 return;
             }
             vehicleId = vehicle.getId();
@@ -99,7 +111,8 @@ public class VehicleProfileFragment extends Fragment {
             minArrivalEdit.setText(String.valueOf(vehicle.getMinArrivalSocPercent()));
             maxChargeEdit.setText(String.valueOf(vehicle.getMaxChargeSocPercent()));
             plateEdit.setText(vehicle.getLicensePlate());
-            connectorSpinner.setSelection(indexOf(vehicle.getConnectorType()));
+            connectorIndex = indexOf(vehicle.getConnectorType());
+            connectorDropdown.setText(CONNECTOR_LABELS[connectorIndex], false);
             AppStateStore.get().setVehicle(vehicle);
             updateDerived(vehicle);
         });
@@ -108,8 +121,6 @@ public class VehicleProfileFragment extends Fragment {
         buildDerivedPreview();
     }
 
-    private static final String[] CONNECTOR_LABELS = {"Type 2 (AC)", "CCS 2 (DC)", "GB/T", "CHAdeMO"};
-
     private int indexOf(String connector) {
         for (int i = 0; i < CONNECTORS.length; i++) {
             if (CONNECTORS[i].equalsIgnoreCase(connector)) {
@@ -117,6 +128,31 @@ public class VehicleProfileFragment extends Fragment {
             }
         }
         return 0;
+    }
+
+    /** A field-level error disappears the moment the driver starts correcting the field. */
+    private void clearErrorsWhileEditing() {
+        makeEdit.addTextChangedListener(clearOnEdit(makeField));
+        modelEdit.addTextChangedListener(clearOnEdit(modelField));
+    }
+
+    private TextWatcher clearOnEdit(final TextInputLayout field) {
+        return new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+            }
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+            }
+
+            @Override
+            public void afterTextChanged(Editable s) {
+                if (field != null) {
+                    field.setError(null);
+                }
+            }
+        };
     }
 
     private void buildDerivedPreview() {
@@ -136,18 +172,15 @@ public class VehicleProfileFragment extends Fragment {
             double efficiency = parseDouble(efficiencyEdit.getText().toString(), 6.5);
             double health = parseDouble(healthEdit.getText().toString(), 100);
             double effectiveCapacity = capacity * (health / 100.0);
-            return String.format(Locale.US,
-                    "Planning values: usable capacity %.1f kWh · expected range at 100%% about %.0f km. "
-                            + "Battery health is a planning input you control, not a certified measurement.",
-                    effectiveCapacity, effectiveCapacity * efficiency);
+            return getString(R.string.vehicle_planning_from_inputs, effectiveCapacity,
+                    effectiveCapacity * efficiency);
         } catch (Exception e) {
-            return "Planning values are computed from capacity, health and efficiency.";
+            return getString(R.string.vehicle_planning_default);
         }
     }
 
     private void updateDerived(Vehicle vehicle) {
-        derivedText.setText(String.format(Locale.US,
-                "Planning values: usable capacity %.1f kWh · efficiency %.1f km/kWh · range at 100%% about %.0f km.",
+        derivedText.setText(getString(R.string.vehicle_planning_line,
                 vehicle.effectiveCapacityKwh(), vehicle.effectiveEfficiencyKmPerKwh(),
                 vehicle.effectiveCapacityKwh() * vehicle.effectiveEfficiencyKmPerKwh()));
     }
@@ -156,7 +189,13 @@ public class VehicleProfileFragment extends Fragment {
         String make = makeEdit.getText().toString().trim();
         String model = modelEdit.getText().toString().trim();
         if (TextUtils.isEmpty(make) || TextUtils.isEmpty(model)) {
-            Ux.toast(this, "Make and model are required.");
+            if (TextUtils.isEmpty(make) && makeField != null) {
+                makeField.setError(getString(R.string.vehicle_error_make_model));
+                makeEdit.requestFocus();
+            }
+            if (TextUtils.isEmpty(model) && modelField != null) {
+                modelField.setError(getString(R.string.vehicle_error_make_model));
+            }
             return;
         }
         int year = safeInt(yearEdit.getText().toString(), 2023);
@@ -168,7 +207,8 @@ public class VehicleProfileFragment extends Fragment {
                 Vehicle.defaultHealthForYear(year));
         int minArrival = safeInt(minArrivalEdit.getText().toString(), 15);
         int maxCharge = safeInt(maxChargeEdit.getText().toString(), 80);
-        String connector = CONNECTORS[connectorSpinner.getSelectedItemPosition()];
+        String connector = CONNECTORS[connectorIndex >= 0 && connectorIndex < CONNECTORS.length
+                ? connectorIndex : 0];
 
         Vehicle vehicle = new Vehicle(vehicleId == null ? UUID.randomUUID().toString() : vehicleId,
                 userId, make, model, variantEdit.getText().toString().trim(), year, capacity,
@@ -180,7 +220,7 @@ public class VehicleProfileFragment extends Fragment {
         AppStateStore.get().setVehicle(vehicle);
         AppStateStore.get().setUserId(userId);
         updateDerived(vehicle);
-        Ux.toast(this, getString(R.string.vehicle_saved));
+        Ux.success(this, getString(R.string.vehicle_saved));
     }
 
     private int safeInt(String value, int fallback) {

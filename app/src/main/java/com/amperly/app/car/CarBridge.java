@@ -74,7 +74,7 @@ public final class CarBridge {
 
         public String summaryLine() {
             if (plan == null) {
-                return "Plan a trip on your phone, then reconnect. Charging stays glanceable here.";
+                return "Plan a trip on your phone, then reconnect.";
             }
             String socLabel = socAuthoritative ? "actual" : "estimated";
             int usableKm = (int) Math.max(0, ((currentSoc - Math.max(5, vehicle == null ? 15
@@ -147,7 +147,7 @@ public final class CarBridge {
                 plan = repo.getActiveRoutePlanSync(userId);
             }
             if (plan == null) {
-                return "Plan a trip on your phone first so the battery value has a route to correct.";
+                return "Plan a trip on your phone first.";
             }
             Vehicle vehicle = repo.getVehicleSync(userId);
             int previousEstimate = AppStateStore.get().getCurrentSoc() >= 0
@@ -190,8 +190,7 @@ public final class CarBridge {
                 return "Station not found.";
             }
             if (!station.supportsPaidEnergyBilling()) {
-                return station.getName() + " has no verified meter, so no paid energy session can be booked. "
-                        + "It stays available for discovery only.";
+                return "No verified meter here. Discovery only.";
             }
             Calendar day = Calendar.getInstance();
             day.set(Calendar.HOUR_OF_DAY, 0);
@@ -219,7 +218,8 @@ public final class CarBridge {
             PaymentManager.PaymentResult paymentResult = PaymentManager.authorize(userId,
                     station.getHostId(), null, preview.getAuthorizedAmount(), key);
             if (!paymentResult.isSuccess()) {
-                return paymentResult.getMessage();
+                // A car display gets one short line, never a gateway message.
+                return "Payment could not be verified. Try again.";
             }
             Payment payment = paymentResult.getPayment();
             String reservationId = UUID.randomUUID().toString();

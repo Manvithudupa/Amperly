@@ -1,5 +1,6 @@
 package com.amperly.app.feature.consumer;
 
+import android.content.Context;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.view.LayoutInflater;
@@ -31,8 +32,6 @@ import com.amperly.app.engine.meter.MeterSimulator;
 import com.amperly.app.payment.PaymentManager;
 import com.amperly.app.ui.Ux;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
@@ -45,6 +44,8 @@ public class ActiveSessionFragment extends Fragment {
     public static final String ARG_RESERVATION_ID = "reservation_id";
 
     private AmperlyRepository repo;
+    /** Application context, so a resource string can be read from a background task. */
+    private Context appContext;
     private EditText startMeterEdit;
     private EditText endMeterEdit;
     private TextView stateText;
@@ -72,6 +73,7 @@ public class ActiveSessionFragment extends Fragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
         repo = AmperlyRepository.getInstance(requireContext());
+        appContext = requireContext().getApplicationContext();
 
         stateText = view.findViewById(R.id.sessionStateText);
         infoText = view.findViewById(R.id.sessionInfoText);
@@ -86,12 +88,11 @@ public class ActiveSessionFragment extends Fragment {
 
         // Nothing has been delivered yet, so the screen says so rather than showing a zero
         // that could be read as a real meter reading.
-        liveKwhText.setText("—");
-        liveTimeText.setText("—");
-        liveCostText.setText("—");
+        liveKwhText.setText("\u2014");
+        liveTimeText.setText("\u2014");
+        liveCostText.setText("\u2014");
 
-        stepsText.setText("Reserved → Checked in → Charging → Completed\n"
-                + "Other possible states: Cancelled, Expired, Disputed, Refunded");
+        stepsText.setText(R.string.session_states_line);
 
         Button captureStart = view.findViewById(R.id.captureStartButton);
         Button simulate = view.findViewById(R.id.simulateButton);
@@ -142,18 +143,22 @@ public class ActiveSessionFragment extends Fragment {
 
     private void renderState() {
         if (reservation == null) {
-            stateText.setText("No active reservation");
-            infoText.setText("Reserve a port first. Amperly keeps the reservation, the meter evidence and the bill linked together.");
+            stateText.setText(R.string.session_none_title);
+            infoText.setText(R.string.session_none_body);
             startMeterEdit.setEnabled(false);
             endMeterEdit.setEnabled(false);
             return;
         }
-        stateText.setText("State: " + reservation.getStatus());
-        infoText.setText(reservation.getStationName() + " · " + reservation.getPortLabel() + "\n"
-                + Formatters.dayAndSlot(reservation.getStartTimeMs(), reservation.getEndTimeMs()) + "\n"
-                + "Booking code " + reservation.getBookingCode()
-                + (station == null ? "" : "\nMeter level: " + station.getVerificationLevel()
-                + " · paid energy billing " + (station.supportsPaidEnergyBilling() ? "enabled" : "not available")));
+        stateText.setText(getString(R.string.session_state, reservation.getStatus()));
+        String meterLine = station == null ? "" : getString(R.string.session_meter_line,
+                station.getVerificationLevel(),
+                getString(station.supportsPaidEnergyBilling()
+                        ? R.string.session_billing_enabled : R.string.session_billing_unavailable));
+        infoText.setText(getString(R.string.session_info_combo,
+                reservation.getStationName(), reservation.getPortLabel(),
+                Formatters.dayAndSlot(reservation.getStartTimeMs(), reservation.getEndTimeMs()),
+                getString(R.string.session_booking_line, reservation.getBookingCode())
+                        + (meterLine.isEmpty() ? "" : "\n" + meterLine)));
 
         if (session != null) {
             startMeterEdit.setText(String.format(Locale.US, "%.2f", session.getStartingMeterKwh()));
@@ -167,13 +172,14 @@ public class ActiveSessionFragment extends Fragment {
             int minutes = (int) Math.max(1, (end - session.getStartTimeMs()) / 60_000L);
             liveTimeText.setText(Formatters.minutes(minutes));
             liveCostText.setText(session.getTotalPaid() > 0
-                    ? Formatters.money(session.getTotalPaid()) : "—");
-            summaryText.setText("Session " + session.getStatus() + " · verified "
-                    + Formatters.kwh(session.getVerifiedKwhConsumed()) + " · billed "
-                    + Formatters.money(session.getTotalPaid()));
+                    ? Formatters.money(session.getTotalPaid()) : "\u2014");
+            summaryText.setText(getString(R.string.session_summary_line, session.getStatus(),
+                    Formatters.kwh(session.getVerifiedKwhConsumed()),
+                    Formatters.money(session.getTotalPaid())));
         } else {
-            startMeterEdit.setHint("Starting reading, e.g. " + String.format(Locale.US, "%.2f",
-                    MeterSimulator.currentReading(reservation.getStationId())));
+            startMeterEdit.setHint(getString(R.string.session_start_hint,
+                    String.format(Locale.US, "%.2f",
+                            MeterSimulator.currentReading(reservation.getStationId()))));
         }
     }
 
@@ -183,7 +189,7 @@ public class ActiveSessionFragment extends Fragment {
                     ? repo.getActiveReservationSync(AuthManager.getInstance().getCurrentUserId())
                     : repo.getReservationSync(reservationId);
             if (active == null) {
-                return "No reservation to check in.";
+                return appContext.getString(R.string.session_no_reservation_checkin);
             }
             ChargerStation loadedStation = repo.getStationSync(active.getStationId());
             ChargerPort loadedPort = active.getPortId() == null ? null
@@ -211,15 +217,15 @@ public class ActiveSessionFragment extends Fragment {
             repo.updateSession(newSession);
 
             if (loadedPort != null) {
-                loadedPort.setStatus(AppConstants.PORT_OCCUPIED);
-                repo.database().chargerPortDao().update(loadedPort);
+                // Consumers cannot write charger_ports under RLS, so this stays local. The
+                // server's settlement functions own the port status.
+                repo.updatePortStatusLocally(loadedPort, AppConstants.PORT_OCCUPIED);
             }
-            return "Checked in. Starting reading captured: "
-                    + String.format(Locale.US, "%.2f kWh", startReading)
-                    + " (demo meter).";
+            return appContext.getString(R.string.session_checked_in,
+                    String.format(Locale.US, "%.2f kWh", startReading));
         }, message -> {
             if (message != null) {
-                Ux.toast(this, message);
+                Ux.success(this, message);
                 loadState(reservationId);
             }
         });
@@ -229,14 +235,14 @@ public class ActiveSessionFragment extends Fragment {
         repo.background(() -> {
             ChargingSession active = repo.getSessionByReservationSync(reservationId);
             if (active == null) {
-                return "Check in first to open a session.";
+                return appContext.getString(R.string.session_check_in_first);
             }
             active.setStatus(AppConstants.STATUS_CHARGING);
             repo.updateSession(active);
-            return "Session marked as charging.";
+            return appContext.getString(R.string.session_marked_charging);
         }, message -> {
             if (message != null) {
-                Ux.toast(this, message);
+                Ux.success(this, message);
                 loadState(reservationId);
             }
         });
@@ -244,7 +250,7 @@ public class ActiveSessionFragment extends Fragment {
 
     private void simulateMeter() {
         if (reservation == null) {
-            Ux.toast(this, "Check in first.");
+            Ux.error(this, getString(R.string.session_check_in_required));
             return;
         }
         double power = port == null ? 7.2 : port.getPowerKw();
@@ -252,14 +258,14 @@ public class ActiveSessionFragment extends Fragment {
                 reservation.getStationId(), power, 60);
         startMeterEdit.setText(String.format(Locale.US, "%.2f", simulated.getStartReadingKwh()));
         endMeterEdit.setText(String.format(Locale.US, "%.2f", simulated.getEndReadingKwh()));
-        simulateResultText.setText(getString(R.string.session_simulate_delivers, simulated.getDeliveredKwh())
-                + " over " + simulated.getMinutes() + " minutes at " + (int) power
-                + " kW. Readings are simulated, not read from live hardware.");
+        simulateResultText.setText(getString(R.string.session_simulate_detail,
+                getString(R.string.session_simulate_delivers, simulated.getDeliveredKwh()),
+                simulated.getMinutes(), (int) power));
     }
 
     private void completeSession(String reservationId) {
         if (TextUtils.isEmpty(startMeterEdit.getText()) || TextUtils.isEmpty(endMeterEdit.getText())) {
-            Ux.toast(this, "Enter both meter readings, or use Simulate meter.");
+            Ux.error(this, getString(R.string.session_enter_readings));
             return;
         }
         final double start;
@@ -268,7 +274,7 @@ public class ActiveSessionFragment extends Fragment {
             start = Double.parseDouble(startMeterEdit.getText().toString().trim());
             end = Double.parseDouble(endMeterEdit.getText().toString().trim());
         } catch (NumberFormatException e) {
-            Ux.toast(this, "Meter readings must be numbers.");
+            Ux.error(this, getString(R.string.session_readings_numeric));
             return;
         }
 
@@ -277,11 +283,13 @@ public class ActiveSessionFragment extends Fragment {
                     ? repo.getActiveReservationSync(AuthManager.getInstance().getCurrentUserId())
                     : repo.getReservationSync(reservationId);
             if (active == null) {
-                return new Completion(null, "No reservation found.", null);
+                return new Completion(null,
+                        appContext.getString(R.string.session_no_reservation_found), null);
             }
             ChargerStation loadedStation = repo.getStationSync(active.getStationId());
             if (loadedStation == null) {
-                return new Completion(null, "Station not found.", null);
+                return new Completion(null,
+                        appContext.getString(R.string.error_station_not_found), null);
             }
             String meterLevel = loadedStation.getVerificationLevel();
             BillingEngine.BillingCalculationResult billing = BillingEngine.calculateBill(
@@ -333,15 +341,17 @@ public class ActiveSessionFragment extends Fragment {
             ChargerPort loadedPort = active.getPortId() == null ? null
                     : repo.database().chargerPortDao().getPortByIdSync(active.getPortId());
             if (loadedPort != null) {
-                loadedPort.setStatus(AppConstants.PORT_AVAILABLE);
-                repo.database().chargerPortDao().update(loadedPort);
+                // Local only: finalize_charging_session already set the port back to available
+                // on the server, and a consumer cannot write charger_ports under RLS.
+                repo.updatePortStatusLocally(loadedPort, AppConstants.PORT_AVAILABLE);
             }
 
             AppStateStore.get().setActiveSessionId(activeSession.getId());
-            String summary = String.format(Locale.US,
-                    "Verified %.2f kWh · %s energy · %s service · %s gateway · total %s",
-                    billing.getVerifiedKwh(), Formatters.money(billing.getEnergyCharge()),
-                    Formatters.money(billing.getServiceFee()), Formatters.money(billing.getGatewayFee()),
+            String summary = appContext.getString(R.string.session_bill_summary,
+                    String.format(Locale.US, "%.2f kWh", billing.getVerifiedKwh()),
+                    Formatters.money(billing.getEnergyCharge()),
+                    Formatters.money(billing.getServiceFee()),
+                    Formatters.money(billing.getGatewayFee()),
                     Formatters.money(billing.getFinalTotal()));
             return new Completion(activeSession.getId(), summary, billing);
         }, completion -> {
@@ -350,7 +360,7 @@ public class ActiveSessionFragment extends Fragment {
             }
             summaryText.setText(completion.summary);
             if (completion.sessionId == null) {
-                Ux.toast(this, completion.summary);
+                Ux.error(this, completion.summary);
                 return;
             }
             ReceiptFragment fragment = new ReceiptFragment();

@@ -61,24 +61,36 @@
                     android:orientation="vertical"
                     android:padding="@dimen/amp_space_m">
 
-                    <TextView
-                        style="@style/Widget.Amperly.FieldLabel"
-                        android:text="@string/reserve_port" />
-
-                    <Spinner
-                        android:id="@+id/portSpinner"
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:id="@+id/portField"
+                        style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
                         android:layout_width="match_parent"
-                        android:layout_height="@dimen/amp_touch_target" />
+                        android:layout_height="wrap_content"
+                        android:hint="@string/reserve_port">
 
-                    <TextView
-                        style="@style/Widget.Amperly.FieldLabel"
+                        <com.google.android.material.textfield.MaterialAutoCompleteTextView
+                            android:id="@+id/portDropdown"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:contentDescription="@string/reserve_port"
+                            android:inputType="none" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:id="@+id/slotField"
+                        style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
                         android:layout_marginTop="@dimen/amp_space_m"
-                        android:text="@string/reserve_slot" />
+                        android:hint="@string/reserve_slot">
 
-                    <Spinner
-                        android:id="@+id/slotSpinner"
-                        android:layout_width="match_parent"
-                        android:layout_height="@dimen/amp_touch_target" />
+                        <com.google.android.material.textfield.MaterialAutoCompleteTextView
+                            android:id="@+id/slotDropdown"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:contentDescription="@string/reserve_slot"
+                            android:inputType="none" />
+                    </com.google.android.material.textfield.TextInputLayout>
 
                     <TextView
                         android:id="@+id/slotHintText"

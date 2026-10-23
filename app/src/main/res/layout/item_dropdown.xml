@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  One row in a dropdown popup. Used by every MaterialAutoCompleteTextView in the app so the
+  list, not only the field, follows the app's type scale and colours in light and dark mode.
+-->
+<TextView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/dropdownItemText"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:ellipsize="end"
+    android:gravity="center_vertical"
+    android:maxLines="1"
+    android:minHeight="48dp"
+    android:paddingStart="@dimen/amp_space_m"
+    android:paddingTop="@dimen/amp_space_s"
+    android:paddingEnd="@dimen/amp_space_m"
+    android:paddingBottom="@dimen/amp_space_s"
+    android:textAppearance="@style/TextAppearance.Amperly.Body"
+    android:textColor="?attr/colorOnSurface" />

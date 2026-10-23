@@ -61,6 +61,14 @@
         <item name="materialAlertDialogTheme">@style/ThemeOverlay.Amperly.Dialog</item>
         <item name="bottomSheetDialogTheme">@style/ThemeOverlay.Amperly.BottomSheet</item>
 
+        <!-- Themed feedback: snackbars share the app's surface, shape and type. -->
+        <item name="snackbarStyle">@style/Widget.Amperly.Snackbar</item>
+        <item name="snackbarButtonStyle">@style/Widget.Amperly.SnackbarButton</item>
+
+        <!-- Themed dropdowns: the popup list, not only the field, follows Material 3. -->
+        <item name="listPopupWindowStyle">@style/Widget.Amperly.PopupWindow</item>
+        <item name="popupMenuStyle">@style/Widget.Amperly.PopupMenu</item>
+
         <item name="shapeAppearanceCornerSmall">@style/ShapeAppearance.Amperly.Small</item>
         <item name="shapeAppearanceCornerMedium">@style/ShapeAppearance.Amperly.Medium</item>
         <item name="shapeAppearanceCornerLarge">@style/ShapeAppearance.Amperly.Large</item>

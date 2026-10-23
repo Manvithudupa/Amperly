@@ -3,6 +3,7 @@ package com.amperly.app.core.places;
 import android.content.Context;
 import android.text.Editable;
 import android.text.TextWatcher;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -14,7 +15,9 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import com.amperly.app.R;
 import com.amperly.app.core.common.GoogleConfig;
+import com.amperly.app.core.common.UserMessages;
 import com.google.android.libraries.places.api.Places;
 import com.google.android.libraries.places.api.model.AutocompletePrediction;
 import com.google.android.libraries.places.api.model.Place;
@@ -39,6 +42,8 @@ import java.util.List;
  * service is unreachable: the plain text field keeps working and the screen says so.
  */
 public final class PlacesAutocomplete {
+
+    private static final String TAG = "PlacesAutocomplete";
 
     /** A place the driver chose. */
     public static final class Selection {
@@ -118,14 +123,14 @@ public final class PlacesAutocomplete {
                             @NonNull Listener listener) {
         PlacesClient places = client(context);
         if (places == null) {
-            field.setHint("Search a town, shop, hotel or landmark");
+            field.setHint(R.string.route_destination_hint);
             field.setOnFocusChangeListener(null);
             return;
         }
         final List<AutocompletePrediction> predictions = new ArrayList<>();
         final ArrayAdapter<AutocompletePrediction> adapter =
                 new ArrayAdapter<AutocompletePrediction>(context,
-                        android.R.layout.simple_list_item_2, predictions) {
+                        R.layout.item_place_suggestion, predictions) {
 
             /**
              * Google has already matched these predictions against what the driver typed, so the
@@ -163,11 +168,11 @@ public final class PlacesAutocomplete {
                                 @NonNull ViewGroup parent) {
                 View view = convertView != null ? convertView
                         : LayoutInflater.from(getContext()).inflate(
-                                android.R.layout.simple_list_item_2, parent, false);
+                                R.layout.item_place_suggestion, parent, false);
                 AutocompletePrediction prediction = position >= 0 && position < predictions.size()
                         ? predictions.get(position) : null;
-                TextView primary = view.findViewById(android.R.id.text1);
-                TextView secondary = view.findViewById(android.R.id.text2);
+                TextView primary = view.findViewById(R.id.placePrimaryText);
+                TextView secondary = view.findViewById(R.id.placeSecondaryText);
                 primary.setText(prediction == null ? "" : prediction.getPrimaryText(null));
                 if (secondary != null) {
                     CharSequence detail = prediction == null
@@ -231,7 +236,7 @@ public final class PlacesAutocomplete {
                         .addOnFailureListener(e -> {
                             predictions.clear();
                             adapter.notifyDataSetChanged();
-                            listener.onLookupFailed(describe(e));
+                            listener.onLookupFailed(describe(context, e));
                         });
             }
         });
@@ -268,11 +273,10 @@ public final class PlacesAutocomplete {
         });
     }
 
-    /** A short, actionable reason a search returned nothing at all. */
+    /** A short, plain-language reason a search returned nothing at all. The detail is logged. */
     @NonNull
-    private static String describe(@NonNull Exception e) {
-        String detail = e.getMessage() == null ? "" : e.getMessage().trim();
-        return "Place search is unavailable"
-                + (detail.isEmpty() ? " right now." : ": " + detail);
+    private static String describe(@NonNull Context context, @NonNull Exception e) {
+        Log.w(TAG, "Place lookup failed", e);
+        return UserMessages.from(context.getApplicationContext(), e, R.string.error_place_search);
     }
 }

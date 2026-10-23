@@ -92,13 +92,13 @@ public class ChargerDetailsFragment extends Fragment {
         stationId = getArguments() == null ? null : getArguments().getString(ARG_STATION_ID);
 
         if (stationId == null) {
-            Ux.toast(this, "No station selected.");
+            Ux.error(this, getString(R.string.details_no_station));
             return;
         }
 
         repo.background(() -> repo.getStationSync(stationId), station -> {
             if (station == null || !isAdded()) {
-                Ux.toast(this, "Station not found.");
+                Ux.error(this, getString(R.string.error_station_not_found));
                 return;
             }
             bind(view, station);
@@ -147,12 +147,12 @@ public class ChargerDetailsFragment extends Fragment {
 
         verification.setText(verificationLabel(station));
         gating.setVisibility(station.supportsPaidEnergyBilling() ? View.GONE : View.VISIBLE);
-        access.setText(station.getAccessRules() == null ? "No access instructions published yet."
+        access.setText(station.getAccessRules() == null ? getString(R.string.details_no_access)
                 : station.getAccessRules());
-        incident.setText("Reliability " + (int) station.getReliabilityScore() + "% · rating "
-                + String.format(Locale.US, "%.1f", station.getRating()) + " ★ · incidents: "
-                + station.getIncidentCount()
-                + (station.getHostName() == null ? "" : "\nHost: " + station.getHostName()));
+        incident.setText(getString(R.string.details_reliability_line,
+                (int) station.getReliabilityScore(), station.getRating(), station.getIncidentCount())
+                + (station.getHostName() == null ? ""
+                : getString(R.string.details_host_line, station.getHostName())));
 
         energyPrice.setText(Formatters.money(station.getPricePerKwh()));
         serviceFee.setText(Formatters.money(station.getServiceFee()));
@@ -165,14 +165,14 @@ public class ChargerDetailsFragment extends Fragment {
             View row = LayoutInflater.from(requireContext()).inflate(R.layout.item_port, portsContainer, false);
             TextView label = row.findViewById(R.id.portLabelText);
             TextView status = row.findViewById(R.id.portStatusText);
-            label.setText(AvailabilityEngine.portLabel(port) + " · "
-                    + (port.isDc() ? "DC fast" : "AC"));
+            label.setText(getString(R.string.details_port_line, AvailabilityEngine.portLabel(port),
+                    getString(port.isDc() ? R.string.details_dc_fast : R.string.details_ac)));
             status.setText(port.getStatus());
             portsContainer.addView(row);
         }
         if (ports.isEmpty()) {
             TextView empty = new TextView(requireContext());
-            empty.setText("No ports published for this station yet.");
+            empty.setText(R.string.details_no_ports);
             portsContainer.addView(empty);
         }
 
@@ -194,7 +194,7 @@ public class ChargerDetailsFragment extends Fragment {
 
         view.findViewById(R.id.navigateDetailsButton).setOnClickListener(v -> {
             if (userLat == null || userLng == null) {
-                Ux.toast(this, getString(R.string.route_needs_origin));
+                Ux.error(this, getString(R.string.route_needs_origin));
                 return;
             }
             // In-app navigation on Google Maps, not a handoff to an external maps app.
@@ -219,10 +219,11 @@ public class ChargerDetailsFragment extends Fragment {
                             AuthManager.getInstance().getCurrentUserId(),
                             AuthManager.getInstance().getCurrentUser().getName(),
                             station.getId(), station.getHostId(), null, type,
-                            details == null || details.isEmpty() ? "(no details provided)" : details,
+                            details == null || details.isEmpty()
+                                    ? getString(R.string.report_no_details) : details,
                             "OPEN", System.currentTimeMillis());
                     repo.saveReport(report);
-                    Ux.toast(this, getString(R.string.report_submitted));
+                    Ux.success(this, getString(R.string.report_submitted));
                 }));
     }
 
@@ -340,6 +341,7 @@ public class ChargerDetailsFragment extends Fragment {
                 if (checkedIds.isEmpty()) {
                     return;
                 }
+                // Driving is the default: every chip that is not the walking one means DRIVING.
                 travelMode = checkedIds.get(0) == R.id.walkModeChip
                         ? GoogleDirectionsClient.TravelMode.WALKING
                         : GoogleDirectionsClient.TravelMode.DRIVING;

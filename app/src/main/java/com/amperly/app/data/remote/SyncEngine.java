@@ -6,6 +6,7 @@ import android.util.Log;
 
 import androidx.annotation.Nullable;
 
+import com.amperly.app.R;
 import com.amperly.app.core.common.Formatters;
 import com.amperly.app.data.local.AmperlyDatabase;
 import com.google.gson.Gson;
@@ -123,21 +124,24 @@ public final class SyncEngine {
 
     public static Result syncNow(Context context, AmperlyDatabase db) {
         if (!SupabaseRest.isReady()) {
-            return Result.skipped("Supabase is not configured — running on the device only.");
+            return Result.skipped(context.getString(R.string.sync_not_configured));
         }
         if (!SupabaseAuth.isSignedIn()) {
-            return Result.skipped("Not signed in to Supabase, so nothing was pulled.");
+            return Result.skipped(context.getString(R.string.sync_not_signed_in));
         }
 
         int pulled;
         try {
             pulled = pull(context, db);
         } catch (SupabaseRest.RestException restException) {
-            recordError(context, restException.getMessage());
-            return new Result(true, 0, "Sync stopped: " + restException.getMessage());
+            // The status, the URL and the server body stay in the log; the app stores one line.
+            Log.w(TAG, "Sync stopped", restException);
+            recordError(context, context.getString(R.string.sync_failed));
+            return new Result(true, 0, context.getString(R.string.sync_failed));
         } catch (RuntimeException unexpected) {
-            recordError(context, unexpected.getMessage());
-            return new Result(true, 0, "Sync stopped unexpectedly: " + unexpected.getMessage());
+            Log.w(TAG, "Sync stopped unexpectedly", unexpected);
+            recordError(context, context.getString(R.string.sync_failed));
+            return new Result(true, 0, context.getString(R.string.sync_failed));
         }
 
         recordSuccess(context);
@@ -183,22 +187,20 @@ public final class SyncEngine {
     /** Human-readable state for the UI: when the last pull worked, and what broke. */
     public static String statusSummary(Context context, AmperlyDatabase db) {
         if (!isEnabled()) {
-            return "Device only — no Supabase project configured.";
+            return context.getString(R.string.sync_no_backend);
         }
         if (!SupabaseAuth.isSignedIn()) {
-            return "Supabase is configured but nobody is signed in.";
+            return context.getString(R.string.sync_not_signed_in_summary);
         }
         long lastSync = cursors(context).getLong(KEY_LAST_SYNC_MS, 0L);
         String lastError = cursors(context).getString(KEY_LAST_ERROR, null);
 
-        StringBuilder summary = new StringBuilder();
-        summary.append(lastSync > 0
-                ? "Synced " + Formatters.agoFromNow(lastSync)
-                : "Not synced yet");
-        if (lastError != null && !lastError.isEmpty()) {
-            summary.append(" · ").append(lastError);
-        }
-        return summary.toString();
+        String when = lastSync > 0
+                ? context.getString(R.string.sync_last_synced, Formatters.agoFromNow(lastSync))
+                : context.getString(R.string.sync_never);
+        return lastError != null && !lastError.isEmpty()
+                ? context.getString(R.string.sync_summary_with_error, when, lastError)
+                : when;
     }
 
     /**
@@ -206,10 +208,10 @@ public final class SyncEngine {
      * believing a save reached the database when it did not. The local copy stays in Room.
      */
     public static void recordWriteError(Context context, @Nullable String message) {
-        String text = message == null || message.trim().isEmpty()
-                ? "Last save did not reach the server." : message;
-        Log.w(TAG, text);
-        recordError(context, text);
+        // The technical message is logged; what the account screen shows is one friendly line.
+        Log.w(TAG, message == null || message.trim().isEmpty()
+                ? "A save did not reach the server." : message);
+        recordError(context, context.getString(R.string.sync_write_failed));
     }
 
     /** Clears the pull cursors — used on sign-out so the next account reads from scratch. */

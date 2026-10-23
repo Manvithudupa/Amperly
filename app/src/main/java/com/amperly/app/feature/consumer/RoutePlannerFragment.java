@@ -174,6 +174,8 @@ public class RoutePlannerFragment extends Fragment implements RouteStopAdapter.L
                         corridorKm = 5;
                     } else if (id == R.id.corridor20Chip) {
                         corridorKm = 20;
+                    } else if (id == R.id.corridor10Chip) {
+                        corridorKm = AppConstants.DEFAULT_CORRIDOR_KM;
                     } else {
                         corridorKm = AppConstants.DEFAULT_CORRIDOR_KM;
                     }
@@ -191,6 +193,8 @@ public class RoutePlannerFragment extends Fragment implements RouteStopAdapter.L
                         preference = RoutePlannerEngine.PREF_RELIABLE;
                     } else if (id == R.id.prefShortestDetourChip) {
                         preference = RoutePlannerEngine.PREF_SHORTEST_DETOUR;
+                    } else if (id == R.id.prefFastestChip) {
+                        preference = RoutePlannerEngine.PREF_FASTEST;
                     } else {
                         preference = RoutePlannerEngine.PREF_FASTEST;
                     }
@@ -212,7 +216,7 @@ public class RoutePlannerFragment extends Fragment implements RouteStopAdapter.L
         view.findViewById(R.id.widerRadiusButton).setOnClickListener(v -> {
             corridorKm = 20;
             planStatusText.setVisibility(View.VISIBLE);
-            planStatusText.setText("Widening the search radius to 20 km and re-evaluating the corridor…");
+            planStatusText.setText(R.string.route_widening);
             if (originLat != null && originLng != null) {
                 planRoute();
             }
@@ -220,8 +224,7 @@ public class RoutePlannerFragment extends Fragment implements RouteStopAdapter.L
 
         view.findViewById(R.id.slowerChargerButton).setOnClickListener(v -> {
             planStatusText.setVisibility(View.VISIBLE);
-            planStatusText.setText("Allowing a slower compatible charger with a 10% arrival reserve instead of "
-                    + "your usual reserve. Amperly will not go below this floor.");
+            planStatusText.setText(R.string.route_slower_charger_notice);
             applySocCorrection(10);
         });
 
@@ -338,7 +341,8 @@ public class RoutePlannerFragment extends Fragment implements RouteStopAdapter.L
         originDetailText.setVisibility(View.VISIBLE);
         originDetailText.setText(R.string.route_start_locating_address);
 
-        GoogleGeocoder.reverseGeocode(latitude, longitude, new GoogleGeocoder.Callback() {
+        GoogleGeocoder.reverseGeocode(requireContext(), latitude, longitude,
+                new GoogleGeocoder.Callback() {
             @Override
             public void onAddress(@NonNull String formattedAddress) {
                 if (!isAdded() || originDetailText == null) {
@@ -496,45 +500,45 @@ public class RoutePlannerFragment extends Fragment implements RouteStopAdapter.L
                 result.getTotalDistanceKm(), Formatters.minutes(result.getDriveMinutes()),
                 Formatters.minutes(result.getChargingMinutes()),
                 Formatters.minutes(result.getTotalJourneyMinutes())));
-        confidenceText.setText(getString(R.string.route_confidence, result.getConfidence())
-                + " · corridor " + (int) result.getCorridorKm() + " km · "
-                + result.getCandidates().size() + " compatible charger(s) in the corridor · "
-                + result.getExcluded().size() + " excluded");
+        confidenceText.setText(getString(R.string.route_confidence_line,
+                getString(R.string.route_confidence, result.getConfidence()),
+                (int) result.getCorridorKm(), result.getCandidates().size(),
+                result.getExcluded().size()));
 
         if (result.getNoStopWarning() != null) {
             showStatus(result.getNoStopWarning());
         } else if (result.getPlannedStops().isEmpty()) {
-            showStatus("No charging stop is needed for this trip at " + result.getStartSoc()
-                    + "% battery. Chargers along the corridor are listed below as options.");
+            showStatus(getString(R.string.route_no_stop_needed, result.getStartSoc()));
         } else {
             planStatusText.setVisibility(View.GONE);
         }
 
         socSourceText.setText(bundle.fromProfile
-                ? "Amperly estimated your starting battery from the vehicle profile — enter the dashboard value to override it."
+                ? getString(R.string.route_soc_from_profile)
                 : (AppStateStore.get().isSocAuthoritative()
                 ? getString(R.string.soc_now_authoritative, AppStateStore.get().getCurrentSoc(),
                 Formatters.agoFromNow(AppStateStore.get().getSocUpdatedAtMs()))
-                : "Using the battery percentage you entered. This is not a reading from the car."));
+                : getString(R.string.route_soc_entered)));
 
         renderDirections(bundle.route);
 
         List<RouteStopAdapter.StopRow> planned = new ArrayList<>();
         for (RoutePlannerEngine.PlannedStop stop : result.getPlannedStops()) {
-            planned.add(RouteStopAdapter.fromPlannedStop(stop));
+            planned.add(RouteStopAdapter.fromPlannedStop(requireContext(), stop));
         }
         plannedAdapter.submit(planned);
 
         List<RouteStopAdapter.StopRow> backups = new ArrayList<>();
         for (RoutePlannerEngine.PlannedStop stop : result.getBackups()) {
-            backups.add(RouteStopAdapter.fromPlannedStop(stop));
+            backups.add(RouteStopAdapter.fromPlannedStop(requireContext(), stop));
         }
         backupsAdapter.submit(backups);
 
         List<RouteStopAdapter.StopRow> candidates = new ArrayList<>();
         int sequence = 1;
         for (RoutePlannerEngine.CandidateEvaluation evaluation : result.getCandidates()) {
-            candidates.add(RouteStopAdapter.fromCandidate(evaluation, sequence++, false));
+            candidates.add(RouteStopAdapter.fromCandidate(requireContext(), evaluation,
+                    sequence++, false));
         }
         candidatesAdapter.submit(candidates);
 
@@ -543,8 +547,8 @@ public class RoutePlannerFragment extends Fragment implements RouteStopAdapter.L
             addLine(assumptionsContainer, "• " + assumption);
         }
         for (RoutePlannerEngine.ExcludedStation excluded : result.getExcluded()) {
-            addLine(assumptionsContainer, "✕ " + excluded.getStation().getName() + " — "
-                    + excluded.getReason());
+            addLine(assumptionsContainer, getString(R.string.route_excluded_line,
+                    excluded.getStation().getName(), excluded.getReason()));
         }
 
         if (mapPanel != null) {
@@ -564,10 +568,8 @@ public class RoutePlannerFragment extends Fragment implements RouteStopAdapter.L
         directionsContainer.removeAllViews();
         String time = Formatters.minutes(route.getEffectiveDurationMinutes());
         if (route.isApproximate()) {
-            directionsMetaText.setText(getString(R.string.route_directions_none));
-            directionsMetaText.setText("Straight-line estimate · " + String.format(Locale.US,
-                    "%.1f km", route.getDistanceKm()) + " · " + time
-                    + " — Google Directions could not be reached.");
+            directionsMetaText.setText(getString(R.string.route_straight_line,
+                    route.getDistanceKm(), time));
         } else if (route.getDurationInTrafficMinutes() > 0
                 && route.getDurationInTrafficMinutes() != route.getDurationMinutes()) {
             directionsMetaText.setText(getString(R.string.route_directions_meta_traffic,
@@ -636,12 +638,12 @@ public class RoutePlannerFragment extends Fragment implements RouteStopAdapter.L
     private void applySocCorrection(int reserveOverridePercent) {
         String text = actualSocEdit.getText().toString().trim();
         if (TextUtils.isEmpty(text)) {
-            Ux.toast(this, "Enter the battery percentage shown on your vehicle dashboard.");
+            Ux.error(this, getString(R.string.route_needs_battery));
             return;
         }
         int actual = safeInt(text);
         if (actual < 0 || actual > 100) {
-            Ux.toast(this, "Battery percentage must be between 0 and 100.");
+            Ux.error(this, getString(R.string.soc_update_invalid));
             return;
         }
         if (lastPlan == null || originLat == null || originLng == null) {
@@ -701,7 +703,7 @@ public class RoutePlannerFragment extends Fragment implements RouteStopAdapter.L
 
         recalcContainer.removeAllViews();
         TextView header = new TextView(requireContext());
-        header.setText("Original estimate → actual update → revised recommendation");
+        header.setText(R.string.route_recalc_header);
         header.setTextAppearance(R.style.TextAppearance_Amperly_SectionTitle);
         recalcContainer.addView(header);
 
@@ -709,24 +711,25 @@ public class RoutePlannerFragment extends Fragment implements RouteStopAdapter.L
         addLine(recalcContainer, getString(R.string.soc_now_authoritative, result.getActualDashboardSoc(),
                 Formatters.agoFromNow(System.currentTimeMillis())));
         addLine(recalcContainer, result.getExplanation());
-        addLine(recalcContainer, "Usable range at this battery: about " + result.getEstimatedRangeKm() + " km. "
-                + "Remaining trip: " + Formatters.minutes(result.getRemainingJourneyMinutes())
-                + " (drive " + Formatters.minutes(result.getRemainingDriveMinutes())
-                + " + charge " + Formatters.minutes(result.getRemainingChargingMinutes()) + ").");
+        addLine(recalcContainer, getString(R.string.route_usable_range, result.getEstimatedRangeKm(),
+                Formatters.minutes(result.getRemainingJourneyMinutes()),
+                Formatters.minutes(result.getRemainingDriveMinutes()),
+                Formatters.minutes(result.getRemainingChargingMinutes())));
         addLine(recalcContainer, getString(R.string.soc_removed_stations,
                 result.getUnreachableStations().size())
                 + (result.getNewlyReachableStations().isEmpty() ? ""
-                : " · newly reachable: " + result.getNewlyReachableStations().size()));
+                : getString(R.string.route_newly_reachable,
+                result.getNewlyReachableStations().size())));
         addLine(recalcContainer, result.getReservationAdvice());
 
         List<RouteStopAdapter.StopRow> rows = new ArrayList<>();
         int index = 1;
         for (SoCEstimatorEngine.RemainingStop stop : result.getRemainingOptions()) {
-            rows.add(new RouteStopAdapter.StopRow(index == 1 ? "NEAREST SAFE" : "ALTERNATIVE",
+            rows.add(new RouteStopAdapter.StopRow(
+                    getString(index == 1 ? R.string.route_nearest_safe : R.string.route_alternative),
                     String.valueOf(index++), stop.getStation().getName(),
-                    String.format(Locale.US, "%.1f km away · +%.1f km detour (+%d min) · %d min charge",
-                            stop.getDistanceFromCurrentKm(), stop.getDetourKm(), stop.getDetourMinutes(),
-                            stop.getChargingMinutes()),
+                    getString(R.string.route_stop_detail, stop.getDistanceFromCurrentKm(),
+                            stop.getDetourKm(), stop.getDetourMinutes(), stop.getChargingMinutes()),
                     stop.getNote(), stop.isReachable(), stop.getStation().getId()));
         }
         plannedAdapter.submit(rows);
@@ -739,8 +742,8 @@ public class RoutePlannerFragment extends Fragment implements RouteStopAdapter.L
             replanWithNewSoc(result.getActualDashboardSoc());
         }
 
-        Ux.toast(this, "Remaining route recalculated using your dashboard value of "
-                + result.getActualDashboardSoc() + "%.");
+        Ux.success(this, getString(R.string.route_recalculated_toast,
+                result.getActualDashboardSoc()));
     }
 
     /** Re-runs the corridor plan from the updated battery without re-requesting the road route. */
@@ -779,14 +782,11 @@ public class RoutePlannerFragment extends Fragment implements RouteStopAdapter.L
     }
 
     private void showEmergencyGuidance() {
-        new androidx.appcompat.app.AlertDialog.Builder(requireContext())
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
                 .setTitle(R.string.soc_emergency)
-                .setMessage("Amperly is not an emergency service. If you are in danger call your local "
-                        + "emergency number (112 in India). Otherwise: move the vehicle to a safe place, "
-                        + "keep your hazard lights on, and use the Safety tab to share your live location "
-                        + "with a trusted contact while you wait for assistance.")
+                .setMessage(R.string.route_emergency_message)
                 .setNegativeButton(R.string.action_close, null)
-                .setPositiveButton("Call 112", (dialog, which) ->
+                .setPositiveButton(R.string.route_emergency_call, (dialog, which) ->
                         com.amperly.app.core.nav.Navigator.dial(requireContext(), "112"))
                 .show();
     }

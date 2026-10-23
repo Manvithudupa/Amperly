@@ -5,11 +5,11 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.TextView;
 
-import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.Fragment;
 
 import com.amperly.app.R;
 import com.amperly.app.engine.meter.MeterSimulator;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.textfield.TextInputEditText;
 
 /**
@@ -35,16 +35,16 @@ public final class MeterEvidenceDialog {
                 .inflate(R.layout.dialog_meter_evidence, null, false);
 
         TextView header = content.findViewById(R.id.meterEvidenceHeader);
-        header.setText(stationName + "\nDemo meter reading: "
-                + String.format(java.util.Locale.US, "%.2f kWh", MeterSimulator.currentReading(stationId))
-                + "\nReadings are simulated or entered by hand, not read from live hardware.");
+        header.setText(context.getString(R.string.meter_evidence_header, stationName,
+                String.format(java.util.Locale.US, "%.2f kWh",
+                        MeterSimulator.currentReading(stationId))));
 
         TextInputEditText startEdit = content.findViewById(R.id.meterStartEdit);
         startEdit.setText(String.format(java.util.Locale.US, "%.2f", suggestedStart));
         TextInputEditText endEdit = content.findViewById(R.id.meterEndEdit);
         TextInputEditText noteEdit = content.findViewById(R.id.meterNoteEdit);
 
-        new AlertDialog.Builder(context)
+        new MaterialAlertDialogBuilder(context)
                 .setTitle(R.string.host_record_readings)
                 .setView(content)
                 .setNegativeButton(R.string.action_cancel, null)

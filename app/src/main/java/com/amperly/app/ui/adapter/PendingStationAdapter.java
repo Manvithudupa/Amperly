@@ -73,14 +73,18 @@ public class PendingStationAdapter extends RecyclerView.Adapter<PendingStationAd
         }
 
         void bind(ChargerStation station) {
+            android.content.Context context = itemView.getContext();
             name.setText(station.getName());
-            host.setText("Host: " + (station.getHostName() == null ? station.getHostId() : station.getHostName()));
-            meta.setText(station.getAddress() + "\n"
-                    + station.getConnectorTypes() + " · " + (int) station.getMaxPowerKw() + " kW · "
-                    + station.getPortCount() + " port(s) · " + station.getOperatingHours() + "\n"
-                    + "Meter level: " + station.getVerificationLevel() + " · submitted "
-                    + Formatters.agoFromNow(station.getLastUpdatedMs()) + "\nAccess: "
-                    + (station.getAccessRules() == null ? "not provided" : station.getAccessRules()));
+            host.setText(context.getString(R.string.pending_host_line,
+                    station.getHostName() == null ? station.getHostId() : station.getHostName()));
+            meta.setText(context.getString(R.string.pending_station_meta,
+                    station.getAddress(), station.getConnectorTypes(), (int) station.getMaxPowerKw(),
+                    station.getPortCount(), station.getOperatingHours(),
+                    station.getVerificationLevel(),
+                    Formatters.agoFromNow(station.getLastUpdatedMs()),
+                    station.getAccessRules() == null
+                            ? context.getString(R.string.pending_access_none)
+                            : station.getAccessRules()));
             approve.setOnClickListener(v -> {
                 if (listener != null) listener.onApprove(station);
             });

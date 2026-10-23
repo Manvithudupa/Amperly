@@ -77,14 +77,17 @@ public class SessionAdapter extends RecyclerView.Adapter<SessionAdapter.SessionV
         }
 
         void bind(ChargingSession session) {
+            android.content.Context context = itemView.getContext();
             station.setText(session.getStationName() == null ? session.getStationId() : session.getStationName());
             status.setText(session.getStatus());
             meta.setText(Formatters.dateTime(session.getStartTimeMs())
-                    + (session.isMeterSimulated() ? " · demo meter" : " · verified meter")
+                    + context.getString(session.isMeterSimulated()
+                    ? R.string.session_meta_demo : R.string.session_meta_verified)
                     + (session.getVerificationLevel() == null ? "" : " (" + session.getVerificationLevel() + ")"));
-            kwh.setText("Start " + String.format(java.util.Locale.US, "%.2f", session.getStartingMeterKwh())
-                    + " → End " + String.format(java.util.Locale.US, "%.2f", session.getEndingMeterKwh())
-                    + " = " + Formatters.kwh(session.getVerifiedKwhConsumed()));
+            kwh.setText(context.getString(R.string.session_kwh_line,
+                    String.format(java.util.Locale.US, "%.2f", session.getStartingMeterKwh()),
+                    String.format(java.util.Locale.US, "%.2f", session.getEndingMeterKwh()),
+                    Formatters.kwh(session.getVerifiedKwhConsumed())));
             total.setText(Formatters.money(session.getTotalPaid()));
             receipt.setOnClickListener(v -> {
                 if (listener != null) listener.onViewReceipt(session);

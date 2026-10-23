@@ -13,7 +13,6 @@ import android.widget.ArrayAdapter;
 import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.FrameLayout;
-import android.widget.Spinner;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -23,13 +22,13 @@ import androidx.fragment.app.Fragment;
 
 import com.amperly.app.R;
 import com.amperly.app.core.common.AppConstants;
-import com.amperly.app.core.common.GoogleConfig;
 import com.amperly.app.core.location.LocationProvider;
 import com.amperly.app.core.map.MapPanel;
 import com.amperly.app.core.nav.Navigator;
 import com.amperly.app.core.places.GoogleGeocoder;
 import com.amperly.app.core.places.PlacesAutocomplete;
 import com.amperly.app.core.security.AuthManager;
+import com.amperly.app.core.security.RoleGuard;
 import com.amperly.app.data.local.entity.AvailabilitySchedule;
 import com.amperly.app.data.local.entity.ChargerPort;
 import com.amperly.app.data.local.entity.ChargerStation;
@@ -37,6 +36,8 @@ import com.amperly.app.data.local.entity.User;
 import com.amperly.app.data.repository.AmperlyRepository;
 import com.amperly.app.engine.meter.MeterSimulator;
 import com.amperly.app.ui.Ux;
+import com.google.android.material.textfield.MaterialAutoCompleteTextView;
+import com.google.android.material.textfield.TextInputLayout;
 
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -66,12 +67,19 @@ public class RegisterStationFragment extends Fragment {
     private AmperlyRepository repo;
     private EditText latitudeEdit;
     private EditText longitudeEdit;
-    private EditText addressEdit;
+    private MaterialAutoCompleteTextView addressEdit;
+    private TextInputLayout stationNameField;
+    private TextInputLayout addressField;
     private FrameLayout stationMapContainer;
     @Nullable
     private MapPanel mapPanel;
     /** Set while the map, rather than the host, is writing the coordinate fields. */
     private boolean applyingPickedLocation;
+
+    /** The choices the removed Spinners used to hold as their selected position. */
+    private int locationTypeIndex;
+    private int meterLevelIndex;
+    private int portConnectorIndex;
 
     @Nullable
     @Override
@@ -85,16 +93,76 @@ public class RegisterStationFragment extends Fragment {
         super.onViewCreated(view, savedInstanceState);
         repo = AmperlyRepository.getInstance(requireContext());
 
-        ((Spinner) view.findViewById(R.id.locationTypeSpinner)).setAdapter(new ArrayAdapter<>(
-                requireContext(), android.R.layout.simple_spinner_dropdown_item, LOCATION_LABELS));
-        ((Spinner) view.findViewById(R.id.meterLevelSpinner)).setAdapter(new ArrayAdapter<>(
-                requireContext(), android.R.layout.simple_spinner_dropdown_item, METER_LABELS));
-        ((Spinner) view.findViewById(R.id.portConnectorSpinner)).setAdapter(new ArrayAdapter<>(
-                requireContext(), android.R.layout.simple_spinner_dropdown_item, CONNECTORS));
+        stationNameField = view.findViewById(R.id.stationNameField);
+        addressField = view.findViewById(R.id.addressField);
+
+        MaterialAutoCompleteTextView locationTypeDropdown = view.findViewById(R.id.locationTypeDropdown);
+        locationTypeDropdown.setAdapter(new ArrayAdapter<>(requireContext(),
+                R.layout.item_dropdown, LOCATION_LABELS));
+        locationTypeDropdown.setText(LOCATION_LABELS[0], false);
+        locationTypeDropdown.setOnItemClickListener((parent, v, position, id) ->
+                locationTypeIndex = position);
+
+        MaterialAutoCompleteTextView meterLevelDropdown = view.findViewById(R.id.meterLevelDropdown);
+        meterLevelDropdown.setAdapter(new ArrayAdapter<>(requireContext(),
+                R.layout.item_dropdown, METER_LABELS));
+        meterLevelDropdown.setText(METER_LABELS[0], false);
+        meterLevelDropdown.setOnItemClickListener((parent, v, position, id) ->
+                meterLevelIndex = position);
+
+        MaterialAutoCompleteTextView portConnectorDropdown = view.findViewById(R.id.portConnectorDropdown);
+        portConnectorDropdown.setAdapter(new ArrayAdapter<>(requireContext(),
+                R.layout.item_dropdown, CONNECTORS));
+        portConnectorDropdown.setText(CONNECTORS[0], false);
+        portConnectorDropdown.setOnItemClickListener((parent, v, position, id) ->
+                portConnectorIndex = position);
 
         setUpLocationPicker(view);
+        clearErrorsWhileEditing();
 
         view.findViewById(R.id.saveStationButton).setOnClickListener(v -> save(view));
+    }
+
+    /** A field-level error disappears the moment the host starts correcting the field. */
+    private void clearErrorsWhileEditing() {
+        TextWatcher clearName = new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+            }
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+            }
+
+            @Override
+            public void afterTextChanged(Editable s) {
+                if (stationNameField != null) {
+                    stationNameField.setError(null);
+                }
+            }
+        };
+        EditText nameEdit = getView() == null ? null : getView().findViewById(R.id.stationNameEdit);
+        if (nameEdit != null) {
+            nameEdit.addTextChangedListener(clearName);
+        }
+        if (addressEdit != null) {
+            addressEdit.addTextChangedListener(new TextWatcher() {
+                @Override
+                public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+                }
+
+                @Override
+                public void onTextChanged(CharSequence s, int start, int before, int count) {
+                }
+
+                @Override
+                public void afterTextChanged(Editable s) {
+                    if (addressField != null) {
+                        addressField.setError(null);
+                    }
+                }
+            });
+        }
     }
 
     /**
@@ -144,8 +212,7 @@ public class RegisterStationFragment extends Fragment {
         });
 
         if (PlacesAutocomplete.isAvailable(requireContext()) && addressEdit != null) {
-            PlacesAutocomplete.bind(requireContext(),
-                    (com.google.android.material.textfield.MaterialAutoCompleteTextView) addressEdit,
+            PlacesAutocomplete.bind(requireContext(), addressEdit,
                     new PlacesAutocomplete.Listener() {
                         @Override
                         public void onPlaceSelected(@NonNull PlacesAutocomplete.Selection selection) {
@@ -168,7 +235,8 @@ public class RegisterStationFragment extends Fragment {
     /** A map tap places the charger and fills the address from Google reverse geocoding. */
     private void onMapPointPicked(double latitude, double longitude) {
         applyPicked(latitude, longitude);
-        GoogleGeocoder.reverseGeocode(latitude, longitude, new GoogleGeocoder.Callback() {
+        GoogleGeocoder.reverseGeocode(requireContext(), latitude, longitude,
+                new GoogleGeocoder.Callback() {
             @Override
             public void onAddress(@NonNull String formattedAddress) {
                 if (isAdded() && addressEdit != null) {
@@ -179,8 +247,8 @@ public class RegisterStationFragment extends Fragment {
             @Override
             public void onError(@NonNull String message) {
                 if (isAdded()) {
-                    Ux.toast(RegisterStationFragment.this,
-                            "Coordinates set. Enter the address by hand: " + message);
+                    Ux.error(RegisterStationFragment.this,
+                            getString(R.string.map_address_lookup_failed, message));
                 }
             }
         });
@@ -193,7 +261,7 @@ public class RegisterStationFragment extends Fragment {
                     Manifest.permission.ACCESS_COARSE_LOCATION}, REQUEST_LOCATION);
             return;
         }
-        Ux.toast(this, "Finding your location…");
+        Ux.info(this, getString(R.string.map_locating));
         LocationProvider.requestCurrentLocation(requireContext(),
                 new LocationProvider.LocationCallback() {
                     @Override
@@ -203,8 +271,8 @@ public class RegisterStationFragment extends Fragment {
 
                     @Override
                     public void onLocationUnavailable() {
-                        Ux.toast(RegisterStationFragment.this,
-                                "No location fix. Tap the map or search the address instead.");
+                        Ux.error(RegisterStationFragment.this,
+                                getString(R.string.map_no_location_fix));
                     }
                 });
     }
@@ -219,7 +287,7 @@ public class RegisterStationFragment extends Fragment {
         if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
             useCurrentLocation();
         } else {
-            Ux.toast(this, getString(R.string.map_no_location_permission));
+            Ux.error(this, getString(R.string.map_no_location_permission));
         }
     }
 
@@ -240,14 +308,24 @@ public class RegisterStationFragment extends Fragment {
     private void save(View view) {
         if (!AppConstants.ROLE_HOST.equals(AuthManager.getInstance().getCurrentRole())
                 && !AppConstants.ROLE_ADMIN.equals(AuthManager.getInstance().getCurrentRole())) {
-            Ux.toast(this, "Switch to Host mode to register a charger.");
+            Ux.error(this, getString(R.string.host_switch_to_host_mode));
+            return;
+        }
+        User user = AuthManager.getInstance().getCurrentUser();
+        if (!RoleGuard.canRegisterStation(user)) {
+            Ux.error(this, getString(R.string.error_not_allowed));
             return;
         }
 
         String name = text(view, R.id.stationNameEdit);
         String address = text(view, R.id.addressEdit);
         if (TextUtils.isEmpty(name) || TextUtils.isEmpty(address)) {
-            Ux.toast(this, "Station name and address are required.");
+            if (TextUtils.isEmpty(name) && stationNameField != null) {
+                stationNameField.setError(getString(R.string.host_error_name_required));
+            }
+            if (TextUtils.isEmpty(address) && addressField != null) {
+                addressField.setError(getString(R.string.host_error_address_required));
+            }
             return;
         }
         // A charger is never published at a made-up coordinate: the host must have placed it.
@@ -255,7 +333,7 @@ public class RegisterStationFragment extends Fragment {
         String lngText = text(view, R.id.longitudeEdit);
         if (TextUtils.isEmpty(latText) || TextUtils.isEmpty(lngText)
                 || parse(latText, 0) == 0 || parse(lngText, 0) == 0) {
-            Ux.toast(this, "Set the charger location on the map or search its address first.");
+            Ux.error(this, getString(R.string.host_location_required));
             return;
         }
         double latitude = parse(latText, 0);
@@ -265,21 +343,17 @@ public class RegisterStationFragment extends Fragment {
         double gatewayFee = parse(text(view, R.id.gatewayFeeEdit), AppConstants.DEFAULT_GATEWAY_FEE_INR);
         int portCount = (int) parse(text(view, R.id.portCountEdit), 1);
         double portPower = parse(text(view, R.id.portPowerEdit), 7.2);
-        String connector = CONNECTORS[((Spinner) view.findViewById(R.id.portConnectorSpinner))
-                .getSelectedItemPosition()];
+        String connector = pick(CONNECTORS, portConnectorIndex);
         boolean dc = ((CheckBox) view.findViewById(R.id.portDcCheck)).isChecked();
-        String locationType = LOCATION_TYPES[((Spinner) view.findViewById(R.id.locationTypeSpinner))
-                .getSelectedItemPosition()];
-        String meterLevel = METER_LEVELS[((Spinner) view.findViewById(R.id.meterLevelSpinner))
-                .getSelectedItemPosition()];
+        String locationType = pick(LOCATION_TYPES, locationTypeIndex);
+        String meterLevel = pick(METER_LEVELS, meterLevelIndex);
         String hours = text(view, R.id.hoursEdit);
         String access = text(view, R.id.accessRulesEdit);
 
-        User host = AuthManager.getInstance().getCurrentUser();
         String stationId = UUID.randomUUID().toString();
         long now = System.currentTimeMillis();
 
-        ChargerStation station = new ChargerStation(stationId, host.getId(), host.getName(), name, address,
+        ChargerStation station = new ChargerStation(stationId, user.getId(), user.getName(), name, address,
                 latitude, longitude, locationType, TextUtils.isEmpty(hours) ? "08:00 - 20:00" : hours,
                 price, serviceFee, gatewayFee, meterLevel, false, false,
                 AppConstants.APPROVAL_PENDING, "",
@@ -316,9 +390,8 @@ public class RegisterStationFragment extends Fragment {
                 return;
             }
             ((TextView) requireView().findViewById(R.id.registerStatusText)).setText(
-                    getString(R.string.host_station_saved) + "\nAvailability last updated just now. "
-                            + "Stations without a verified meter are published for discovery only.");
-            Ux.toast(this, getString(R.string.host_station_saved));
+                    getString(R.string.host_saved_body, getString(R.string.host_station_saved)));
+            Ux.success(this, getString(R.string.host_station_saved));
             Navigator.openRoot(requireActivity(), new HostDashboardFragment(), "host_dashboard");
         });
     }
@@ -326,6 +399,10 @@ public class RegisterStationFragment extends Fragment {
     private String text(View view, int id) {
         EditText edit = view.findViewById(id);
         return edit == null ? "" : edit.getText().toString().trim();
+    }
+
+    private static String pick(String[] values, int index) {
+        return index >= 0 && index < values.length ? values[index] : values[0];
     }
 
     private double parse(String value, double fallback) {

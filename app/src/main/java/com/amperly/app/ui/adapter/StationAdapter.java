@@ -152,7 +152,8 @@ public class StationAdapter extends RecyclerView.Adapter<StationAdapter.StationV
                 availability.setTextColor(ContextCompat.getColor(availability.getContext(),
                         open ? R.color.amp_available : R.color.amp_busy_ink));
             } else {
-                availability.setText(station.isPaused() ? "Paused by the host" : "Availability unknown");
+                availability.setText(station.isPaused()
+                        ? R.string.station_paused_by_host : R.string.station_availability_unknown);
                 availability.setBackgroundResource(R.drawable.bg_badge_warning);
                 availability.setTextColor(ContextCompat.getColor(
                         availability.getContext(), R.color.amp_busy_ink));
@@ -160,13 +161,17 @@ public class StationAdapter extends RecyclerView.Adapter<StationAdapter.StationV
             freshness.setText(itemView.getContext().getString(
                     R.string.label_availability_freshness, Formatters.agoFromNow(updatedAt)));
 
-            price.setText(Formatters.money(station.getPricePerKwh()) + " / kWh");
+            price.setText(Formatters.money(station.getPricePerKwh()) + " "
+                    + itemView.getContext().getString(R.string.unit_per_kwh));
 
             boolean compatible = RoutePlannerEngine.isConnectorCompatible(station, vehicle);
             StringBuilder compatibilityText = new StringBuilder();
-            compatibilityText.append(compatible ? "Compatible with your vehicle" : "Connector mismatch");
+            compatibilityText.append(itemView.getContext().getString(compatible
+                    ? R.string.label_compatible : R.string.label_incompatible));
             if (station.getIncidentCount() > 0) {
-                compatibilityText.append(" · ").append(station.getIncidentCount()).append(" incident(s)");
+                compatibilityText.append(" · ")
+                        .append(itemView.getContext().getString(R.string.station_incidents,
+                                station.getIncidentCount()));
             }
             compatibility.setText(compatibilityText.toString());
 
@@ -220,17 +225,25 @@ public class StationAdapter extends RecyclerView.Adapter<StationAdapter.StationV
         }
 
         private String locationTypeLabel(String type) {
+            android.content.Context context = itemView.getContext();
             if (type == null) {
-                return "Charger";
+                return context.getString(R.string.location_type_charger);
             }
             switch (type) {
-                case AppConstants.LOCATION_TYPE_CAMPUS: return "Campus";
-                case AppConstants.LOCATION_TYPE_APARTMENT: return "Apartment";
-                case AppConstants.LOCATION_TYPE_OFFICE: return "Office";
-                case AppConstants.LOCATION_TYPE_CAFE: return "Café";
-                case AppConstants.LOCATION_TYPE_HOTEL: return "Hotel";
-                case AppConstants.LOCATION_TYPE_PARKING: return "Parking";
-                case AppConstants.LOCATION_TYPE_PETROL_PUMP: return "Petrol pump";
+                case AppConstants.LOCATION_TYPE_CAMPUS:
+                    return context.getString(R.string.location_type_campus);
+                case AppConstants.LOCATION_TYPE_APARTMENT:
+                    return context.getString(R.string.location_type_apartment);
+                case AppConstants.LOCATION_TYPE_OFFICE:
+                    return context.getString(R.string.location_type_office);
+                case AppConstants.LOCATION_TYPE_CAFE:
+                    return context.getString(R.string.location_type_cafe);
+                case AppConstants.LOCATION_TYPE_HOTEL:
+                    return context.getString(R.string.location_type_hotel);
+                case AppConstants.LOCATION_TYPE_PARKING:
+                    return context.getString(R.string.location_type_parking);
+                case AppConstants.LOCATION_TYPE_PETROL_PUMP:
+                    return context.getString(R.string.location_type_petrol_pump);
                 default: return String.format(Locale.US, "%s",
                         type.substring(0, 1) + type.substring(1).toLowerCase(Locale.US));
             }

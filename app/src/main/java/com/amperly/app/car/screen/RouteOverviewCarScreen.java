@@ -13,6 +13,7 @@ import androidx.car.app.model.Template;
 import androidx.car.app.navigation.model.MapController;
 import androidx.car.app.navigation.model.MapWithContentTemplate;
 
+import com.amperly.app.R;
 import com.amperly.app.car.CarBridge;
 import com.amperly.app.data.repository.AmperlyRepository;
 
@@ -178,7 +179,7 @@ public class RouteOverviewCarScreen extends Screen {
                         .setTitle("SOS")
                         .setOnClickListener(() -> {
                             CarToast.makeText(getCarContext(),
-                                    "Amperly is not an emergency service. Call 112 for help.",
+                                    getCarContext().getString(R.string.car_sos_notice),
                                     CarToast.LENGTH_LONG).show();
                             getScreenManager().push(new ReservationStatusCarScreen(getCarContext()));
                         })

@@ -287,10 +287,17 @@ create table if not exists public.route_plans (
     assumptions         text,
     confidence          text,  -- HIGH, MEDIUM, LOW
     status              text,  -- DRAFT, ACTIVE, COMPLETED, CANCELLED
+    "routeProvider"     text,  -- which routing provider measured the route
+    "googlePlaceId"     text,  -- the Google Place the destination was chosen from
     "createdAtMs"       bigint,
     "updatedAtMs"       bigint,
     "serverUpdatedAt"   timestamptz not null default now()
 );
+
+-- Databases created before the two columns above existed need them added, because
+-- PostgREST rejects a write that names a column the table does not have.
+alter table public.route_plans add column if not exists "routeProvider" text;
+alter table public.route_plans add column if not exists "googlePlaceId" text;
 
 -- route_stops ---------------------------------------------------------
 create table if not exists public.route_stops (

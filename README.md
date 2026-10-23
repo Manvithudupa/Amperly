@@ -15,14 +15,14 @@ The MVP is a **single-process Android application**. There is no live backend an
 
 | Concern | How it works in this MVP |
 |---|---|
-| Persistence | Room database (`AmperlyDatabase`, **v3, 23 entities + 23 DAOs**), the single source of truth |
+| Persistence | Room database (`AmperlyDatabase`, **v4, 23 entities + 23 DAOs**), the single source of truth |
 | Data access | One hub, `AmperlyRepository` (all DAO access, off-main-thread helpers) |
 | Data source | **Supabase is the only source of truth.** No pilot seeding and no offline demo identity: stations, vehicles, reservations and readings are rows the signed-in account is authorised to read through Row Level Security. When the account has no rows, the screens say so instead of inventing content |
 | Maps & navigation | **Google Maps SDK for Android** for the map, user-registered charger markers and in-app navigation; **Google Directions API** for road routes and turn-by-turn; **Google Place autocomplete** for destination and address entry. A missing key shows an actionable setup notice instead of a blank map. See §6 |
 | Payments | `PaymentManager` sandbox: authorize → capture/refund/release, idempotency keys, offline failure path |
 | Charger telemetry | None. Availability is schedule-, reservation- and host-update-based, and is labelled with a freshness timestamp |
 | Meter data | `MeterSimulator` / manual entry, always labelled **Demo meter** or **manually entered** |
-| Cloud | Optional Supabase/Postgres backend (`supabase/`). When `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` are set it becomes the source of truth; when they are absent the app runs fully on-device. A trigger on `auth.users` gives every account its `public.users` profile — the row Row Level Security resolves the caller through |
+| Cloud | Supabase/Postgres backend (`supabase/`), the source of truth. When `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` are set every screen reads and writes it; when they are absent `SyncEngine.isEnabled()` is false, nothing is pushed, and the app can only show what is already in the local Room cache. A trigger on `auth.users` gives every account its `public.users` profile — the row Row Level Security resolves the caller through |
 | Sync | Room is the read cache only. Every save is written straight to Supabase by `SyncEngine` in the same task, so there is no outbox to drain and no manual sync control; `SyncEngine.syncNow` pulls rows changed since a per-table cursor so server-side and other-device changes appear in the app |
 
 `AmperlyDatabase` uses `fallbackToDestructiveMigration()`, so a schema change resets local demo data instead of migrating it.
@@ -61,7 +61,8 @@ The MVP is a **single-process Android application**. There is no live backend an
 │ AppStateStore│   │            Android Auto layer            │
 │ shared trip  │◄──│ CarBridge · AmperlyCarSession · screens  │
 │ + SoC state  │   │ RouteOverview · Navigation · ChargerList ·│
-└──────────────┘   │ Details · SoCUpdate · ReservationStatus   │
+└──────────────┘   │ Details · SoCUpdate · ReservationStatus · │
+                   │ TripHistory · Vehicle · CarSettings       │
                    └──────────────────────────────────────────┘
 ```
 
@@ -110,7 +111,8 @@ com.amperly.app/
 ├── AmperlyApplication.java, MainActivity.java
 │
 ├── core/
-│   ├── common/     AppConstants, Formatters, GeoUtils, GoogleConfig, ValidationUtils
+│   ├── common/     AppConstants, Formatters, GeoUtils, GoogleConfig, ValidationUtils,
+│   │               UserMessages (one place that turns failures into plain language)
 │   ├── location/   LocationProvider
 │   ├── map/        MapPanel, MapContainerView, StationMarkerModel, StationVisibility
 │   │                                    (Google Maps SDK renderer + marker rules)
@@ -119,10 +121,10 @@ com.amperly.app/
 │   ├── nav/        Navigator, NavigationProvider, GoogleNavigationProvider,
 │   │               NavigationState, RouteProgress
 │   ├── security/   AuthManager, RoleGuard
-│   └── state/      AppStateStore        (shared phone ↔ car trip + SoC state)
+│   └── state/      AppStateStore, SocStore   (shared phone ↔ car trip + SoC state)
 │
 ├── data/
-│   ├── local/      AmperlyDatabase (v3), PilotDataSeeder
+│   ├── local/      AmperlyDatabase (v4)
 │   │   ├── dao/    23 DAOs
 │   │   ├── entity/ 23 entities (User, Vehicle, ChargerStation, ChargerPort,
 │   │               AvailabilitySchedule, Reservation, ChargingSession,
@@ -130,6 +132,8 @@ com.amperly.app/
 │   │               TripEstimate, BatteryUpdate, CommunicationThread,
 │   │               ChatMessage, SafetyEvent, TrustedContact, Report, Dispute,
 │   │               HostEnforcementAction, Notification, AndroidAutoSession)
+│   ├── remote/     SyncEngine, SyncTables, SupabaseClient, SupabaseApi,
+│   │               SupabaseAuth, SupabaseConfig, SupabaseRest
 │   └── repository/ AmperlyRepository            (single data hub)
 │
 ├── domain/enums/   ChargerStatus, ConnectorType, MeterVerificationLevel,
@@ -149,15 +153,19 @@ com.amperly.app/
 │   ├── consumer/   ChargerDiscovery, ChargerDetails, InAppNavigation, RoutePlanner,
 │   │               VehicleProfile, Reservation, BookingQr, ActiveSession, Receipt,
 │   │               SafetySOS, HostChat
+│   ├── auth/       SignIn, Account
+│   ├── common/     Notifications
 │   ├── host/       HostDashboard, RegisterStation
 │   └── admin/      AdminDashboard
 │
-├── ui/             Ux, adapter/* (9 adapters), dialog/* (ReportDialog, MeterEvidenceDialog)
+├── ui/             Ux, adapter/* (10 adapters), dialog/* (ReportDialog, MeterEvidenceDialog)
 │
 ├── car/
 │   ├── AmperlyCarAppService.java, AmperlyCarSession.java, CarBridge.java, CarScreenFactory.java
-│   └── screen/     RouteOverview, Navigation, ChargerList, ChargerDetails, SoCUpdate,
-│                   ReservationStatus
+│   └── screen/     RouteOverviewCarScreen, NavigationCarScreen, ChargerListCarScreen,
+│                   ChargerDetailsCarScreen, SoCUpdateCarScreen,
+│                   ReservationStatusCarScreen, TripHistoryCarScreen, VehicleCarScreen,
+│                   CarSettingsScreen
 │
 ├── payment/        PaymentManager
 └── communication/  ChatManager
@@ -331,7 +339,7 @@ Also seeded: full weekly availability schedules, two completed sessions with inv
 ## 9. Tests
 
 ```bash
-./gradlew :app:testDebugUnitTest    # 104 tests, all green
+./gradlew :app:testDebugUnitTest    # 114 tests, all green
 ```
 
 | Class | Covers |
@@ -350,6 +358,8 @@ Also seeded: full weekly availability schedules, two completed sessions with inv
 | `RoutePlannerGoogleTimeTest` | Google's measured drive time overrides the average-speed estimate; total journey maths |
 | `StationVisibilityTest` | Approved/pending/rejected/paused station visibility and coordinate validity |
 | `StationMarkerModelTest` | Marker styling and the honest no-verified-meter / verified-meter wording; no host contact details leak |
+| `HostAnalyticsEngineTest` | Revenue, refunds, energy, repeat consumers, cancellation rate and utilization on hand-built lists, plus the empty case |
+| `TripTimeEngineTest` | Drive + detour + charging minutes, the total, zero distance and minute rounding |
 | `UserProfileRowTest` | The `public.users` profile row and the `auth.users` trigger that creates it, checked against `supabase/schema.sql` |
 | `SettlementFunctionContractTest` | The settlement SQL functions against the documented contract |
 
@@ -361,9 +371,9 @@ Also seeded: full weekly availability schedules, two completed sessions with inv
 |---|---|
 | Language / IDE | Java 11 source level, Android Studio, Gradle 9 + AGP 9 |
 | Compile/target SDK | 35 (minSdk 24) |
-| UI | Material 3 components, `viewBinding`, RecyclerView, custom `Widget.Amperly.*` styles + `values-night` theme |
+| UI | Material 3 components, XML layouts with `findViewById`, RecyclerView, custom `Widget.Amperly.*` styles + `values-night` theme |
 | Car UI | Android for Cars App Library (`androidx.car.app:app:1.4.0`), Charging + Navigation categories, navigation template |
-| Persistence | Room (`room-runtime 2.6.1`) — 23 entities, 23 DAOs; local read cache only, with no offline write queue |
+| Persistence | Room (`room-runtime 2.6.1`, schema v4) — 23 entities, 23 DAOs; local read cache only, with no offline write queue |
 | Backend (optional) | Supabase — Postgres with Row Level Security, PostgREST data API and GoTrue auth, over Retrofit/OkHttp. See [`supabase/README.md`](supabase/README.md) |
 | Maps | **Google Maps SDK for Android** (`play-services-maps`) |
 | Places | **Google Places SDK for Android** (`places`) + Geocoding API |
