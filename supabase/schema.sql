@@ -1245,6 +1245,18 @@ begin
         return v_existing;
     end if;
 
+    -- An id that already belongs to somebody else's payment would make the upsert below
+    -- skip its update and still return that id to this caller, so it is refused outright.
+    -- A platform admin correcting a row is the only caller allowed past this.
+    if not public.is_platform_admin() and exists (
+        select 1
+          from public.payments p
+         where p.id = p_id
+           and p."consumerId" is distinct from v_consumer
+    ) then
+        raise exception 'That payment id is already in use.' using errcode = 'P0001';
+    end if;
+
     v_now := (extract(epoch from now()) * 1000)::bigint;
 
     insert into public.payments as p (id, "reservationId", "sessionId", "consumerId", "hostId",
@@ -1456,13 +1468,17 @@ begin
     end if;
 
     -- A session id that belongs to a different reservation would make the insert below
-    -- overwrite that session's row (and its invoice), so it is refused.
+    -- overwrite that session's row (and its invoice), so it is refused. A row for *this*
+    -- reservation is the normal case, not a conflict: the app creates the session at
+    -- check-in and uploads it before settlement, so the guard compares reservationId
+    -- rather than only the id.
     if exists (
         select 1
           from public.charging_sessions cs
          where cs.id = p_session_id
+           and cs."reservationId" <> p_reservation_id
     ) then
-        raise exception 'Session % has already been settled for another reservation.', p_session_id;
+        raise exception 'Session % belongs to a different reservation.', p_session_id;
     end if;
 
     -- Only a live booking can be settled. Without this a CANCELLED or an already
