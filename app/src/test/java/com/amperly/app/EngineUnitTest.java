@@ -229,6 +229,34 @@ public class EngineUnitTest {
     }
 
     @Test
+    public void billingRejectsNaNStartingMeter() {
+        ChargerStation station = station("st_1", "Campus Charger", 12.301, 76.645, "CCS_2_DC", 30.0,
+                AppConstants.LEVEL_1_VERIFIED_MANUAL);
+        BillingEngine.BillingCalculationResult result = BillingEngine.calculateBill("sess_1",
+                "cons_1", "host_1", station.getName(), station, AppConstants.LEVEL_1_VERIFIED_MANUAL,
+                false, Double.NaN, 10.0);
+
+        assertFalse(result.isValid());
+        assertNull(result.getInvoice());
+        assertNotNull(result.getErrorMessage());
+        assertTrue(result.getErrorMessage().toLowerCase().contains("starting meter reading"));
+    }
+
+    @Test
+    public void billingRejectsInfiniteEndingMeter() {
+        ChargerStation station = station("st_1", "Campus Charger", 12.301, 76.645, "CCS_2_DC", 30.0,
+                AppConstants.LEVEL_1_VERIFIED_MANUAL);
+        BillingEngine.BillingCalculationResult result = BillingEngine.calculateBill("sess_1",
+                "cons_1", "host_1", station.getName(), station, AppConstants.LEVEL_1_VERIFIED_MANUAL,
+                false, 10.0, Double.POSITIVE_INFINITY);
+
+        assertFalse(result.isValid());
+        assertNull(result.getInvoice());
+        assertNotNull(result.getErrorMessage());
+        assertTrue(result.getErrorMessage().toLowerCase().contains("ending meter reading"));
+    }
+
+    @Test
     public void geoHelpersMeasureCorridorDistanceAndDetour() {
         double onLine = GeoUtils.distanceToRouteKm(12.600, 75.712, ORIGIN_LAT, ORIGIN_LNG,
                 DEST_LAT, DEST_LNG);

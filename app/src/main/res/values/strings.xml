@@ -28,7 +28,6 @@
     <string name="action_call">Call</string>
     <string name="action_report">Report</string>
     <string name="action_reserve">Reserve slot</string>
-    <string name="action_pay">Authorize payment</string>
     <string name="empty_state">Nothing here yet</string>
     <string name="discovery_empty">No charger matches this filter right now.</string>
     <string name="discovery_empty_action">Show all chargers</string>
@@ -100,7 +99,6 @@
     <string name="reserve_slot">Time slot</string>
     <string name="reserve_policy_title">Cancellation policy</string>
     <string name="reserve_success">Reservation confirmed by the server. Booking code %1$s</string>
-    <string name="reserve_payment_failed">Payment could not be verified. You can retry safely.</string>
     <string name="reserve_server_required">Connect to the server to reserve a slot. No booking was made.</string>
     <string name="reserve_slot_taken">That slot was just taken by someone else. Choose another time.</string>
     <string name="reserve_slot_in_past">That slot has already passed. Choose a later time.</string>
@@ -166,7 +164,6 @@
 
     <!-- Route planner -->
     <string name="route_title">Route and charging plan</string>
-    <string name="route_intro">Charging stops your car can actually use.</string>
     <string name="route_battery_step">Battery</string>
     <string name="route_preferences_title">How to choose stops</string>
     <string name="route_destination">To</string>
@@ -350,8 +347,6 @@
     <!-- Sign in and account -->
     <string name="auth_title">Sign in</string>
     <string name="auth_value_line">Reserve a charger. Pay for the energy you use.</string>
-    <string name="auth_intro">Reservations, sessions and receipts in one place.</string>
-    <string name="auth_footer_note">Chargers are listed by their hosts.</string>
     <string name="auth_name">Your name</string>
     <string name="auth_name_required">Please enter your name.</string>
     <string name="auth_email">Email address</string>
@@ -375,7 +370,6 @@
 
     <!-- Account -->
     <string name="account_title">Account</string>
-    <string name="account_description">Your account and sync.</string>
     <string name="account_name">Name</string>
     <string name="account_edit_name">Edit name</string>
     <string name="account_edit_name_title">Your display name</string>
@@ -500,7 +494,6 @@
     <string name="reserve_estimated_energy">About %1$s · %2$s energy · %3$s/kWh</string>
     <string name="reserve_service_line">Amperly service fee %1$s</string>
     <string name="reserve_gateway_line">Gateway charge %1$s</string>
-    <string name="reserve_total_line">Estimated %1$s · authorize up to %2$s</string>
     <string name="reserve_total_no_payment">Estimated %1$s · no payment is collected in this build</string>
     <string name="session_states_line">A session goes reserved, then checked in, then charging, then completed.</string>
     <string name="session_none_title">No active session</string>

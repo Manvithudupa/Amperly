@@ -117,6 +117,12 @@ public class BillingEngine {
         if (!isVerifiedMeterLevel(meterLevel)) {
             return invalid("This station has no verified meter, so automatic energy-based paid billing is not available. The station stays visible for discovery and can only take a reservation without automatic billing.");
         }
+        if (Double.isNaN(startMeterKwh) || Double.isInfinite(startMeterKwh)) {
+            return invalid("Starting meter reading is not a valid number.");
+        }
+        if (Double.isNaN(endMeterKwh) || Double.isInfinite(endMeterKwh)) {
+            return invalid("Ending meter reading is not a valid number.");
+        }
         if (startMeterKwh < 0) {
             return invalid("Starting meter reading must not be negative.");
         }

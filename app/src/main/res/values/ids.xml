@@ -11,13 +11,9 @@
     <item name="nav_discover" type="id" />
     <item name="nav_route_plan" type="id" />
     <item name="nav_reserve" type="id" />
-    <item name="nav_session" type="id" />
-    <item name="nav_safety" type="id" />
     <item name="nav_host_dashboard" type="id" />
     <item name="nav_host_add_station" type="id" />
-    <item name="nav_host_chat" type="id" />
     <item name="nav_host_bookings" type="id" />
-    <item name="nav_admin" type="id" />
     <item name="nav_admin_queue" type="id" />
     <item name="nav_admin_disputes" type="id" />
     <item name="nav_admin_reports" type="id" />

@@ -1247,16 +1247,19 @@ begin
 
     v_now := (extract(epoch from now()) * 1000)::bigint;
 
-    insert into public.payments (id, "reservationId", "sessionId", "consumerId", "hostId",
+    insert into public.payments as p (id, "reservationId", "sessionId", "consumerId", "hostId",
         "idempotencyKey", gateway, "gatewayReference", "authorizedAmount", "capturedAmount",
         "refundedAmount", "lateCancellationFee", status, "failureReason",
         "createdAtMs", "updatedAtMs")
     values (p_id, p_reservation_id, null, v_consumer, v_host,
         p_idempotency_key, 'SANDBOX', 'auth_' || p_id, public.round2(p_amount), 0.0,
         0.0, 0.0, 'AUTHORIZED', null, v_now, v_now)
+    -- Reusing the id of somebody else's payment recalculates nothing: the conflicting
+    -- row is only rewritten when it belongs to this consumer.
     on conflict (id) do update
         set "authorizedAmount" = excluded."authorizedAmount",
-            "updatedAtMs"      = excluded."updatedAtMs";
+            "updatedAtMs"      = excluded."updatedAtMs"
+        where p."consumerId" = v_consumer;
 
     return p_id;
 end;
@@ -1372,7 +1375,8 @@ $$;
 
 -- Completes a session: recomputes the bill from the meter readings and the
 -- station's tariff, then writes the session, the reading and the receipt in one
--- transaction, closes the reservation and frees the port. Payments are not collected in
+-- transaction, closes the reservation and frees the port when no other booking on that
+-- port is checked in or charging. Payments are not collected in
 -- this build, so the invoice is issued rather than marked paid and the reservation keeps
 -- isPaid = false.
 create or replace function public.finalize_charging_session(
@@ -1395,6 +1399,7 @@ declare
     v_station      text;
     v_station_name text;
     v_port         text;
+    v_status       text;
     v_level        text;
     v_tariff       double precision;
     v_service      double precision;
@@ -1410,10 +1415,13 @@ declare
     v_evidence_start double precision;
     v_evidence_end   double precision;
 begin
-    select r."consumerId", r."stationId", r."stationName", r."portId"
-      into v_consumer, v_station, v_station_name, v_port
+    -- The reservation row is locked, so two settle calls for the same booking are
+    -- serialised and the second one sees the status the first one left behind.
+    select r."consumerId", r."stationId", r."stationName", r."portId", r.status
+      into v_consumer, v_station, v_station_name, v_port, v_status
       from public.reservations r
-     where r.id = p_reservation_id;
+     where r.id = p_reservation_id
+       for update;
 
     if v_consumer is null then
         raise exception 'No reservation % to finalize.', p_reservation_id;
@@ -1432,6 +1440,36 @@ begin
             or v_host = public.current_app_user_id()
             or public.is_platform_admin()) then
         raise exception 'Only the consumer or the station host may complete this session.';
+    end if;
+
+    -- A network retry of the same settlement is harmless: the session that was already
+    -- written for this reservation is returned and nothing is billed, captured or
+    -- invoiced a second time.
+    if exists (
+        select 1
+          from public.charging_sessions cs
+         where cs.id = p_session_id
+           and cs."reservationId" = p_reservation_id
+           and cs.status = 'COMPLETED'
+    ) then
+        return p_session_id;
+    end if;
+
+    -- A session id that belongs to a different reservation would make the insert below
+    -- overwrite that session's row (and its invoice), so it is refused.
+    if exists (
+        select 1
+          from public.charging_sessions cs
+         where cs.id = p_session_id
+    ) then
+        raise exception 'Session % has already been settled for another reservation.', p_session_id;
+    end if;
+
+    -- Only a live booking can be settled. Without this a CANCELLED or an already
+    -- COMPLETED reservation would be finalised again: a second session, a second
+    -- invoice and a second capture over the first one.
+    if v_status is null or v_status not in ('RESERVED', 'CHECKED_IN', 'CHARGING') then
+        raise exception 'This reservation can no longer be settled.' using errcode = 'P0001';
     end if;
 
     -- Meter-first billing: a station with no verified meter cannot take an
@@ -1556,7 +1594,14 @@ begin
            "paymentId" = v_payment
      where id = p_reservation_id;
 
-    if v_port is not null then
+    -- The port is only free when nothing else is live on it: another reservation on the
+    -- same port may be checked in or charging while this session ends.
+    if v_port is not null and not exists (
+        select 1
+          from public.reservations r
+         where r."portId" = v_port
+           and r.status in ('CHECKED_IN', 'CHARGING')
+    ) then
         update public.charger_ports set status = 'AVAILABLE' where id = v_port;
     end if;
 
@@ -1567,7 +1612,9 @@ $$;
 
 -- Applies the published cancellation policy on the server and releases the hold.
 -- Free until 60 minutes before the slot, then the disclosed reservation-protection
--- fee. Mirrors BillingEngine.calculateCancellation() and PaymentManager.release().
+-- fee for the consumer who cancels late; a host or admin cancellation is always free
+-- for the consumer. Mirrors BillingEngine.calculateCancellation() and
+-- PaymentManager.release().
 create or replace function public.cancel_reservation(p_reservation_id text)
 returns text
 language plpgsql
@@ -1579,14 +1626,17 @@ declare
     v_host     text;
     v_station  text;
     v_port     text;
+    v_status   text;
+    v_caller   text;
     v_start    bigint;
     v_now      bigint;
     v_fee      double precision := 0.0;
 begin
-    select r."consumerId", r."stationId", r."portId", r."startTimeMs"
-      into v_consumer, v_station, v_port, v_start
+    select r."consumerId", r."stationId", r."portId", r."startTimeMs", r.status
+      into v_consumer, v_station, v_port, v_start, v_status
       from public.reservations r
-     where r.id = p_reservation_id;
+     where r.id = p_reservation_id
+       for update;
 
     if v_consumer is null then
         raise exception 'No reservation % to cancel.', p_reservation_id;
@@ -1596,16 +1646,28 @@ begin
       from public.charger_stations s
      where s.id = v_station;
 
-    if not (v_consumer = public.current_app_user_id()
-            or v_host = public.current_app_user_id()
+    v_caller := public.current_app_user_id();
+
+    if not (v_consumer = v_caller
+            or v_host = v_caller
             or public.is_platform_admin()) then
         raise exception 'Only the consumer or the station host may cancel this reservation.';
     end if;
 
+    -- A settled or already cancelled booking keeps its money history: cancelling it again
+    -- would rewrite the status, the fee and the capture.
+    if v_status is null or v_status not in ('RESERVED', 'CHECKED_IN', 'CHARGING') then
+        raise exception 'This reservation cannot be cancelled.' using errcode = 'P0001';
+    end if;
+
     v_now := (extract(epoch from now()) * 1000)::bigint;
 
-    -- AppConstants.LATE_CANCELLATION_FEE_INR is the same 20.00 the app shows.
-    if v_start is not null and v_now > (v_start - (60::bigint * 60 * 1000)) then
+    -- AppConstants.LATE_CANCELLATION_FEE_INR is the same 20.00 the app shows. Only the
+    -- consumer cancelling inside the 60-minute window pays it: when the host or a platform
+    -- admin cancels, the booking is cancelled for the consumer free of charge.
+    if v_consumer = v_caller
+       and v_start is not null
+       and v_now > (v_start - (60::bigint * 60 * 1000)) then
         v_fee := 20.0;
     end if;
 
@@ -1623,7 +1685,18 @@ begin
      where "reservationId" = p_reservation_id
        and status = 'AUTHORIZED';
 
-    if v_port is not null then
+    -- Booking never marks the port OCCUPIED, so cancelling a future RESERVED slot must not
+    -- free it: another driver may be using the port right now. Only a reservation that was
+    -- actually checked in or charging held the port, and only when nothing else on that
+    -- port is still live.
+    if v_port is not null
+       and v_status in ('CHECKED_IN', 'CHARGING')
+       and not exists (
+           select 1
+             from public.reservations r
+            where r."portId" = v_port
+              and r.status in ('CHECKED_IN', 'CHARGING')
+       ) then
         update public.charger_ports set status = 'AVAILABLE' where id = v_port;
     end if;
 

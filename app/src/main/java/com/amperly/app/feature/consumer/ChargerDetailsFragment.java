@@ -347,10 +347,15 @@ public class ChargerDetailsFragment extends Fragment {
                 if (checkedIds.isEmpty()) {
                     return;
                 }
-                // Driving is the default: every chip that is not the walking one means DRIVING.
-                travelMode = checkedIds.get(0) == R.id.walkModeChip
-                        ? GoogleDirectionsClient.TravelMode.WALKING
-                        : GoogleDirectionsClient.TravelMode.DRIVING;
+                // Both chips are wired explicitly; driving stays the default.
+                int checkedId = checkedIds.get(0);
+                if (checkedId == R.id.walkModeChip) {
+                    travelMode = GoogleDirectionsClient.TravelMode.WALKING;
+                } else if (checkedId == R.id.driveModeChip) {
+                    travelMode = GoogleDirectionsClient.TravelMode.DRIVING;
+                } else {
+                    return;
+                }
                 requestRoute();
             });
         }
