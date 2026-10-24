@@ -8,6 +8,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -27,29 +28,38 @@ public class StationAdapter extends RecyclerView.Adapter<StationAdapter.StationV
 
     public interface Listener {
         void onOpenStation(ChargerStation station);
+
+        /** A row was tapped: highlight that charger rather than leaving the list. */
+        void onSelectStation(ChargerStation station);
+
         void onNavigateToStation(ChargerStation station);
     }
 
     public static class StationRow {
         private final ChargerStation station;
         private final AvailabilityEngine.AvailabilitySummary availability;
-        private final String extraLine;
+        /** Distance from the driver's position, or null until a location fix arrives. */
+        @Nullable
+        private final Double distanceKm;
 
         public StationRow(ChargerStation station, AvailabilityEngine.AvailabilitySummary availability,
-                          String extraLine) {
+                          @Nullable Double distanceKm) {
             this.station = station;
             this.availability = availability;
-            this.extraLine = extraLine;
+            this.distanceKm = distanceKm;
         }
 
         public ChargerStation getStation() { return station; }
         public AvailabilityEngine.AvailabilitySummary getAvailability() { return availability; }
-        public String getExtraLine() { return extraLine; }
+        @Nullable
+        public Double getDistanceKm() { return distanceKm; }
     }
 
     private final List<StationRow> rows = new ArrayList<>();
     private final Listener listener;
     private final com.amperly.app.data.local.entity.Vehicle vehicle;
+    @Nullable
+    private String selectedStationId;
 
     public StationAdapter(Listener listener, com.amperly.app.data.local.entity.Vehicle vehicle) {
         this.listener = listener;
@@ -61,6 +71,16 @@ public class StationAdapter extends RecyclerView.Adapter<StationAdapter.StationV
         if (newRows != null) {
             rows.addAll(newRows);
         }
+        notifyDataSetChanged();
+    }
+
+    /** Marks one charger as chosen, so the list and the map agree on what is selected. */
+    public void setSelectedStationId(@Nullable String stationId) {
+        if (stationId == null ? selectedStationId == null
+                : stationId.equals(selectedStationId)) {
+            return;
+        }
+        selectedStationId = stationId;
         notifyDataSetChanged();
     }
 
@@ -121,12 +141,20 @@ public class StationAdapter extends RecyclerView.Adapter<StationAdapter.StationV
                     + (station.isDcCapable() ? "DC" : "AC"));
             bindConnectors(station);
 
-            String extras = row.getExtraLine();
-            if (extras != null && extras.contains("·")) {
-                distance.setText(extras.substring(0, extras.indexOf('·')).trim());
+            Double distanceKm = row.getDistanceKm();
+            if (distanceKm != null) {
+                distance.setVisibility(View.VISIBLE);
+                distance.setText(itemView.getContext().getString(
+                        R.string.discovery_distance_value, distanceKm));
             } else {
-                distance.setText("");
+                distance.setVisibility(View.GONE);
             }
+
+            boolean selected = selectedStationId != null
+                    && selectedStationId.equals(station.getId());
+            itemView.setSelected(selected);
+            itemView.setBackgroundResource(selected
+                    ? R.drawable.bg_station_row_selected : android.R.color.transparent);
 
             // Words carry the state; the tint only reinforces it.
             if (station.supportsPaidEnergyBilling()) {
@@ -177,7 +205,7 @@ public class StationAdapter extends RecyclerView.Adapter<StationAdapter.StationV
 
             itemView.setOnClickListener(v -> {
                 if (listener != null) {
-                    listener.onOpenStation(station);
+                    listener.onSelectStation(station);
                 }
             });
             details.setOnClickListener(v -> {

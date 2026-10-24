@@ -2,6 +2,7 @@ package com.amperly.app.core.map;
 
 import android.content.Context;
 import android.graphics.PointF;
+import android.os.SystemClock;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.ViewGroup;
@@ -96,12 +97,16 @@ public final class MapPanel {
     private static final String LAYER_USER = "amperly-user-circle";
 
     private static final String COLOR_STROKE = "#FFFFFF";
+    /** A soft primary halo behind the selected charger, so the pick is unmistakable. */
+    private static final String COLOR_HIGHLIGHT_HALO = "#0F5C4D";
     private static final String COLOR_START = "#0F5C4D";
     private static final String COLOR_DESTINATION = "#B3261E";
     private static final String COLOR_PICKER = "#F2A516";
     private static final String COLOR_USER = "#1D4ED8";
     private static final String COLOR_APPROXIMATE = "#B45309";
     private static final int MAP_PADDING_PX = 120;
+    /** How long a finger gesture keeps the camera away from the driver's position. */
+    private static final long GESTURE_GRACE_MS = 12_000L;
 
     /** {@code highlighted} is a string property so the filter needs no boolean expression. */
     private static final String HIGHLIGHTED = "yes";
@@ -120,6 +125,8 @@ public final class MapPanel {
     @Nullable private MapTap mapTap;
     @Nullable private double[] picker;
     private boolean pickerDraggable;
+    /** Last time the driver moved the camera by hand, so following never fights a gesture. */
+    private long lastGestureMs;
 
     private MapPanel(@NonNull MapView mapView, @NonNull Context appContext) {
         this.mapView = mapView;
@@ -228,6 +235,12 @@ public final class MapPanel {
     private void onMapReady(@NonNull MapLibreMap readyMap, @NonNull Ready callback) {
         this.map = readyMap;
         readyMap.addOnMapClickListener(this::handleMapClick);
+        // A pan or pinch is the driver taking control; auto-follow waits until they stop.
+        readyMap.addOnCameraMoveStartedListener(reason -> {
+            if (reason == MapLibreMap.OnCameraMoveStartedListener.REASON_API_GESTURE) {
+                lastGestureMs = SystemClock.elapsedRealtime();
+            }
+        });
         readyMap.setStyle(new Style.Builder().fromUri(MapConfig.styleUrl()), loaded -> {
             this.style = loaded;
             installSourcesAndLayers(loaded);
@@ -294,16 +307,19 @@ public final class MapPanel {
                 PropertyFactory.circleStrokeWidth(2f),
                 PropertyFactory.circleStrokeColor(COLOR_STROKE)));
 
-        // The selected/primary charger gets a larger ring on top, so the highlight is readable
-        // without changing the other markers' size.
-        loaded.addLayer(new CircleLayer(LAYER_STATIONS_HIGHLIGHT, SOURCE_STATIONS)
+        // A translucent primary halo sits under the selected marker: the ring reads at a glance
+        // without making the other markers any smaller or hiding the charger's own colour.
+        loaded.addLayerBelow(new CircleLayer(LAYER_STATIONS_HIGHLIGHT, SOURCE_STATIONS)
                 .withFilter(Expression.eq(Expression.get("highlighted"),
                         Expression.literal(HIGHLIGHTED)))
                 .withProperties(
-                        PropertyFactory.circleColor(Expression.get("color")),
-                        PropertyFactory.circleRadius(14f),
-                        PropertyFactory.circleStrokeWidth(3f),
-                        PropertyFactory.circleStrokeColor(COLOR_STROKE)));
+                        PropertyFactory.circleColor(COLOR_HIGHLIGHT_HALO),
+                        PropertyFactory.circleOpacity(0.22f),
+                        PropertyFactory.circleRadius(22f),
+                        PropertyFactory.circleStrokeWidth(2f),
+                        PropertyFactory.circleStrokeColor(COLOR_HIGHLIGHT_HALO),
+                        PropertyFactory.circleStrokeOpacity(0.9f)),
+                LAYER_STATIONS);
 
         loaded.addLayer(new CircleLayer(LAYER_PICKER, SOURCE_PICKER).withProperties(
                 PropertyFactory.circleColor(COLOR_PICKER),
@@ -330,6 +346,32 @@ public final class MapPanel {
         }
         current.moveCamera(CameraUpdateFactory.newLatLngZoom(
                 new LatLng(latitude, longitude), zoom));
+    }
+
+    /**
+     * Follows the driver while navigating, unless they have just panned the map themselves.
+     *
+     * <p>Navigation re-reads the position every few seconds; without the gesture check the camera
+     * snapped back mid-pan, which read as the map ignoring the finger.
+     */
+    public void followUser(double latitude, double longitude, float zoom) {
+        MapLibreMap current = map;
+        if (current == null) {
+            return;
+        }
+        if (SystemClock.elapsedRealtime() - lastGestureMs < GESTURE_GRACE_MS) {
+            return;
+        }
+        current.animateCamera(CameraUpdateFactory.newLatLngZoom(
+                new LatLng(latitude, longitude), zoom), 700);
+    }
+
+    /** Draws the driver's own position without clearing the route around it. */
+    public void plotDriverPosition(double latitude, double longitude) {
+        if (map == null || style == null) {
+            return;
+        }
+        setSource(SOURCE_USER, single(pointFeature(null, COLOR_USER, false, longitude, latitude)));
     }
 
     /**
@@ -375,7 +417,12 @@ public final class MapPanel {
         if (!any) {
             return;
         }
-        if (userLat != null && userLng != null) {
+        ChargerStation highlighted = highlightStationId == null
+                ? null : stationsById.get(highlightStationId);
+        if (highlighted != null) {
+            // A chosen charger is the thing to look at: point at it, not at the middle of a list.
+            centerOn(highlighted.getLatitude(), highlighted.getLongitude(), 15f);
+        } else if (userLat != null && userLng != null) {
             // "Where am I, what is near me": the driver's own position wins the camera, and nearby
             // chargers fall inside the view on their own.
             centerOn(userLat, userLng, 13f);

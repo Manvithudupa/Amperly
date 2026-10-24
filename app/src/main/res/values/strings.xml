@@ -462,7 +462,8 @@
     <string name="discovery_vehicle_none">No vehicle saved yet.</string>
     <string name="discovery_vehicle_value">%1$s %2$s · %3$s</string>
     <string name="discovery_vehicle_line">Planning for %1$s</string>
-    <string name="discovery_distance_extra">%1$.1f km · %2$s</string>
+    <string name="discovery_distance_value">%1$.1f km</string>
+    <string name="nav_locating">Finding your position to start the route…</string>
     <string name="details_no_station">This charger could not be found.</string>
     <string name="details_no_access">No access instructions were provided.</string>
     <string name="details_host_line"> · Hosted by %1$s</string>

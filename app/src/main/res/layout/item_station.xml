@@ -17,7 +17,8 @@
     android:orientation="vertical"
     android:paddingStart="@dimen/amp_screen_padding"
     android:paddingTop="@dimen/amp_space_m"
-    android:paddingEnd="@dimen/amp_screen_padding">
+    android:paddingEnd="@dimen/amp_screen_padding"
+    android:paddingBottom="@dimen/amp_space_m">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -69,11 +70,19 @@
             android:maxLines="1"
             android:textAppearance="@style/TextAppearance.Amperly.Label" />
 
+        <!-- How far away the charger is. Hidden until a location fix gives a real number. -->
         <TextView
             android:id="@+id/distanceText"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textAppearance="@style/TextAppearance.Amperly.LabelStrong" />
+            android:layout_marginStart="@dimen/amp_space_s"
+            android:drawableStart="@drawable/ic_pin"
+            android:drawablePadding="4dp"
+            android:drawableTint="@color/amp_primary"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textAppearance="@style/TextAppearance.Amperly.LabelStrong"
+            android:textColor="@color/amp_primary" />
     </LinearLayout>
 
     <TextView

@@ -8,9 +8,6 @@ code, config or hidden SQL in this repository.
 | `schema.sql` | All 23 tables, Row Level Security, policies, helper functions, indexes, grants, the settlement functions money is written through, the `auth.users` trigger that gives every account its profile, and the backfill that repairs accounts created before it. **This is the file you were looking for.** |
 | `security_hardening.sql` | Locks the columns an attacker would use to skip review: listing self-approval, forged reputation, dispute self-resolution and self-marked payments. **Run this on any project created before it existed.** |
 | `create_admin.sql` | Creates the platform administrator (`admin@amperly.app`) with a bcrypt password and the ADMIN role. |
-| `coastal_stations.sql` | Nine live chargers from Mangaluru to Udupi, including Karkala, with 20 ports and a full week of schedules — plus one PENDING listing for the verification queue. |
-| `pilot_seed.sql` | Optional demo data (6 stations, 12 ports, 84 schedules, and the records the demo script needs). |
-| `link_pilot_users.sql` | Connects the seeded users to real Supabase Auth accounts. |
 
 ---
 
@@ -47,24 +44,11 @@ After the first sign-in you can change the password from Authentication → User
 in the dashboard, but then update your own copy of that password: the SQL file
 only creates the account, it does not store it for you.
 
-### 2. Add the coastal charger corridor
+### 2. Add your chargers
 
-New query → paste `coastal_stations.sql` → **Run**. Nine stations from
-Mangaluru to Udupi (including Karkala), owned by the administrator account, so
-they can be verified, paused or rejected from the admin desk.
-
-### 2b. (Optional) Add the pilot data
-
-New query → paste `pilot_seed.sql` → **Run**.
-
-Verify:
-
-```sql
-select (select count(*) from public.charger_stations)       as stations,   -- 6
-       (select count(*) from public.charger_ports)          as ports,      -- 12
-       (select count(*) from public.availability_schedules) as schedules,  -- 84
-       (select count(*) from public.users)                  as users;      -- 4
-```
+There is no seed data. Sign in to the app, switch to the **Host** capacity and add a charger from
+**Stations**; an administrator then approves it from the verification queue. Nothing is inserted
+into the database by this repository.
 
 ### 3. Where the URL and publishable key go
 
@@ -94,8 +78,8 @@ reads both values (falling back to the `SUPABASE_URL` / `SUPABASE_PUBLISHABLE_KE
 environment variables) and exposes them as `BuildConfig.SUPABASE_URL` and
 `BuildConfig.SUPABASE_PUBLISHABLE_KEY`.
 
-**If these are absent, the app runs exactly as it does today** — on-device Room
-plus the local seeder, no networking. Nothing breaks.
+**If these are absent, the app cannot sign in**: the server is the only source of truth, so there
+is no local demo path to fall back to.
 
 > ### ⚠️ The publishable key is only safe because of RLS
 > A publishable key ships inside your APK and is designed to be public. That is
@@ -115,29 +99,20 @@ Auth account is now the only step needed — no UUIDs are copied by hand and the
 is no separate linking run.
 
 Dashboard → **Authentication** → **Users** → **Add user** → **Create new user**.
-Create one per pilot user, using the same email as the seed, with a password you
+Create one per person who will use the app, with an email and a password you
 choose, and tick **Auto Confirm User**:
 
 | Email | Application role |
 |---|---|
-| `host@abccollege.edu` | Host — ABC College |
-| `aarav@abccollege.edu` | Consumer — the student |
-| `president@greenpark.org` | Host — GreenPark |
 | `admin@amperly.app` | Platform administrator |
 
-When a seeded profile already exists for that email, the trigger links it in
-place, so the seeded row keeps its role and owns the demo history. Anything the
-app signs up on its own is created as a **Consumer**: `raw_user_meta_data` comes
-from the client at sign-up, so it is never trusted to grant HOST or ADMIN. Promote
-the platform administrator afterwards:
+Anything the app signs up on its own is created as a **Consumer**:
+`raw_user_meta_data` comes from the client at sign-up, so it is never trusted to
+grant HOST or ADMIN. Promote the platform administrator afterwards:
 
 ```sql
 update public.users set role = 'ADMIN' where email = 'admin@amperly.app';
 ```
-
-`link_pilot_users.sql` performs the same linking by hand. It is kept for projects
-where the accounts already existed before the trigger was installed; you do not
-need it if you created the accounts after running `schema.sql`.
 
 #### Signing up from the app needs a working email sender
 
@@ -294,8 +269,8 @@ are baked in at compile time.
 schema. Run `notify pgrst, 'reload schema';`, or wait a few seconds and retry.
 
 **Consumer discovery shows nothing** — discovery deliberately exposes only
-stations with `"approvalStatus" = 'APPROVED'` and `"isPaused" = false`. The
-seeded `st_office_pending` is meant to be invisible until an admin approves it.
+stations with `"approvalStatus" = 'APPROVED'` and `"isPaused" = false`. A charger
+stays invisible until an admin approves it.
 
 **Testing policies by hand** — RLS applies to the API roles, not to you in the
 SQL editor, so a query that works in the editor may still fail from the app. To

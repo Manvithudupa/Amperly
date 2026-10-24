@@ -600,9 +600,9 @@ as $$
 declare
     v_name text;
 begin
-    -- 1. An account that pilot_seed.sql described before it had an Auth account is
-    --    linked in place. This is checked first so a seeded row keeps its role and
-    --    its demo history instead of being duplicated.
+    -- 1. An account whose profile row was created before its Auth account is
+    --    linked in place. This is checked first so an existing row keeps its role
+    --    and its history instead of being duplicated.
     if p_email is not null then
         if (select count(*) from public.users u
              where u."authUserId" is null
@@ -2240,6 +2240,5 @@ order by a.created_at;
 
 
 -- ============================================================================
---  Done. Next: supabase/pilot_seed.sql (optional demo data), then
---  supabase/README.md for the API key and auth-user linking steps.
+--  Done. Next: supabase/README.md for the API key and auth-user steps.
 -- ============================================================================

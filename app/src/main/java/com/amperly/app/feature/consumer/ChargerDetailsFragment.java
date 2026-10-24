@@ -192,24 +192,37 @@ public class ChargerDetailsFragment extends Fragment {
         });
 
         view.findViewById(R.id.navigateDetailsButton).setOnClickListener(v -> {
-            if (userLat == null || userLng == null) {
-                Ux.error(this, getString(R.string.route_needs_origin));
+            if (userLat != null && userLng != null) {
+                openNavigation(userLat, userLng, station);
                 return;
             }
-            // In-app navigation on the MapLibre map, not a handoff to an external maps app.
-            com.amperly.app.feature.consumer.InAppNavigationFragment fragment =
-                    new com.amperly.app.feature.consumer.InAppNavigationFragment();
-            Bundle navArgs = new Bundle();
-            navArgs.putDouble(com.amperly.app.feature.consumer.InAppNavigationFragment.ARG_ORIGIN_LAT, userLat);
-            navArgs.putDouble(com.amperly.app.feature.consumer.InAppNavigationFragment.ARG_ORIGIN_LNG, userLng);
-            navArgs.putDouble(com.amperly.app.feature.consumer.InAppNavigationFragment.ARG_DEST_LAT,
-                    station.getLatitude());
-            navArgs.putDouble(com.amperly.app.feature.consumer.InAppNavigationFragment.ARG_DEST_LNG,
-                    station.getLongitude());
-            navArgs.putString(com.amperly.app.feature.consumer.InAppNavigationFragment.ARG_LABEL,
-                    station.getName());
-            fragment.setArguments(navArgs);
-            Navigator.open(this, fragment, "in_app_nav");
+            if (!LocationProvider.hasLocationPermission(requireContext())) {
+                Ux.error(this, getString(R.string.map_no_location_permission));
+                return;
+            }
+            // The fix may still be in flight; asking for the route without an origin used to
+            // dead-end in a toast. Wait for the position instead.
+            Ux.toast(this, getString(R.string.nav_locating));
+            LocationProvider.requestCurrentLocation(requireContext(),
+                    new LocationProvider.LocationCallback() {
+                        @Override
+                        public void onLocationRetrieved(double latitude, double longitude) {
+                            if (!isAdded()) {
+                                return;
+                            }
+                            userLat = latitude;
+                            userLng = longitude;
+                            openNavigation(latitude, longitude, station);
+                        }
+
+                        @Override
+                        public void onLocationUnavailable() {
+                            if (isAdded()) {
+                                Ux.error(ChargerDetailsFragment.this,
+                                        getString(R.string.route_needs_origin));
+                            }
+                        }
+                    });
         });
 
         view.findViewById(R.id.reportButton).setOnClickListener(v ->
@@ -224,6 +237,19 @@ public class ChargerDetailsFragment extends Fragment {
                     repo.saveReport(report);
                     Ux.success(this, getString(R.string.report_submitted));
                 }));
+    }
+
+    /** In-app navigation on the MapLibre map, not a handoff to an external maps app. */
+    private void openNavigation(double fromLat, double fromLng, ChargerStation station) {
+        InAppNavigationFragment fragment = new InAppNavigationFragment();
+        Bundle navArgs = new Bundle();
+        navArgs.putDouble(InAppNavigationFragment.ARG_ORIGIN_LAT, fromLat);
+        navArgs.putDouble(InAppNavigationFragment.ARG_ORIGIN_LNG, fromLng);
+        navArgs.putDouble(InAppNavigationFragment.ARG_DEST_LAT, station.getLatitude());
+        navArgs.putDouble(InAppNavigationFragment.ARG_DEST_LNG, station.getLongitude());
+        navArgs.putString(InAppNavigationFragment.ARG_LABEL, station.getName());
+        fragment.setArguments(navArgs);
+        Navigator.open(this, fragment, "in_app_nav");
     }
 
     /**

@@ -294,42 +294,24 @@ modelled, so such an SDK can be dropped in behind the same interface.
 
 ---
 
-## 7. Data model and the optional server-side demo seed
+## 7. Data model
 
-The app itself ships with **no demo data**. On first launch it shows the sign-in screen, and every
-screen after that reads the signed-in account's own rows from Supabase (Room is only the read
-cache; saves are written straight to the database). Sign-up creates the `public.users` profile row through the `auth.users`
-trigger, so a brand-new account starts with empty lists and honest empty states.
+The app itself ships with **no demo data** and the repository no longer contains a seed script.
+On first launch it shows the sign-in screen, and every screen after that reads the signed-in
+account's own rows from Supabase (Room is only the read cache; saves are written straight to the
+database). Sign-up creates the `public.users` profile row through the `auth.users` trigger, so a
+brand-new account starts with empty lists and honest empty states.
 
-For local demonstrations only, `supabase/pilot_seed.sql` can be run **against the database** to
-insert the sample network below. It is a SQL script, not application code: nothing in the APK
-creates these rows, and skipping it is the normal case.
-
-**Users** — `user_campus_admin` (Host/Admin, ABC College), `user_student_1` (Consumer), `user_apt_association` (Host, GreenPark), `user_platform_admin` (platform Admin).
-**Vehicle** — `veh_101`, Tata Nexon EV Max, CCS2 DC + 7.2 kW AC, 96% health.
-
-Link the seed's auth users to the project with `supabase/link_pilot_users.sql` before signing in as
-one of them.
-
-**Stations**
-
-| Station | Type | Connector / power | Meter level | Tariff |
-|---|---|---|---|---|
-| ABC College Campus Charger (Gate 2) | Campus, 08:00–20:00 | Type 2 AC 7.2 kW + CCS2 DC 30 kW, 4 ports | L1 verified manual | ₹18/kWh + ₹5 + ₹4 |
-| GreenPark Shared Charger | Apartment, 24/7 | Type 2 AC 7.2 kW, 2 ports | L1 verified manual | ₹16/kWh + ₹5 + ₹4 |
-| Highway Hub Charger | Commercial, 24/7 | CCS2 DC 60 kW + CHAdeMO, 2 ports | L2 simulated smart meter | ₹21/kWh + ₹6 + ₹4 |
-| Kodagu Roadside Charger | Parking, 06:00–22:00 | Type 2 AC 7.2 kW | L1 verified manual | ₹15/kWh + ₹5 + ₹4 |
-| Cafe ChargePoint | Café | Type 2 AC 3.3 kW | **L3 no verified meter** | discovery only, no billing |
-| Tech Park Tower Charger | Office, **approval pending** | Type 2 AC 11 kW | L1 | appears in the admin queue |
-
-Also seeded: full weekly availability schedules, two completed sessions with invoices + payments, one upcoming reservation **`AMP-2002`** with a payment authorization, one dispute, one report, one chat thread (with masked and off-platform messages), a trusted contact, a safety event, notifications, and a completed route plan with stops, a backup, a trip estimate, an auto session and a battery update.
+Chargers appear only when a host publishes one: sign in, switch to the **Host** capacity and add a
+charger from **Stations**. It reaches the map once an administrator approves it from the
+verification queue, which is also how a fresh project shows its first real listing.
 
 ---
 
 ## 8. Suggested demo script
 
-1. **Admin** → approve **Tech Park Tower Charger** from the verification queue; it becomes a public marker on the map.
-2. **Consumer** → set the vehicle profile (or use the seeded Nexon EV) and open **Discover**: the map centres on your real position and plots every approved, compatible charger.
+1. **Host** → add a charger from **Stations**; **Admin** → approve it from the verification queue, and it becomes a public marker on the map.
+2. **Consumer** → set the vehicle profile and open **Discover**: the map centres on your real position, shows how far each charger is, and plots every approved, compatible charger.
 3. **Consumer** → open **Route planner**. The start is already your current location; type a destination and pick it from the **Geoapify address search**. Enter your battery %. Geoapify supplies the road distance, the measured drive time and the **turn-by-turn directions** listed under the summary.
 4. **Consumer** → see the corridor chargers, the detour/charge-time/arrival trade-off, the recommended stop plus **backup stops before and after**, the recorded assumptions, and the confidence level.
 5. **Consumer** → enter a lower **actual dashboard SoC**. The value becomes authoritative: unreachable chargers are removed, the remaining trip is recalculated, and the revised recommendation is explained. Drop the battery very low to demonstrate the **no safe charger** state — alternatives are offered instead of a route past the safe range.

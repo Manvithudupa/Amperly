@@ -144,8 +144,9 @@ security state is inferred from an intent the app did not originate.
    and recorded here as the next hardening step. Rotating the key is a one-line change in
    `local.properties` plus a rebuild, so treat it as a low-value secret rather than a credential.
    Do not put a paid-plan key in a public build without the proxy.
-8. **`supabase/pilot_seed.sql` creates demo accounts and stations.** It is a manual script and is
-   never run by the app. Never run it against production.
+8. **The demo seed scripts have been removed.** `pilot_seed.sql`, `coastal_stations.sql` and the
+   one-paste `COASTAL_SETUP.sql` created demo accounts and stations; they are gone from the
+   repository and their rows were deleted. Do not re-introduce demo listings into production.
 
 ---
 

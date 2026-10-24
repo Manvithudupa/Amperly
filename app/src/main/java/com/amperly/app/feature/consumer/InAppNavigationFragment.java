@@ -148,12 +148,17 @@ public class InAppNavigationFragment extends Fragment {
                             public void onStarted(@NonNull NavigationState state) {
                                 navigating = true;
                                 render(state);
+                                // The route was fetched but never drawn, so the map sat on a world
+                                // view with no line and no destination. Draw it before following.
+                                plotNavigation();
+                                statusText.setVisibility(View.GONE);
                                 scheduleProgress();
                             }
 
                             @Override
                             public void onRerouted(@NonNull NavigationState state) {
                                 render(state);
+                                plotNavigation();
                             }
 
                             @Override
@@ -213,6 +218,15 @@ public class InAppNavigationFragment extends Fragment {
                 });
     }
 
+    /** Draws the road route, its endpoints and the driver, then frames the trip. */
+    private void plotNavigation() {
+        if (mapPanel == null || route == null) {
+            return;
+        }
+        mapPanel.plotRoute(route, originLat, originLng, destLat, destLng, null, null);
+        mapPanel.plotDriverPosition(originLat, originLng);
+    }
+
     private void applyPosition(double latitude, double longitude) {
         DirectionsRoute current = route;
         if (current == null || current.getPoints().size() < 2) {
@@ -229,7 +243,9 @@ public class InAppNavigationFragment extends Fragment {
                     (int) Math.round(fraction * 100));
         }
         render(provider.getCurrentNavigationState());
-        mapPanel.centerOn(latitude, longitude, 16f);
+        mapPanel.plotDriverPosition(latitude, longitude);
+        // Follows the driver, but yields for a few seconds after they pan the map themselves.
+        mapPanel.followUser(latitude, longitude, 17f);
     }
 
     private void render(@Nullable NavigationState state) {
@@ -355,10 +371,7 @@ public class InAppNavigationFragment extends Fragment {
                                 if (provider instanceof GeoapifyNavigationProvider) {
                                     ((GeoapifyNavigationProvider) provider).applyReroute(route, null);
                                 }
-                                if (mapPanel != null) {
-                                    mapPanel.plotRoute(route, latitude, longitude, destLat, destLng,
-                                            null, null);
-                                }
+                                plotNavigation();
                                 render(provider.getCurrentNavigationState());
                                 statusText.setVisibility(View.GONE);
                             }

@@ -71,6 +71,10 @@ public class ChargerDiscoveryFragment extends Fragment implements StationAdapter
     @Nullable
     private MapPanel mapPanel;
 
+    /** The charger the driver picked, highlighted on the map and in the list. */
+    @Nullable
+    private String selectedStationId;
+
     private final ActivityResultLauncher<String[]> locationPermissionLauncher =
             registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(), result -> {
                 boolean granted = Boolean.TRUE.equals(
@@ -185,16 +189,8 @@ public class ChargerDiscoveryFragment extends Fragment implements StationAdapter
             for (ChargerStation station : repo.getApprovedStationsSync()) {
                 AvailabilityEngine.AvailabilitySummary availability =
                         repo.getAvailabilitySummary(station.getId());
-                String extra;
-                if (fromLat != null && fromLng != null) {
-                    double distance = GeoUtils.distanceKm(fromLat, fromLng, station.getLatitude(),
-                            station.getLongitude());
-                    extra = getString(R.string.discovery_distance_extra, distance,
-                            station.getOperatingHours());
-                } else {
-                    extra = station.getOperatingHours();
-                }
-                rows.add(new StationAdapter.StationRow(station, availability, extra));
+                rows.add(new StationAdapter.StationRow(station, availability,
+                        distanceFrom(fromLat, fromLng, station)));
             }
             return data;
         }, data -> {
@@ -268,19 +264,37 @@ public class ChargerDiscoveryFragment extends Fragment implements StationAdapter
             }
 
             adapter = new StationAdapter(this, vehicle);
+            adapter.setSelectedStationId(selectedStationId);
             recyclerView.setAdapter(adapter);
             applyFilter();
             MapPanel.attach(this, mapContainer, panel -> {
                 mapPanel = panel;
-                panel.plotStations(allStations, null, userLat, userLng);
-                // Tapping a station marker is the map's way of selecting that charger.
+                plotMap();
+                // Tapping a station marker selects that charger instead of leaving the screen.
                 panel.setMarkerTapListener(station -> {
                     if (station != null) {
-                        onOpenStation(station);
+                        onSelectStation(station);
                     }
                 });
             });
         });
+    }
+
+    /** Distance to the charger, or null while no real position is known. */
+    @Nullable
+    private static Double distanceFrom(@Nullable Double fromLat, @Nullable Double fromLng,
+                                       @NonNull ChargerStation station) {
+        if (fromLat == null || fromLng == null) {
+            return null;
+        }
+        return GeoUtils.distanceKm(fromLat, fromLng, station.getLatitude(), station.getLongitude());
+    }
+
+    /** Draws the list's chargers on the map, with the chosen one highlighted. */
+    private void plotMap() {
+        if (mapPanel != null) {
+            mapPanel.plotStations(allStations, selectedStationId, userLat, userLng);
+        }
     }
 
     /** Asks for the dashboard reading and keeps it for this account. */
@@ -380,6 +394,7 @@ public class ChargerDiscoveryFragment extends Fragment implements StationAdapter
             }
             filtered.add(row);
         }
+        adapter.setSelectedStationId(selectedStationId);
         adapter.submit(filtered);
         resultCountText.setText(getResources().getQuantityString(R.plurals.discovery_shown,
                 filtered.size(), filtered.size(), filterLabel()));
@@ -450,9 +465,17 @@ public class ChargerDiscoveryFragment extends Fragment implements StationAdapter
                 new LocationProvider.LocationCallback() {
                     @Override
                     public void onLocationRetrieved(double latitude, double longitude) {
+                        // The screen can be replaced while the fix is in flight (a tab switch, a
+                        // post-sync rebuild), and then there is no context to render into.
+                        if (!isAdded()) {
+                            return;
+                        }
                         userLat = latitude;
                         userLng = longitude;
-                        refreshMap();
+                        // The list was built before the fix arrived, so it has no distances yet.
+                        // Rebuild them in place rather than showing stations without a distance.
+                        applyDistances();
+                        plotMap();
                     }
 
                     @Override
@@ -467,11 +490,30 @@ public class ChargerDiscoveryFragment extends Fragment implements StationAdapter
                 });
     }
 
-    /** Re-draws the already attached panel once a location fix arrives. */
-    private void refreshMap() {
-        if (mapPanel != null) {
-            mapPanel.plotStations(allStations, null, userLat, userLng);
+    /** Recomputes every row's distance once a real position is known. */
+    private void applyDistances() {
+        if (!isAdded() || userLat == null || userLng == null || allRows.isEmpty()) {
+            return;
         }
+        List<StationAdapter.StationRow> updated = new ArrayList<>();
+        for (StationAdapter.StationRow row : allRows) {
+            updated.add(new StationAdapter.StationRow(row.getStation(), row.getAvailability(),
+                    distanceFrom(userLat, userLng, row.getStation())));
+        }
+        allRows.clear();
+        allRows.addAll(updated);
+        if (adapter != null) {
+            applyFilter();
+        }
+    }
+
+    @Override
+    public void onSelectStation(ChargerStation station) {
+        selectedStationId = station.getId();
+        if (adapter != null) {
+            adapter.setSelectedStationId(selectedStationId);
+        }
+        plotMap();
     }
 
     @Override
@@ -485,15 +527,47 @@ public class ChargerDiscoveryFragment extends Fragment implements StationAdapter
 
     @Override
     public void onNavigateToStation(ChargerStation station) {
-        if (userLat == null || userLng == null) {
-            Ux.error(this, getString(R.string.route_needs_origin));
+        if (userLat != null && userLng != null) {
+            openNavigation(userLat, userLng, station);
             return;
         }
-        // In-app navigation, not a handoff to an external maps app.
+        if (!LocationProvider.hasLocationPermission(requireContext())) {
+            Ux.error(this, getString(R.string.map_no_location_permission));
+            return;
+        }
+        // The first fix may not have arrived when the list was built. Asking for the route
+        // without an origin used to dead-end in a toast; wait for the fix instead.
+        Ux.toast(this, getString(R.string.nav_locating));
+        LocationProvider.requestCurrentLocation(requireContext(),
+                new LocationProvider.LocationCallback() {
+                    @Override
+                    public void onLocationRetrieved(double latitude, double longitude) {
+                        if (!isAdded()) {
+                            return;
+                        }
+                        userLat = latitude;
+                        userLng = longitude;
+                        applyDistances();
+                        plotMap();
+                        openNavigation(latitude, longitude, station);
+                    }
+
+                    @Override
+                    public void onLocationUnavailable() {
+                        if (isAdded()) {
+                            Ux.error(ChargerDiscoveryFragment.this,
+                                    getString(R.string.route_needs_origin));
+                        }
+                    }
+                });
+    }
+
+    /** In-app navigation, not a handoff to an external maps app. */
+    private void openNavigation(double fromLat, double fromLng, ChargerStation station) {
         InAppNavigationFragment fragment = new InAppNavigationFragment();
         Bundle args = new Bundle();
-        args.putDouble(InAppNavigationFragment.ARG_ORIGIN_LAT, userLat);
-        args.putDouble(InAppNavigationFragment.ARG_ORIGIN_LNG, userLng);
+        args.putDouble(InAppNavigationFragment.ARG_ORIGIN_LAT, fromLat);
+        args.putDouble(InAppNavigationFragment.ARG_ORIGIN_LNG, fromLng);
         args.putDouble(InAppNavigationFragment.ARG_DEST_LAT, station.getLatitude());
         args.putDouble(InAppNavigationFragment.ARG_DEST_LNG, station.getLongitude());
         args.putString(InAppNavigationFragment.ARG_LABEL, station.getName());
