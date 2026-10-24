@@ -7,12 +7,13 @@ plugins {
 // Keys are read from local.properties (which is gitignored) or from environment
 // variables of the same name. Nothing here is committed.
 //
-//   GOOGLE_MAPS_API_KEY        - required for the map, Place autocomplete and road routing.
-//                                One Google Cloud Android key with the "Maps SDK for
-//                                Android", "Places API" and "Directions API" enabled,
-//                                restricted to this package name + signing SHA-1. It is
-//                                injected through BuildConfig and the manifest placeholder
-//                                below and is never written into Java or XML by hand.
+//   GEOAPIFY_API_KEY           - required for the map, address search (autocomplete and
+//                                reverse geocoding) and road routing. Create a free key at
+//                                geoapify.com; it is injected through BuildConfig and is
+//                                never written into Java or XML by hand.
+//   MAP_STYLE_URL              - optional MapLibre style URL. Left blank, the app uses
+//                                Geoapify's OpenStreetMap-based "osm-bright" style, and the
+//                                key is appended to it at runtime.
 //   SUPABASE_URL               - your project URL, https://<ref>.supabase.co
 //   SUPABASE_PUBLISHABLE_KEY   - the public sb_publishable_... (formerly "anon") key.
 //                                Safe to ship ONLY because every table has RLS enabled.
@@ -30,17 +31,18 @@ val localProperties = Properties().apply {
 fun secret(name: String): String =
     (localProperties.getProperty(name) ?: System.getenv(name) ?: "").trim()
 
-// Google Maps Platform key. The same value feeds BuildConfig (for the Directions and Place
-// autocomplete web calls) and the manifest placeholder (for the Maps SDK renderer), so a
-// single entry in local.properties configures the whole map experience.
-val googleMapsApiKey: String = secret("GOOGLE_MAPS_API_KEY")
-val googleMapsEnabled: Boolean = googleMapsApiKey.isNotEmpty()
+// Geoapify key. One entry in local.properties configures the map style, the address search
+// and the routing: there is no manifest placeholder and no Google Cloud project involved.
+val geoapifyApiKey: String = secret("GEOAPIFY_API_KEY")
+val geoapifyEnabled: Boolean = geoapifyApiKey.isNotEmpty()
+// Optional override for the vector style. A Geoapify key is appended to whatever is set here.
+val mapStyleUrl: String = secret("MAP_STYLE_URL")
 
-if (!googleMapsEnabled) {
+if (!geoapifyEnabled) {
     logger.warn(
-        "Amperly: no GOOGLE_MAPS_API_KEY set, so the map, Place autocomplete and road routing " +
+        "Amperly: no GEOAPIFY_API_KEY set, so the map, address search and road routing " +
             "are disabled and the screens show an actionable setup notice instead of a blank map. " +
-            "See README section 6."
+            "See README section 6.1."
     )
 }
 
@@ -103,11 +105,10 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        // Google Maps Platform. The key is injected, never hard-coded: BuildConfig for the
-        // in-app web calls and a manifest placeholder for the Maps SDK meta-data entry.
-        buildConfigField("String", "GOOGLE_MAPS_API_KEY", "\"$googleMapsApiKey\"")
-        buildConfigField("boolean", "GOOGLE_MAPS_ENABLED", googleMapsEnabled.toString())
-        manifestPlaceholders["googleMapsApiKey"] = googleMapsApiKey
+        // Geoapify. The key is injected, never hard-coded, and every call is HTTPS.
+        buildConfigField("String", "GEOAPIFY_API_KEY", "\"$geoapifyApiKey\"")
+        buildConfigField("boolean", "GEOAPIFY_ENABLED", geoapifyEnabled.toString())
+        buildConfigField("String", "MAP_STYLE_URL", "\"$mapStyleUrl\"")
 
         buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
         buildConfigField("String", "SUPABASE_PUBLISHABLE_KEY", "\"$supabasePublishableKey\"")
@@ -179,11 +180,10 @@ dependencies {
     // get a position on the devices that ship it.
     implementation("com.google.android.gms:play-services-location:21.2.0")
 
-    // Maps: the production map is the Google Maps SDK for Android (core/map/MapPanel), and
-    // destinations are found with Google Place autocomplete (core/places/PlacesAutocomplete).
-    // Both use the key injected above.
-    implementation(libs.playservicesmaps)
-    implementation(libs.places)
+    // Map rendering. MapLibre Native draws the OpenStreetMap-based vector style in
+    // core/map/MapPanel; the style itself, the address search and the routes come from
+    // Geoapify over HTTPS (core/places, core/routing).
+    implementation(libs.maplibre.android)
 
     // Navigation & Lifecycle Components
     implementation("androidx.navigation:navigation-fragment:2.7.7")

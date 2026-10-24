@@ -113,6 +113,26 @@ public final class UserMessages {
         if (containsAny(text, "user_already_exists", "already registered")) {
             return Kind.AUTH_ALREADY_REGISTERED;
         }
+        // Geoapify (map, address search, routing). Every one of its clients prefixes the technical
+        // failure with the service name, so these rules cannot swallow an unrelated message that
+        // happens to mention a key. Nothing here reaches the screen: only the resolved string does.
+        if (text.contains("geoapify")) {
+            if (containsAny(text, "api key", "401", "403", "denied")) {
+                return Kind.MAP_UNAVAILABLE;
+            }
+            if (containsAny(text, "429", "rate limit", "credits")) {
+                return Kind.RATE_LIMIT;
+            }
+            if (containsAny(text, "no route", "no matching place", "no address", "no results")) {
+                return Kind.PLACE_NO_RESULTS;
+            }
+            if (containsAny(text, "http 5", "unavailable")) {
+                return Kind.SERVER;
+            }
+            if (containsAny(text, "http 400", "bad request", "invalid")) {
+                return Kind.VALIDATION;
+            }
+        }
         if (httpCode == 0
                 || containsAny(text, "could not reach", "unable to resolve host", "unknownhost",
                 "timed out", "timeout", "failed to connect", "no address associated with hostname",
@@ -125,7 +145,7 @@ public final class UserMessages {
             return Kind.PERMISSION;
         }
         if (httpCode == 429
-                || containsAny(text, "too many requests", "rate limit", "rate_limit")) {
+                || containsAny(text, "too many requests", "rate limit", "rate_limit", "credits")) {
             return Kind.RATE_LIMIT;
         }
         if (httpCode >= 500) {

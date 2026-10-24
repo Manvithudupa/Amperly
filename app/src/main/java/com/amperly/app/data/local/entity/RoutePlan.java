@@ -34,9 +34,12 @@ public class RoutePlan {
     private String assumptions;
     private String confidence;          // HIGH, MEDIUM, LOW
     private String status;              // DRAFT, ACTIVE, COMPLETED, CANCELLED
-    /** Which provider calculated the route, e.g. "Google Maps Platform (Directions + Maps SDK)". */
+    /** Which provider calculated the route, e.g. "GEOAPIFY". */
     private String routeProvider;
-    /** The Google Place ID of the destination when the consumer picked one, else null. */
+    /**
+     * The place id of the destination when the consumer picked one, else null. The field name is
+     * historical: it now carries the Geoapify place id, and was kept so no Room migration is needed.
+     */
     private String googlePlaceId;
     private long createdAtMs;
     private long updatedAtMs;

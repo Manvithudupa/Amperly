@@ -288,6 +288,15 @@
                 android:layout_height="match_parent" />
         </com.google.android.material.card.MaterialCardView>
 
+        <!-- Map data credit: required by the OpenStreetMap licence and the Geoapify plan. -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/amp_space_xs"
+            android:text="@string/map_attribution"
+            android:textAppearance="@style/TextAppearance.Amperly.BodySmall"
+            android:textColor="?attr/colorOnSurfaceVariant" />
+
         <!-- =========================================================== Result -->
         <TextView
             android:id="@+id/routeSummaryText"

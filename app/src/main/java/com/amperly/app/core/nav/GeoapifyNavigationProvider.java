@@ -4,31 +4,31 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.amperly.app.core.routing.DirectionsRoute;
-import com.amperly.app.core.routing.GoogleDirectionsClient;
+import com.amperly.app.core.routing.GeoapifyRoutingClient;
 
 import java.util.UUID;
 
 /**
- * The production {@link NavigationProvider}: Google Maps Platform for both the road route and the
- * in-app navigation session.
+ * The production {@link NavigationProvider}: Geoapify for the road route and MapLibre for the map.
  *
  * <pre>
- * GoogleNavigationProvider
- *     ├── route calculation      → Google Directions API (core/routing/GoogleDirectionsClient)
+ * GeoapifyNavigationProvider
+ *     ├── route calculation      → Geoapify routing API (core/routing/GeoapifyRoutingClient)
  *     ├── navigation session     → sessionId + the NavigationState the UI and Android Auto share
  *     ├── reroute from new SOC   → recalculate() after a battery override
  *     ├── charger waypoints      → the request carries waypoints for corridor stops
  *     └── Android Auto bridge     → the same NavigationState is projected in the car
  * </pre>
  *
- * <p>The route geometry is rendered by the Google Maps SDK panel, not by a home-grown tile
- * renderer, so the drawn line, the markers and the distance all come from Google.
+ * <p>The route geometry is drawn by the MapLibre panel, and the road data is OpenStreetMap's via
+ * Geoapify. There is no live-traffic duration: Geoapify does not publish one, so the planner uses
+ * its existing labelled estimate rather than inventing a traffic figure.
  *
- * <p>Voice guidance flags mirror the Google Navigation SDK's audio configuration
+ * <p>Voice guidance flags mirror the audio configuration a navigation SDK would use
  * ({@link #AUDIO_VOICE_ALERTS_AND_GUIDANCE} | {@link #AUDIO_BLUETOOTH}), so the intent is explicit
- * and can be handed straight to the Navigation SDK when that licensed dependency is enabled.
+ * and no spoken guidance is faked in this build.
  */
-public final class GoogleNavigationProvider implements NavigationProvider {
+public final class GeoapifyNavigationProvider implements NavigationProvider {
 
     /** Spoken turn-by-turn alerts and guidance. */
     public static final int AUDIO_VOICE_ALERTS_AND_GUIDANCE = 1;
@@ -37,16 +37,16 @@ public final class GoogleNavigationProvider implements NavigationProvider {
     /** No spoken guidance. */
     public static final int AUDIO_SILENT = 0;
 
-    public static final String PROVIDER_NAME = "Google Maps Platform (Directions + Maps SDK)";
+    public static final String PROVIDER_NAME = "Geoapify (OpenStreetMap data) + MapLibre";
 
-    private final GoogleDirectionsClient.TravelMode defaultMode;
+    private final GeoapifyRoutingClient.TravelMode defaultMode;
     private volatile NavigationState state = NavigationState.idle();
 
-    public GoogleNavigationProvider() {
-        this(GoogleDirectionsClient.TravelMode.DRIVING);
+    public GeoapifyNavigationProvider() {
+        this(GeoapifyRoutingClient.TravelMode.DRIVING);
     }
 
-    public GoogleNavigationProvider(@NonNull GoogleDirectionsClient.TravelMode defaultMode) {
+    public GeoapifyNavigationProvider(@NonNull GeoapifyRoutingClient.TravelMode defaultMode) {
         this.defaultMode = defaultMode;
     }
 
@@ -61,9 +61,9 @@ public final class GoogleNavigationProvider implements NavigationProvider {
     }
 
     private void calculate(@NonNull RouteRequest request, @NonNull RouteCallback callback) {
-        GoogleDirectionsClient.TravelMode mode = request.getMode() == null
+        GeoapifyRoutingClient.TravelMode mode = request.getMode() == null
                 ? defaultMode : request.getMode();
-        GoogleDirectionsClient.Callback inner = new GoogleDirectionsClient.Callback() {
+        GeoapifyRoutingClient.Callback inner = new GeoapifyRoutingClient.Callback() {
             @Override
             public void onRoute(@NonNull DirectionsRoute route) {
                 callback.onRoute(new RouteResult(route, request, PROVIDER_NAME,
@@ -76,11 +76,11 @@ public final class GoogleNavigationProvider implements NavigationProvider {
             }
         };
         if (request.hasDestinationQuery()) {
-            GoogleDirectionsClient.routeToAddress(null, mode, request.getOriginLat(),
+            GeoapifyRoutingClient.routeToAddress(null, mode, request.getOriginLat(),
                     request.getOriginLng(), request.getDestinationQuery(), inner);
             return;
         }
-        GoogleDirectionsClient.route(null, mode, request.getOriginLat(), request.getOriginLng(),
+        GeoapifyRoutingClient.route(null, mode, request.getOriginLat(), request.getOriginLng(),
                 request.getDestinationLat(), request.getDestinationLng(), inner);
     }
 

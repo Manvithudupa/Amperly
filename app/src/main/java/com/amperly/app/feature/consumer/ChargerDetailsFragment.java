@@ -24,7 +24,7 @@ import com.amperly.app.core.location.LocationProvider;
 import com.amperly.app.core.map.MapPanel;
 import com.amperly.app.core.nav.Navigator;
 import com.amperly.app.core.routing.DirectionsRoute;
-import com.amperly.app.core.routing.GoogleDirectionsClient;
+import com.amperly.app.core.routing.GeoapifyRoutingClient;
 import com.amperly.app.core.security.AuthManager;
 import com.amperly.app.data.local.entity.ChargerPort;
 import com.amperly.app.data.local.entity.ChargerStation;
@@ -57,7 +57,7 @@ public class ChargerDetailsFragment extends Fragment {
     private MapPanel mapPanel;
 
     /** The travel mode whose route is currently shown. */
-    private GoogleDirectionsClient.TravelMode travelMode = GoogleDirectionsClient.TravelMode.DRIVING;
+    private GeoapifyRoutingClient.TravelMode travelMode = GeoapifyRoutingClient.TravelMode.DRIVING;
 
     /** The user's current position, or null until a fix arrives. */
     @Nullable
@@ -196,7 +196,7 @@ public class ChargerDetailsFragment extends Fragment {
                 Ux.error(this, getString(R.string.route_needs_origin));
                 return;
             }
-            // In-app navigation on Google Maps, not a handoff to an external maps app.
+            // In-app navigation on the MapLibre map, not a handoff to an external maps app.
             com.amperly.app.feature.consumer.InAppNavigationFragment fragment =
                     new com.amperly.app.feature.consumer.InAppNavigationFragment();
             Bundle navArgs = new Bundle();
@@ -350,9 +350,9 @@ public class ChargerDetailsFragment extends Fragment {
                 // Both chips are wired explicitly; driving stays the default.
                 int checkedId = checkedIds.get(0);
                 if (checkedId == R.id.walkModeChip) {
-                    travelMode = GoogleDirectionsClient.TravelMode.WALKING;
+                    travelMode = GeoapifyRoutingClient.TravelMode.WALKING;
                 } else if (checkedId == R.id.driveModeChip) {
-                    travelMode = GoogleDirectionsClient.TravelMode.DRIVING;
+                    travelMode = GeoapifyRoutingClient.TravelMode.DRIVING;
                 } else {
                     return;
                 }
@@ -398,7 +398,7 @@ public class ChargerDetailsFragment extends Fragment {
                 });
     }
 
-    /** Asks Google Maps for a road route to the station and draws it on the map above. */
+    /** Asks Geoapify for a road route to the station and draws it on the map above. */
     private void requestRoute() {
         ChargerStation target = station;
         if (target == null) {
@@ -415,8 +415,8 @@ public class ChargerDetailsFragment extends Fragment {
         }
         final double fromLat = userLat;
         final double fromLng = userLng;
-        GoogleDirectionsClient.route(requireContext(), travelMode, fromLat, fromLng,
-                target.getLatitude(), target.getLongitude(), new GoogleDirectionsClient.Callback() {
+        GeoapifyRoutingClient.route(requireContext(), travelMode, fromLat, fromLng,
+                target.getLatitude(), target.getLongitude(), new GeoapifyRoutingClient.Callback() {
                     @Override
                     public void onRoute(DirectionsRoute route) {
                         if (isAdded()) {
@@ -429,7 +429,8 @@ public class ChargerDetailsFragment extends Fragment {
                         if (!isAdded()) {
                             return;
                         }
-                        // Google could not be reached. A straight-line estimate keeps the screen
+                        // The routing service could not be reached. A straight-line estimate keeps
+                        // the screen
                         // useful and is labelled as an estimate, never as a road route.
                         renderRoute(DirectionsRoute.straightLineEstimate(fromLat, fromLng,
                                 target.getLatitude(), target.getLongitude(),
@@ -450,7 +451,7 @@ public class ChargerDetailsFragment extends Fragment {
                 directionsSummaryText.setText(getString(R.string.directions_approximate,
                         route.getDistanceKm(), time));
             } else {
-                String mode = travelMode == GoogleDirectionsClient.TravelMode.WALKING
+                String mode = travelMode == GeoapifyRoutingClient.TravelMode.WALKING
                         ? getString(R.string.directions_walk) : getString(R.string.directions_drive);
                 directionsSummaryText.setText(getString(R.string.directions_summary, mode,
                         route.getDistanceKm(), time));

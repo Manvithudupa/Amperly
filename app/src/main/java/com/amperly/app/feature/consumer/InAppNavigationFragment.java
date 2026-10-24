@@ -16,16 +16,16 @@ import androidx.fragment.app.Fragment;
 
 import com.amperly.app.R;
 import com.amperly.app.core.common.Formatters;
-import com.amperly.app.core.common.GoogleConfig;
+import com.amperly.app.core.common.MapConfig;
 import com.amperly.app.core.location.LocationProvider;
 import com.amperly.app.core.map.MapPanel;
-import com.amperly.app.core.nav.GoogleNavigationProvider;
+import com.amperly.app.core.nav.GeoapifyNavigationProvider;
 import com.amperly.app.core.nav.NavigationProvider;
 import com.amperly.app.core.nav.NavigationState;
 import com.amperly.app.core.nav.Navigator;
 import com.amperly.app.core.nav.RouteProgress;
 import com.amperly.app.core.routing.DirectionsRoute;
-import com.amperly.app.core.routing.GoogleDirectionsClient;
+import com.amperly.app.core.routing.GeoapifyRoutingClient;
 import com.amperly.app.core.security.AuthManager;
 import com.amperly.app.core.state.AppStateStore;
 import com.amperly.app.core.state.SocStore;
@@ -41,17 +41,17 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * In-app navigation, inside Amperly, on Google Maps.
+ * In-app navigation, inside Amperly, on the MapLibre map.
  *
- * <p>The route comes from the Google {@link NavigationProvider}; the map is the Google Maps SDK;
- * the driver-safe strip shows only the next maneuver, the remaining distance and the ETA. While the
+ * <p>The route comes from the Geoapify {@link NavigationProvider}; the map is MapLibre; the
+ * driver-safe strip shows only the next maneuver, the remaining distance and the ETA. While the
  * session is active the screen re-reads the device position on a short timer and advances the
  * progress along the real road geometry — it never keeps announcing a stale instruction after the
  * session stops.
  *
- * <p>Spoken voice guidance is deliberately not simulated here: it is supplied by the Google
- * Navigation SDK, whose licence is an external setup step documented in the migration guide. The
- * screen says so rather than pretending to speak.
+ * <p>Spoken voice guidance is deliberately not simulated here: it needs a licensed navigation
+ * SDK and an audio-focus policy this build does not ship. The screen says so rather than
+ * pretending to speak.
  */
 public class InAppNavigationFragment extends Fragment {
 
@@ -63,7 +63,7 @@ public class InAppNavigationFragment extends Fragment {
 
     private static final long PROGRESS_INTERVAL_MS = 6000L;
 
-    private final NavigationProvider provider = new GoogleNavigationProvider();
+    private final NavigationProvider provider = new GeoapifyNavigationProvider();
     private final Handler handler = new Handler(Looper.getMainLooper());
 
     private TextView nextTurnText;
@@ -119,20 +119,20 @@ public class InAppNavigationFragment extends Fragment {
             startNavigation();
         });
 
-        if (!GoogleConfig.isConfigured()) {
+        if (!MapConfig.isConfigured()) {
             statusText.setVisibility(View.VISIBLE);
-            statusText.setText(GoogleConfig.setupMessage());
+            statusText.setText(MapConfig.setupMessage(requireContext()));
         }
     }
 
     private void startNavigation() {
-        if (!GoogleConfig.isConfigured()) {
+        if (!MapConfig.isConfigured()) {
             return;
         }
         statusText.setVisibility(View.VISIBLE);
         statusText.setText(R.string.nav_starting);
         NavigationProvider.RouteRequest request = new NavigationProvider.RouteRequest(originLat,
-                originLng, destLat, destLng, null, GoogleDirectionsClient.TravelMode.DRIVING);
+                originLng, destLat, destLng, null, GeoapifyRoutingClient.TravelMode.DRIVING);
         provider.calculateRoute(request, new NavigationProvider.RouteCallback() {
             @Override
             public void onRoute(@NonNull NavigationProvider.RouteResult result) {
@@ -141,8 +141,8 @@ public class InAppNavigationFragment extends Fragment {
                 }
                 route = result.getRoute();
                 provider.startNavigation(new NavigationProvider.NavigationRequest(result,
-                                GoogleNavigationProvider.AUDIO_VOICE_ALERTS_AND_GUIDANCE
-                                        | GoogleNavigationProvider.AUDIO_BLUETOOTH),
+                                GeoapifyNavigationProvider.AUDIO_VOICE_ALERTS_AND_GUIDANCE
+                                        | GeoapifyNavigationProvider.AUDIO_BLUETOOTH),
                         new NavigationProvider.NavigationCallback() {
                             @Override
                             public void onStarted(@NonNull NavigationState state) {
@@ -222,10 +222,10 @@ public class InAppNavigationFragment extends Fragment {
         double remainingKm = RouteProgress.remainingKm(current, fraction);
         int remainingMinutes = RouteProgress.remainingMinutes(current, fraction);
 
-        GoogleNavigationProvider google = provider instanceof GoogleNavigationProvider
-                ? (GoogleNavigationProvider) provider : null;
-        if (google != null) {
-            google.updateProgress(latitude, longitude, remainingKm, remainingMinutes,
+        GeoapifyNavigationProvider geoapify = provider instanceof GeoapifyNavigationProvider
+                ? (GeoapifyNavigationProvider) provider : null;
+        if (geoapify != null) {
+            geoapify.updateProgress(latitude, longitude, remainingKm, remainingMinutes,
                     (int) Math.round(fraction * 100));
         }
         render(provider.getCurrentNavigationState());
@@ -344,7 +344,7 @@ public class InAppNavigationFragment extends Fragment {
                         showStatus(getString(R.string.nav_off_route));
                         NavigationProvider.RouteRequest request = new NavigationProvider.RouteRequest(
                                 latitude, longitude, destLat, destLng, null,
-                                GoogleDirectionsClient.TravelMode.DRIVING);
+                                GeoapifyRoutingClient.TravelMode.DRIVING);
                         provider.recalculate(request, new NavigationProvider.RouteCallback() {
                             @Override
                             public void onRoute(@NonNull NavigationProvider.RouteResult result) {
@@ -352,8 +352,8 @@ public class InAppNavigationFragment extends Fragment {
                                     return;
                                 }
                                 route = result.getRoute();
-                                if (provider instanceof GoogleNavigationProvider) {
-                                    ((GoogleNavigationProvider) provider).applyReroute(route, null);
+                                if (provider instanceof GeoapifyNavigationProvider) {
+                                    ((GeoapifyNavigationProvider) provider).applyReroute(route, null);
                                 }
                                 if (mapPanel != null) {
                                     mapPanel.plotRoute(route, latitude, longitude, destLat, destLng,

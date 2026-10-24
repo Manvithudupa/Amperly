@@ -79,11 +79,11 @@ Copy two values:
   the `anon` key works in exactly the same place.)
 
 **Paste them into `local.properties`** in the project root — the same file that
-already holds `sdk.dir` and `MAPS_API_KEY`:
+already holds `sdk.dir` and `GEOAPIFY_API_KEY`:
 
 ```properties
 sdk.dir=C\:\\Users\\<you>\\AppData\\Local\\Android\\Sdk
-MAPS_API_KEY=your_google_maps_key
+GEOAPIFY_API_KEY=your_geoapify_key
 
 SUPABASE_URL=https://abcdefghijklmnop.supabase.co
 SUPABASE_PUBLISHABLE_KEY=sb_publishable_xxxxxxxxxxxx

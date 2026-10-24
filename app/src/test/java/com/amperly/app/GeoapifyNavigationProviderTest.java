@@ -1,10 +1,10 @@
 package com.amperly.app;
 
-import com.amperly.app.core.nav.GoogleNavigationProvider;
+import com.amperly.app.core.nav.GeoapifyNavigationProvider;
 import com.amperly.app.core.nav.NavigationProvider;
 import com.amperly.app.core.nav.NavigationState;
 import com.amperly.app.core.routing.DirectionsRoute;
-import com.amperly.app.core.routing.GoogleDirectionsClient;
+import com.amperly.app.core.routing.GeoapifyRoutingClient;
 
 import org.junit.Test;
 
@@ -19,13 +19,13 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 /**
- * The navigation session lifecycle, driven without any network or Google services.
+ * The navigation session lifecycle, driven without any network or map service.
  *
  * <p>The provider is handed an already-calculated route, so starting, moving, rerouting, arriving
- * and stopping are all exercised against the real {@link GoogleNavigationProvider} — a fake would
+ * and stopping are all exercised against the real {@link GeoapifyNavigationProvider} — a fake would
  * not prove the production provider behaves.
  */
-public class GoogleNavigationProviderTest {
+public class GeoapifyNavigationProviderTest {
 
     private DirectionsRoute route() {
         List<double[]> points = new ArrayList<>(Arrays.asList(
@@ -35,29 +35,29 @@ public class GoogleNavigationProviderTest {
         List<DirectionsRoute.Step> steps = new ArrayList<>();
         steps.add(new DirectionsRoute.Step("Head north", "0.1 km", "1 min", "", 12.30, 76.60));
         steps.add(new DirectionsRoute.Step("Turn right", "0.2 km", "1 min", "turn-right", 12.35, 76.65));
-        return new DirectionsRoute(points, 60.0, 50, 65, "Start address", "End address", steps, false);
+        return new DirectionsRoute(points, 60.0, 50, 0, "Start address", "End address", steps, false);
     }
 
     private NavigationProvider.RouteResult result() {
         NavigationProvider.RouteRequest request = new NavigationProvider.RouteRequest(12.30, 76.60,
-                12.40, 76.70, null, GoogleDirectionsClient.TravelMode.DRIVING);
+                12.40, 76.70, null, GeoapifyRoutingClient.TravelMode.DRIVING);
         return new NavigationProvider.RouteResult(route(), request,
-                GoogleNavigationProvider.PROVIDER_NAME, System.currentTimeMillis(), false);
+                GeoapifyNavigationProvider.PROVIDER_NAME, System.currentTimeMillis(), false);
     }
 
     @Test
     public void aFreshProviderIsIdle() {
-        GoogleNavigationProvider provider = new GoogleNavigationProvider();
+        GeoapifyNavigationProvider provider = new GeoapifyNavigationProvider();
         assertFalse(provider.getCurrentNavigationState().isActive());
         assertNull(provider.getCurrentNavigationState().getSessionId());
     }
 
     @Test
-    public void startingNavigationOpensASessionWithTheRouteAndTrafficTime() {
-        GoogleNavigationProvider provider = new GoogleNavigationProvider();
+    public void startingNavigationOpensASessionWithTheRouteAndMeasuredTime() {
+        GeoapifyNavigationProvider provider = new GeoapifyNavigationProvider();
         final NavigationState[] started = new NavigationState[1];
         provider.startNavigation(new NavigationProvider.NavigationRequest(result(),
-                        GoogleNavigationProvider.AUDIO_VOICE_ALERTS_AND_GUIDANCE),
+                        GeoapifyNavigationProvider.AUDIO_VOICE_ALERTS_AND_GUIDANCE),
                 new NoopCallback() {
                     @Override
                     public void onStarted(NavigationState state) {
@@ -68,15 +68,15 @@ public class GoogleNavigationProviderTest {
         assertTrue(started[0].isActive());
         assertNotNull(started[0].getSessionId());
         assertEquals(60.0, started[0].getRemainingDistanceKm(), 1e-6);
-        assertEquals("the traffic-aware time is used", 65, started[0].getRemainingMinutes());
+        assertEquals("the measured drive time is used", 50, started[0].getRemainingMinutes());
         assertEquals(12.30, started[0].getCurrentLat(), 1e-6);
     }
 
     @Test
     public void progressMovesTheSessionAlongTheRoute() {
-        GoogleNavigationProvider provider = new GoogleNavigationProvider();
+        GeoapifyNavigationProvider provider = new GeoapifyNavigationProvider();
         provider.startNavigation(new NavigationProvider.NavigationRequest(result(),
-                GoogleNavigationProvider.AUDIO_SILENT), new NoopCallback());
+                GeoapifyNavigationProvider.AUDIO_SILENT), new NoopCallback());
         provider.updateProgress(12.35, 76.65, 30.0, 33, 50);
         NavigationState state = provider.getCurrentNavigationState();
         assertTrue(state.isActive());
@@ -87,9 +87,9 @@ public class GoogleNavigationProviderTest {
 
     @Test
     public void reroutingSwapsTheRouteWithoutEndingTheSession() {
-        GoogleNavigationProvider provider = new GoogleNavigationProvider();
+        GeoapifyNavigationProvider provider = new GeoapifyNavigationProvider();
         provider.startNavigation(new NavigationProvider.NavigationRequest(result(),
-                GoogleNavigationProvider.AUDIO_SILENT), new NoopCallback());
+                GeoapifyNavigationProvider.AUDIO_SILENT), new NoopCallback());
         DirectionsRoute shorter = new DirectionsRoute(
                 new ArrayList<>(Arrays.asList(new double[]{12.32, 76.62}, new double[]{12.40, 76.70})),
                 20.0, 25, 0, "A", "B", new ArrayList<>(), false);
@@ -109,9 +109,9 @@ public class GoogleNavigationProviderTest {
 
     @Test
     public void arrivingEndsNavigationButKeepsTheSummaryReadable() {
-        GoogleNavigationProvider provider = new GoogleNavigationProvider();
+        GeoapifyNavigationProvider provider = new GeoapifyNavigationProvider();
         provider.startNavigation(new NavigationProvider.NavigationRequest(result(),
-                GoogleNavigationProvider.AUDIO_SILENT), new NoopCallback());
+                GeoapifyNavigationProvider.AUDIO_SILENT), new NoopCallback());
         provider.markArrived(new NoopCallback());
         NavigationState state = provider.getCurrentNavigationState();
         assertFalse("arrived means the session stops driving", state.isActive());
@@ -121,14 +121,20 @@ public class GoogleNavigationProviderTest {
 
     @Test
     public void stoppingClearsTheSessionSoNoStaleInstructionRemains() {
-        GoogleNavigationProvider provider = new GoogleNavigationProvider();
+        GeoapifyNavigationProvider provider = new GeoapifyNavigationProvider();
         provider.startNavigation(new NavigationProvider.NavigationRequest(result(),
-                GoogleNavigationProvider.AUDIO_SILENT), new NoopCallback());
+                GeoapifyNavigationProvider.AUDIO_SILENT), new NoopCallback());
         provider.stopNavigation();
         NavigationState state = provider.getCurrentNavigationState();
         assertFalse(state.isActive());
         assertNull(state.getRoute());
         assertNull(state.getSessionId());
+    }
+
+    @Test
+    public void theProviderNamesWhereItsDataComesFrom() {
+        assertTrue(GeoapifyNavigationProvider.PROVIDER_NAME.contains("Geoapify"));
+        assertTrue(GeoapifyNavigationProvider.PROVIDER_NAME.contains("MapLibre"));
     }
 
     private static class NoopCallback implements NavigationProvider.NavigationCallback {

@@ -7,12 +7,12 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * A driving or walking route returned by the Google Directions API: the road geometry plus the
- * numbers and turn-by-turn steps the driver is shown.
+ * A driving or walking route returned by the routing service (Geoapify, on OpenStreetMap data):
+ * the road geometry plus the numbers and turn-by-turn steps the driver is shown.
  *
  * <p>{@link #isApproximate()} is only ever true for {@link #straightLineEstimate}, the clearly
- * labelled fallback used when Google cannot be reached. A real Directions response is never
- * approximate, so the UI never presents an estimate as a road route.
+ * labelled fallback used when the routing service cannot be reached. A real routing response is
+ * never approximate, so the UI never presents an estimate as a road route.
  */
 public final class DirectionsRoute {
 
@@ -35,7 +35,7 @@ public final class DirectionsRoute {
             this.startLng = startLng;
         }
 
-        /** Human-readable instruction, with Google's HTML markup stripped. */
+        /** Human-readable instruction, with any direction markup stripped. */
         @NonNull
         public String getInstruction() { return instruction; }
 
@@ -98,7 +98,7 @@ public final class DirectionsRoute {
 
     public int getDurationMinutes() { return durationMinutes; }
 
-    /** Duration in traffic when Google returned one, otherwise the same as {@link #getDurationMinutes()}. */
+    /** Duration in traffic when the provider returned one, otherwise the same as {@link #getDurationMinutes()}. */
     public int getDurationInTrafficMinutes() { return durationInTrafficMinutes; }
 
     @NonNull
@@ -110,15 +110,15 @@ public final class DirectionsRoute {
     @NonNull
     public List<Step> getSteps() { return steps; }
 
-    /** True only for the straight-line fallback, never for a real Directions response. */
+    /** True only for the straight-line fallback, never for a real routing response. */
     public boolean isApproximate() { return approximate; }
 
-    /** The one number the driver should plan with: traffic-aware when Google supplies it. */
+    /** The one number the driver should plan with: traffic-aware when the provider supplies it. */
     public int getEffectiveDurationMinutes() {
         return durationInTrafficMinutes > 0 ? durationInTrafficMinutes : durationMinutes;
     }
 
-    /** A straight-line path between two points, used only when Google cannot be reached. */
+    /** A straight-line path between two points, used only when the routing service is unreachable. */
     @NonNull
     public static DirectionsRoute straightLineEstimate(double fromLat, double fromLng, double toLat,
                                                        double toLng, double speedKmh) {
@@ -129,7 +129,7 @@ public final class DirectionsRoute {
         double distanceKm = com.amperly.app.core.common.GeoUtils.distanceKm(fromLat, fromLng, toLat, toLng);
         int minutes = (int) Math.round(distanceKm / Math.max(1.0, speedKmh) * 60d);
         List<Step> steps = new ArrayList<>();
-        steps.add(new Step("Straight-line estimate — Google Directions could not be reached.",
+        steps.add(new Step("Straight-line estimate — the routing service could not be reached.",
                 String.format(java.util.Locale.US, "%.1f km", distanceKm), minutes + " min", "",
                 fromLat, fromLng));
         return new DirectionsRoute(points, distanceKm, minutes, minutes,

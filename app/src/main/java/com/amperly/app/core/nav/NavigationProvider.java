@@ -4,7 +4,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.amperly.app.core.routing.DirectionsRoute;
-import com.amperly.app.core.routing.GoogleDirectionsClient;
+import com.amperly.app.core.routing.GeoapifyRoutingClient;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -12,10 +12,10 @@ import java.util.List;
 /**
  * The single seam between Amperly's screens and whatever calculates roads and drives navigation.
  *
- * <p>Production is {@link GoogleNavigationProvider}. Keeping the interface small means the routing
- * engine, the route screen, the charger corridor search and the Android Auto bridge all depend on
- * an abstraction rather than a vendor SDK, and a JVM test can drive a fake provider without any
- * network or Google services.
+ * <p>Production is {@link GeoapifyNavigationProvider}. Keeping the interface small means the
+ * routing engine, the route screen, the charger corridor search and the Android Auto bridge all
+ * depend on an abstraction rather than a vendor API, and a JVM test can drive a fake provider
+ * without any network access.
  */
 public interface NavigationProvider {
 
@@ -27,18 +27,18 @@ public interface NavigationProvider {
         private final double destinationLng;
         @Nullable private final String destinationQuery;
         private final List<double[]> waypoints;
-        private final GoogleDirectionsClient.TravelMode mode;
+        private final GeoapifyRoutingClient.TravelMode mode;
 
         public RouteRequest(double originLat, double originLng, double destinationLat,
                             double destinationLng, @Nullable List<double[]> waypoints,
-                            @NonNull GoogleDirectionsClient.TravelMode mode) {
+                            @NonNull GeoapifyRoutingClient.TravelMode mode) {
             this(originLat, originLng, destinationLat, destinationLng, null, waypoints, mode);
         }
 
         private RouteRequest(double originLat, double originLng, double destinationLat,
                              double destinationLng, @Nullable String destinationQuery,
                              @Nullable List<double[]> waypoints,
-                             @NonNull GoogleDirectionsClient.TravelMode mode) {
+                             @NonNull GeoapifyRoutingClient.TravelMode mode) {
             this.originLat = originLat;
             this.originLng = originLng;
             this.destinationLat = destinationLat;
@@ -49,13 +49,13 @@ public interface NavigationProvider {
         }
 
         /**
-         * A request whose destination is free text the driver typed. Google geocodes it, snaps it
-         * to a road and returns the coordinates in the route geometry.
+         * A request whose destination is free text the driver typed. Geoapify geocodes it, snaps
+         * it to a road and returns the coordinates in the route geometry.
          */
         @NonNull
         public static RouteRequest toAddress(double originLat, double originLng,
                                              @NonNull String query,
-                                             @NonNull GoogleDirectionsClient.TravelMode mode) {
+                                             @NonNull GeoapifyRoutingClient.TravelMode mode) {
             return new RouteRequest(originLat, originLng, 0, 0, query, null, mode);
         }
 
@@ -72,7 +72,7 @@ public interface NavigationProvider {
         }
 
         @NonNull public List<double[]> getWaypoints() { return waypoints; }
-        @NonNull public GoogleDirectionsClient.TravelMode getMode() { return mode; }
+        @NonNull public GeoapifyRoutingClient.TravelMode getMode() { return mode; }
     }
 
     /** A calculated route plus the request and provider it came from. */

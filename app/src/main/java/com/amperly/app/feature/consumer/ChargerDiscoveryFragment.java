@@ -67,7 +67,7 @@ public class ChargerDiscoveryFragment extends Fragment implements StationAdapter
     @Nullable
     private Double userLng;
 
-    /** The attached Google map panel, so a late location fix can re-centre without reloading. */
+    /** The attached map panel, so a late location fix can re-centre without reloading. */
     @Nullable
     private MapPanel mapPanel;
 

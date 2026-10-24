@@ -85,7 +85,7 @@
     <string name="label_meter_level_3">Level 3 — no verified meter</string>
     <string name="meter_gating_warning">This station has no verified meter and is shown for discovery only.</string>
 
-    <!-- Directions (Google Maps + Google Directions API) -->
+    <!-- Directions (Geoapify routing on OpenStreetMap data, drawn by MapLibre) -->
     <string name="directions_drive">Driving</string>
     <string name="directions_walk">Walking</string>
     <string name="directions_calculating">Working out the route…</string>
@@ -179,11 +179,11 @@
     <string name="route_start_map_hint">Tap the map to set your starting point.</string>
     <string name="route_destination_hint">Where to? Search a shop, hotel, landmark or town</string>
     <string name="route_destination_resolved">Destination: %1$s</string>
-    <string name="route_directions_title">Directions from Google Maps</string>
+    <string name="route_directions_title">Directions</string>
     <string name="route_directions_meta">%1$s · %2$.1f km · %3$s</string>
     <string name="route_directions_meta_traffic">%1$s · %2$.1f km · %3$s drive (traffic: %4$s)</string>
-    <string name="route_directions_none">Directions from Google Maps appear here once a route is calculated.</string>
-    <string name="route_directions_note">Directions from Google Maps. Stops and battery figures are estimates.</string>
+    <string name="route_directions_none">Directions appear here once a route is calculated.</string>
+    <string name="route_directions_note">Directions from Geoapify, on OpenStreetMap data. Stops and battery figures are estimates.</string>
     <string name="route_start_navigation">Start in-app navigation</string>
     <string name="route_current_soc">Current battery %</string>
     <string name="route_corridor">Corridor</string>
@@ -393,23 +393,25 @@
     <string name="account_switch_body">Same account, different tools.</string>
     <string name="account_name_update_failed">Could not save the name on this device. Try again.</string>
 
-    <!-- Map (Google Maps SDK for Android; the key is injected at build time) -->
+    <!-- Map (MapLibre renders a Geoapify vector style; the key is injected at build time) -->
     <string name="map_pick_hint">Tap the charger&#8217;s exact spot.</string>
     <string name="map_pick_header">Charger location</string>
     <string name="map_pick_use_gps">Use my current location</string>
     <string name="map_no_location_permission">Location permission is needed to use your current position.</string>
-    <string name="map_setup_required">Google Maps is not configured in this build. Add GOOGLE_MAPS_API_KEY to local.properties and rebuild.</string>
+    <string name="map_setup_required">The map is not configured in this build. Add GEOAPIFY_API_KEY to local.properties and rebuild.</string>
+    <string name="map_attribution">Map data © OpenStreetMap contributors · Powered by Geoapify</string>
+    <string name="map_provider_name">Geoapify · OpenStreetMap</string>
     <string name="route_needs_destination">Enter a destination first.</string>
     <string name="route_needs_origin">Waiting for your location. Tap the map to set a starting point.</string>
-    <string name="route_planning">Asking Google Maps for the route and directions…</string>
-    <string name="nav_voice_note">Directions from Google Maps.</string>
+    <string name="route_planning">Calculating the route and directions…</string>
+    <string name="nav_voice_note">Directions from Geoapify, on OpenStreetMap data.</string>
     <string name="nav_stop">Stop navigation</string>
     <string name="nav_next_maneuver">Next: %1$s</string>
     <string name="nav_starting">Starting in-app navigation…</string>
     <string name="nav_remaining">%1$.1f km · %2$s remaining</string>
     <string name="nav_eta">Arrive about %1$s · %2$d%% of the route driven</string>
     <string name="nav_arrived">You have arrived near %1$s.</string>
-    <string name="nav_route_failed">Google Maps could not calculate this route.</string>
+    <string name="nav_route_failed">The route could not be calculated.</string>
     <string name="nav_off_route">Off the planned route — recalculating from your current position…</string>
     <!-- Notifications -->
     <string name="notifications_title">Notifications</string>

@@ -26,7 +26,7 @@ import com.amperly.app.core.common.AppConstants;
 import com.amperly.app.core.location.LocationProvider;
 import com.amperly.app.core.map.MapPanel;
 import com.amperly.app.core.nav.Navigator;
-import com.amperly.app.core.places.GoogleGeocoder;
+import com.amperly.app.core.places.GeoapifyGeocoder;
 import com.amperly.app.core.places.PlacesAutocomplete;
 import com.amperly.app.core.security.AuthManager;
 import com.amperly.app.core.security.RoleGuard;
@@ -260,8 +260,8 @@ public class RegisterStationFragment extends Fragment {
         latitudeEdit.addTextChangedListener(followTypedCoordinates);
         longitudeEdit.addTextChangedListener(followTypedCoordinates);
 
-        // The production map is Google Maps. Tapping it picks the charger's exact spot; the host
-        // can also search the address with Google Place autocomplete below.
+        // The production map is MapLibre. Tapping it picks the charger's exact spot; the host
+        // can also search the address with Geoapify address search below.
         MapPanel.attach(this, stationMapContainer, panel -> {
             mapPanel = panel;
             panel.setMapTapListener(this::onMapPointPicked);
@@ -293,11 +293,11 @@ public class RegisterStationFragment extends Fragment {
         }
     }
 
-    /** A map tap places the charger and fills the address from Google reverse geocoding. */
+    /** A map tap places the charger and fills the address from Geoapify reverse geocoding. */
     private void onMapPointPicked(double latitude, double longitude) {
         applyPicked(latitude, longitude);
-        GoogleGeocoder.reverseGeocode(requireContext(), latitude, longitude,
-                new GoogleGeocoder.Callback() {
+        GeoapifyGeocoder.reverseGeocode(requireContext(), latitude, longitude,
+                new GeoapifyGeocoder.Callback() {
             @Override
             public void onAddress(@NonNull String formattedAddress) {
                 if (isAdded() && addressEdit != null) {
@@ -352,7 +352,7 @@ public class RegisterStationFragment extends Fragment {
         }
     }
 
-    /** Writes a latitude/longitude pair into the form and moves the Google pin to match. */
+    /** Writes a latitude/longitude pair into the form and moves the map pin to match. */
     private void applyPicked(double latitude, double longitude) {
         if (!isAdded() || latitudeEdit == null) {
             return;

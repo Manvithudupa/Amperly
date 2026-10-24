@@ -6,6 +6,7 @@ import com.amperly.app.data.local.entity.ChargerStation;
 
 import org.junit.Test;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertTrue;
@@ -63,6 +64,23 @@ public class StationMarkerModelTest {
         float normal = StationMarkerModel.hue(station(AppConstants.LEVEL_1_VERIFIED_MANUAL, false), false);
         float highlighted = StationMarkerModel.hue(station(AppConstants.LEVEL_1_VERIFIED_MANUAL, false), true);
         assertNotEquals(normal, highlighted, 1e-6);
+    }
+
+    @Test
+    public void theCircleColourIsOpaqueAndFollowsTheHue() {
+        ChargerStation verified = station(AppConstants.LEVEL_1_VERIFIED_MANUAL, false);
+        ChargerStation discoveryOnly = station(AppConstants.LEVEL_3_NO_VERIFIED_METER, false);
+
+        int verifiedColor = StationMarkerModel.color(verified, false);
+        int discoveryColor = StationMarkerModel.color(discoveryOnly, false);
+        int highlightedColor = StationMarkerModel.color(verified, true);
+
+        assertEquals("every marker must be fully opaque", 0xFF, verifiedColor >>> 24);
+        assertNotEquals("a non-billable charger keeps its own colour", verifiedColor, discoveryColor);
+        assertNotEquals("the highlight colour overrides the state colour", verifiedColor,
+                highlightedColor);
+        assertEquals(StationMarkerModel.argbFromHue(StationMarkerModel.hue(verified, false),
+                0.85f, 0.95f), verifiedColor);
     }
 
     @Test

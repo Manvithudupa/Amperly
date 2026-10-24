@@ -265,12 +265,12 @@ public class RoutePlannerEngine {
     }
 
     /**
-     * Plans the journey with the distance and drive time Google measured.
+     * Plans the journey with the distance and drive time the routing service measured.
      *
-     * @param measuredDriveMinutes the traffic-aware drive time from the routing provider, or 0 to
+     * @param measuredDriveMinutes the measured drive time from the routing provider, or 0 to
      *                             fall back to the average-speed estimate. Supplying it means the
-     *                             plan's total journey time reflects real roads and traffic rather
-     *                             than a flat 45 km/h assumption.
+     *                             plan's total journey time reflects real roads rather than a flat
+     *                             45 km/h assumption.
      */
     public static RoutePlanResult planRoute(String origin, String destination,
                                            double originLat, double originLng,
@@ -404,9 +404,9 @@ public class RoutePlannerEngine {
 
         List<String> assumptions = new ArrayList<>();
         if (measuredDriveTime) {
-            assumptions.add("Distance and drive time from Google Maps for this route: "
-                    + String.format(Locale.US, "%.1f", totalDistanceKm) + " km, "
-                    + measuredDriveMinutes + " min (traffic-aware where Google publishes it).");
+            assumptions.add("Distance and drive time from Geoapify (OpenStreetMap data) for "
+                    + "this route: " + String.format(Locale.US, "%.1f", totalDistanceKm) + " km, "
+                    + measuredDriveMinutes + " min (no live traffic data).");
         } else {
             assumptions.add("Distance of " + String.format(Locale.US, "%.0f", totalDistanceKm)
                     + " km at an average " + (int) AVERAGE_SPEED_KMH

@@ -22,15 +22,15 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.amperly.app.R;
 import com.amperly.app.core.common.AppConstants;
 import com.amperly.app.core.common.Formatters;
-import com.amperly.app.core.common.GoogleConfig;
+import com.amperly.app.core.common.MapConfig;
 import com.amperly.app.core.location.LocationProvider;
 import com.amperly.app.core.map.MapPanel;
-import com.amperly.app.core.nav.GoogleNavigationProvider;
+import com.amperly.app.core.nav.GeoapifyNavigationProvider;
 import com.amperly.app.core.nav.NavigationProvider;
-import com.amperly.app.core.places.GoogleGeocoder;
+import com.amperly.app.core.places.GeoapifyGeocoder;
 import com.amperly.app.core.places.PlacesAutocomplete;
 import com.amperly.app.core.routing.DirectionsRoute;
-import com.amperly.app.core.routing.GoogleDirectionsClient;
+import com.amperly.app.core.routing.GeoapifyRoutingClient;
 import com.amperly.app.core.security.AuthManager;
 import com.amperly.app.core.state.AppStateStore;
 import com.amperly.app.core.state.SocStore;
@@ -54,15 +54,15 @@ import java.util.Locale;
 import java.util.UUID;
 
 /**
- * Route and charging plan, on Google Maps.
+ * Route and charging plan, on the MapLibre map.
  *
  * <p>The starting point is the device's real current position — the driver never types it — and the
- * destination is chosen through Google Place autocomplete. Google supplies the road distance and
+ * destination is chosen through Geoapify address search. Geoapify supplies the road distance and
  * the turn-by-turn directions; Amperly layers its compatibility, detour, battery and safety checks
  * on top of that route. A dashboard battery figure is authoritative the moment the consumer enters
  * it, which removes unreachable chargers and recalculates the remaining trip.
  *
- * <p>Nothing here silently falls back to a pilot coordinate. When the location or the Google key is
+ * <p>Nothing here silently falls back to a pilot coordinate. When the location or the map key is
  * missing the screen says so and offers an explicit map-pin origin.
  */
 public class RoutePlannerFragment extends Fragment implements RouteStopAdapter.Listener {
@@ -91,7 +91,7 @@ public class RoutePlannerFragment extends Fragment implements RouteStopAdapter.L
     private RouteStopAdapter candidatesAdapter;
     private MapPanel mapPanel;
 
-    private final NavigationProvider navigationProvider = new GoogleNavigationProvider();
+    private final NavigationProvider navigationProvider = new GeoapifyNavigationProvider();
 
     private double corridorKm = AppConstants.DEFAULT_CORRIDOR_KM;
     private String preference = RoutePlannerEngine.PREF_FASTEST;
@@ -230,8 +230,8 @@ public class RoutePlannerFragment extends Fragment implements RouteStopAdapter.L
 
         view.findViewById(R.id.emergencyButton).setOnClickListener(v -> showEmergencyGuidance());
 
-        // Google Place autocomplete for the destination. Absent a key the plain field still works,
-        // and the typed text is handed to Google Directions as a free-text destination.
+        // Geoapify address search for the destination. Absent a key the plain field still works,
+        // and the typed text is handed to Geoapify as a free-text destination.
         if (PlacesAutocomplete.isAvailable(requireContext())) {
             PlacesAutocomplete.bind(requireContext(), (MaterialAutoCompleteTextView) destinationEdit,
                     new PlacesAutocomplete.Listener() {
@@ -287,9 +287,9 @@ public class RoutePlannerFragment extends Fragment implements RouteStopAdapter.L
     // ------------------------------------------------------------ origin
 
     private void resolveOrigin() {
-        if (!GoogleConfig.isConfigured()) {
-            originText.setText(GoogleConfig.setupMessage());
-            showStatus(GoogleConfig.setupMessage());
+        if (!MapConfig.isConfigured()) {
+            originText.setText(MapConfig.setupMessage(requireContext()));
+            showStatus(MapConfig.setupMessage(requireContext()));
             return;
         }
         originText.setText(R.string.route_start_locating);
@@ -341,8 +341,8 @@ public class RoutePlannerFragment extends Fragment implements RouteStopAdapter.L
         originDetailText.setVisibility(View.VISIBLE);
         originDetailText.setText(R.string.route_start_locating_address);
 
-        GoogleGeocoder.reverseGeocode(requireContext(), latitude, longitude,
-                new GoogleGeocoder.Callback() {
+        GeoapifyGeocoder.reverseGeocode(requireContext(), latitude, longitude,
+                new GeoapifyGeocoder.Callback() {
             @Override
             public void onAddress(@NonNull String formattedAddress) {
                 if (!isAdded() || originDetailText == null) {
@@ -384,10 +384,10 @@ public class RoutePlannerFragment extends Fragment implements RouteStopAdapter.L
         if (destination != null) {
             request = new NavigationProvider.RouteRequest(originLat, originLng,
                     destination.getLatitude(), destination.getLongitude(), null,
-                    GoogleDirectionsClient.TravelMode.DRIVING);
+                    GeoapifyRoutingClient.TravelMode.DRIVING);
         } else if (!TextUtils.isEmpty(typed)) {
             request = NavigationProvider.RouteRequest.toAddress(originLat, originLng, typed,
-                    GoogleDirectionsClient.TravelMode.DRIVING);
+                    GeoapifyRoutingClient.TravelMode.DRIVING);
         } else {
             Ux.toast(this, getString(R.string.route_needs_destination));
             return;
@@ -412,7 +412,7 @@ public class RoutePlannerFragment extends Fragment implements RouteStopAdapter.L
                 }
                 showStatus(message);
                 revealPlanStatus();
-                // A free-text destination Google could not geocode has no coordinates to fall back
+                // A free-text destination Geoapify could not find has no coordinates to fall back
                 // on, so the plan honestly stops instead of inventing a location.
                 if (destination != null) {
                     DirectionsRoute estimate = DirectionsRoute.straightLineEstimate(originLat, originLng,
@@ -468,7 +468,8 @@ public class RoutePlannerFragment extends Fragment implements RouteStopAdapter.L
                     startSoc, result.getArrivalTargetSoc(), AppStateStore.get().isSocAuthoritative(),
                     join(result.getAssumptions()), result.getConfidence(), "ACTIVE",
                     System.currentTimeMillis(), System.currentTimeMillis());
-            plan.setRouteProvider(routeResult.getProviderName());
+            // The entity field name is historical; the provider is Geoapify now.
+            plan.setRouteProvider("GEOAPIFY");
             if (destination != null) {
                 plan.setGooglePlaceId(destination.getPlaceId());
             }
@@ -565,7 +566,7 @@ public class RoutePlannerFragment extends Fragment implements RouteStopAdapter.L
         }
     }
 
-    /** Renders the Google turn-by-turn steps, clearly attributed to Google Maps. */
+    /** Renders the turn-by-turn steps, attributed to Geoapify (OpenStreetMap data). */
     private void renderDirections(@NonNull DirectionsRoute route) {
         directionsContainer.removeAllViews();
         String time = Formatters.minutes(route.getEffectiveDurationMinutes());
@@ -575,11 +576,12 @@ public class RoutePlannerFragment extends Fragment implements RouteStopAdapter.L
         } else if (route.getDurationInTrafficMinutes() > 0
                 && route.getDurationInTrafficMinutes() != route.getDurationMinutes()) {
             directionsMetaText.setText(getString(R.string.route_directions_meta_traffic,
-                    "Google Maps", route.getDistanceKm(), Formatters.minutes(route.getDurationMinutes()),
+                    getString(R.string.map_provider_name), route.getDistanceKm(),
+                    Formatters.minutes(route.getDurationMinutes()),
                     time));
         } else {
-            directionsMetaText.setText(getString(R.string.route_directions_meta, "Google Maps",
-                    route.getDistanceKm(), time));
+            directionsMetaText.setText(getString(R.string.route_directions_meta,
+                    getString(R.string.map_provider_name), route.getDistanceKm(), time));
         }
 
         int index = 1;
@@ -757,8 +759,8 @@ public class RoutePlannerFragment extends Fragment implements RouteStopAdapter.L
         NavigationProvider.RouteResult result = new NavigationProvider.RouteResult(lastRoute,
                 new NavigationProvider.RouteRequest(originLat, originLng,
                         lastRoute.getDestinationLat(), lastRoute.getDestinationLng(), null,
-                        GoogleDirectionsClient.TravelMode.DRIVING),
-                GoogleNavigationProvider.PROVIDER_NAME, System.currentTimeMillis(), false);
+                        GeoapifyRoutingClient.TravelMode.DRIVING),
+                GeoapifyNavigationProvider.PROVIDER_NAME, System.currentTimeMillis(), false);
         runPlan(result);
     }
 

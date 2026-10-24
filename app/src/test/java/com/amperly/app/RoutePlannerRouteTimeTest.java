@@ -13,12 +13,13 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 /**
- * The planner must use the drive time Google measured, not a flat average-speed guess.
+ * The planner must use the drive time the routing service measured, not a flat average-speed guess.
  *
- * <p>Without this the total journey time on the route screen would quietly disagree with the
- * Google ETA the driver just saw.
+ * <p>Without this the total journey time on the route screen would quietly disagree with the route
+ * ETA the driver just saw. When no measured time exists (an estimate, or an offline fallback) the
+ * planner must say so instead of presenting the guess as a measurement.
  */
-public class RoutePlannerGoogleTimeTest {
+public class RoutePlannerRouteTimeTest {
 
     private ChargerStation station(double lat, double lng) {
         return ChargerStation.create("st_" + lat, "host_1", "Host", "Charger " + lat, "Address",
@@ -32,7 +33,7 @@ public class RoutePlannerGoogleTimeTest {
     }
 
     @Test
-    public void anAverageSpeedEstimateIsUsedWhenGoogleHasNoTime() {
+    public void anAverageSpeedEstimateIsUsedWhenTheProviderHasNoTime() {
         List<ChargerStation> stations = new ArrayList<>();
         stations.add(station(12.4, 76.7));
         RoutePlannerEngine.RoutePlanResult result = RoutePlannerEngine.planRoute("A", "B",
@@ -44,14 +45,16 @@ public class RoutePlannerGoogleTimeTest {
     }
 
     @Test
-    public void googlesMeasuredDriveTimeOverridesTheEstimate() {
+    public void theMeasuredDriveTimeOverridesTheEstimate() {
         List<ChargerStation> stations = new ArrayList<>();
         stations.add(station(12.4, 76.7));
         RoutePlannerEngine.RoutePlanResult result = RoutePlannerEngine.planRoute("A", "B",
                 12.30, 76.60, 12.40, 76.70, 90.0, 15.0, 60, true, false,
                 RoutePlannerEngine.PREF_FASTEST, vehicle(), stations, 75);
         assertEquals(75, result.getDriveMinutes());
-        assertTrue(result.getAssumptions().get(0).contains("Google Maps"));
+        assertTrue(result.getAssumptions().get(0).contains("Geoapify"));
+        assertTrue("no live traffic figure may be claimed",
+                result.getAssumptions().get(0).contains("no live traffic"));
     }
 
     @Test

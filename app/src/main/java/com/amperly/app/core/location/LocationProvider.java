@@ -5,6 +5,8 @@ import android.content.Context;
 import android.content.pm.PackageManager;
 import android.location.Location;
 
+import androidx.annotation.Nullable;
+
 import androidx.core.content.ContextCompat;
 
 import com.google.android.gms.location.FusedLocationProviderClient;
@@ -36,6 +38,15 @@ public final class LocationProvider {
 
     private static final String PREFS_NAME = "amperly.location";
     private static final String KEY_PERMISSION_ASKED = "permission_asked";
+
+    /**
+     * The most recent fix in this process, or null.
+     *
+     * <p>Address search uses it only to bias suggestions towards where the driver is; it never
+     * prompts for a permission and never blocks a search. Filled by the success paths below.
+     */
+    @Nullable
+    private static volatile double[] lastFix;
 
     /** True when the app currently holds a usable location permission. */
     public static boolean hasLocationPermission(Context context) {
@@ -86,6 +97,7 @@ public final class LocationProvider {
             client.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, cancellation.getToken())
                     .addOnSuccessListener(location -> {
                         if (location != null) {
+                            rememberFix(location.getLatitude(), location.getLongitude());
                             callback.onLocationRetrieved(location.getLatitude(), location.getLongitude());
                         } else {
                             useLastKnown(client, callback);
@@ -99,12 +111,24 @@ public final class LocationProvider {
         }
     }
 
+    /** The latest successful fix, as {@code {lat, lng}}, or null when none has been seen. */
+    @Nullable
+    public static double[] lastKnownFix() {
+        double[] fix = lastFix;
+        return fix == null ? null : new double[]{fix[0], fix[1]};
+    }
+
+    private static void rememberFix(double latitude, double longitude) {
+        lastFix = new double[]{latitude, longitude};
+    }
+
     @SuppressWarnings("MissingPermission")
     private static void useLastKnown(FusedLocationProviderClient client, LocationCallback callback) {
         try {
             client.getLastLocation()
                     .addOnSuccessListener(location -> {
                         if (location != null) {
+                            rememberFix(location.getLatitude(), location.getLongitude());
                             callback.onLocationRetrieved(location.getLatitude(), location.getLongitude());
                         } else {
                             callback.onLocationUnavailable();

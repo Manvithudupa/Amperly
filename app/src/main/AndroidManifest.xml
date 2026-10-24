@@ -33,16 +33,12 @@
         android:theme="@style/Theme.Amperly">
 
         <!--
-          Google Maps SDK for Android. The key (Maps SDK for Android + Places API + Directions
-          API, restricted to this package name and signing certificate) is injected from
-          local.properties through the googleMapsApiKey manifest placeholder, so it never
-          appears in version control. A missing key shows an actionable notice rather than a
-          blank map (see GoogleConfig).
+          The map is drawn by MapLibre Native from a Geoapify-hosted vector style, and address
+          search and routing are plain HTTPS calls. None of that needs a manifest entry or a
+          key here: the key is read from local.properties into BuildConfig, so it never appears
+          in version control. A missing key shows an actionable notice rather than a blank map
+          (see MapConfig).
         -->
-        <meta-data
-            android:name="com.google.android.geo.API_KEY"
-            android:value="${googleMapsApiKey}" />
-
 
         <meta-data
             android:name="com.google.android.gms.car.application"

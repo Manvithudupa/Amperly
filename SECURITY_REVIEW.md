@@ -135,9 +135,15 @@ security state is inferred from an intent the app did not originate.
    Gson-mapped entities is worth doing separately.
 6. **No client-side rate limiting** on sign-in or booking-code lookup. GoTrue rate-limits sign-in
    server-side; booking-code lookups happen against the caller's own RLS-filtered rows.
-7. **Google Maps key must be restricted in Google Cloud** to `com.amperly.app` plus the
-   debug/release SHA-1 and to the four Maps Platform APIs. This is console configuration, not
-   code; an unrestricted key is billable by anyone who extracts it.
+7. **The Geoapify key ships inside the APK and can be extracted.** It has to: MapLibre requests the
+   style directly, so no `android:value` restriction applies the way a Google Cloud key's package
+   and SHA-1 restriction would. The exposure is bounded by the free plan's daily credit cap and the
+   per-second limit, and a spent quota degrades to the plain-language "map service is unavailable"
+   notice rather than a crash. The proper fix is a server-side proxy (for example a Supabase Edge
+   Function) that holds the key and forwards the requests; that is **out of scope for this build**
+   and recorded here as the next hardening step. Rotating the key is a one-line change in
+   `local.properties` plus a rebuild, so treat it as a low-value secret rather than a credential.
+   Do not put a paid-plan key in a public build without the proxy.
 8. **`supabase/pilot_seed.sql` creates demo accounts and stations.** It is a manual script and is
    never run by the app. Never run it against production.
 
