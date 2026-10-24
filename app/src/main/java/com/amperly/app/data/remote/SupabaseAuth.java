@@ -174,15 +174,28 @@ public final class SupabaseAuth {
         return session;
     }
 
-    /** Creates an account. Returns null when the project requires email confirmation. */
+    /**
+     * Creates an account. Returns null when the project requires email confirmation.
+     *
+     * <p>The display name travels in {@code data}, which GoTrue stores as
+     * {@code raw_user_meta_data}. The {@code on_auth_user_created} trigger reads it when it
+     * creates the {@code public.users} row, so the profile has the person's real name from the
+     * first moment instead of the email prefix.
+     */
     @Nullable
-    public static Session signUp(Context context, String email, String password)
+    public static Session signUp(Context context, String email, String password, String name)
             throws Failure {
         requireConfigured();
         attach(context);
         JsonObject body = new JsonObject();
         body.addProperty("email", email == null ? "" : email.trim());
         body.addProperty("password", password == null ? "" : password);
+        String displayName = name == null ? "" : name.trim();
+        if (!displayName.isEmpty()) {
+            JsonObject data = new JsonObject();
+            data.addProperty("name", displayName);
+            body.add("data", data);
+        }
 
         HttpResult result = execute(() ->
                 SupabaseClient.goTrue().signUp(toJsonBody(body)).execute());

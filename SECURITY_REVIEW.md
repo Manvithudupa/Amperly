@@ -122,9 +122,12 @@ security state is inferred from an intent the app did not originate.
    Closing this fully means making host evidence mandatory before billing (or restricting
    settlement to the host/admin), which changes the "complete and bill" consumer flow. Recorded
    as the next security change, not silently half-done.
-3. **A reservation can be created without an authorization.** A custom client can insert a
-   reservation and hold a port without paying. Availability is then denied to real drivers until
-   it expires. Fix: a `create_reservation` RPC that checks the payment hold in one transaction.
+3. **A booking holds a port without a payment.** Payments are not collected in this build, so
+   there is no authorization to check. A custom client can still hold a port at no cost, although
+   it can no longer bypass the overlap check or squat indefinitely: `create_reservation` is the
+   only INSERT path, it serialises the check and the insert per port, and it refuses any hold
+   longer than 12 hours. Fix when payments return: require the authorization inside that same
+   transaction, or cap concurrent bookings per account.
 4. **No certificate pinning.** System CAs are trusted, which is the platform default; pinning
    would harden against a malicious CA but adds an operational rotation burden.
 5. **R8/minification is off in release.** That is obfuscation, not a security boundary — the
@@ -144,7 +147,9 @@ security state is inferred from an intent the app did not originate.
 
 The SQL guards are in `supabase/schema.sql` but are **not** applied to the hosted project by the
 app build. Run the file in the Supabase SQL editor once (the new triggers live at the end of
-section 5, *Settlement*, and their `revoke` statements follow them), then verify:
+section 5, *Settlement*, and their `revoke` statements follow them). The same file adds
+`create_reservation`, which this build requires: without it every booking is refused with the
+"server could not confirm" message. Then verify:
 
 ```sql
 select tgname from pg_trigger

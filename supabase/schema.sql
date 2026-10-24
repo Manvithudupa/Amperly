@@ -713,6 +713,10 @@ create index if not exists idx_disputes_consumer        on public.disputes ("con
 create index if not exists idx_disputes_host            on public.disputes ("hostId");
 create index if not exists idx_enforcements_host        on public.host_enforcements ("hostId");
 create index if not exists idx_notifications_user       on public.notifications ("userId");
+-- A booking code is a bearer credential shown at the station; it must identify one booking.
+create unique index if not exists idx_reservations_booking_code
+    on public.reservations ("bookingCode")
+    where "bookingCode" is not null;
 create index if not exists idx_auto_sessions_user       on public.android_auto_sessions ("userId");
 
 
@@ -886,10 +890,11 @@ create policy reservations_read_parties on public.reservations
                       where s.id = "stationId" and s."hostId" = public.current_app_user_id())
            or public.is_platform_admin());
 
+-- A reservation is created only through create_reservation(), which takes a per-port
+-- advisory lock and checks the requested window against live reservations in the same
+-- transaction. There is deliberately no INSERT policy: a custom client cannot bypass the
+-- conflict check by POSTing a row straight to the table.
 drop policy if exists reservations_insert_consumer on public.reservations;
-create policy reservations_insert_consumer on public.reservations
-    for insert to authenticated
-    with check ("consumerId" = public.current_app_user_id() or public.is_platform_admin());
 
 -- Both the consumer and the station host legitimately move a reservation's
 -- status (check-in by the host, cancellation by the consumer).
@@ -1258,9 +1263,118 @@ end;
 $$;
 
 
+-- Creates a reservation atomically.
+--
+-- The slot is the scarce resource, so the conflict check and the INSERT run in one
+-- transaction under a per-port advisory lock. Two phones requesting the same port and an
+-- overlapping window are serialised: the second one sees the first row and is refused with
+-- SLOT_TAKEN instead of both bookings succeeding client-side. The station, port and prices
+-- are read here rather than trusted from the caller, so a custom client cannot invent a
+-- cheaper tariff or reserve a paused/unapproved station.
+create or replace function public.create_reservation(
+    p_id           text,
+    p_station_id   text,
+    p_port_id      text,
+    p_start_ms     bigint,
+    p_end_ms       bigint,
+    p_booking_code text
+)
+returns text
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+    v_consumer   text;
+    v_station    text;
+    v_station_name text;
+    v_host       text;
+    v_port_label text;
+    v_tariff     double precision;
+    v_service    double precision;
+    v_gateway    double precision;
+    v_now        bigint;
+begin
+    v_consumer := public.current_app_user_id();
+    if v_consumer is null then
+        raise exception 'NOT_ALLOWED' using errcode = 'P0001';
+    end if;
+    if p_id is null or btrim(p_id) = '' or p_booking_code is null or btrim(p_booking_code) = '' then
+        raise exception 'NOT_ALLOWED' using errcode = 'P0001';
+    end if;
+    if p_start_ms is null or p_end_ms is null or p_end_ms <= p_start_ms then
+        raise exception 'SLOT_INVALID' using errcode = 'P0001';
+    end if;
+    -- A port can be held for at most 12 hours. The app only offers short slots, so this
+    -- bound is not visible in normal use; it stops a custom client from holding one port
+    -- for months and blocking every other driver.
+    if p_end_ms - p_start_ms > 43200000 then
+        raise exception 'SLOT_TOO_LONG' using errcode = 'P0001';
+    end if;
+
+    v_now := (extract(epoch from now()) * 1000)::bigint;
+    if p_start_ms < v_now - 300000 then
+        raise exception 'SLOT_IN_PAST' using errcode = 'P0001';
+    end if;
+
+    -- One lock per port, held to the end of the transaction. hashtext() can collide for
+    -- different ports, which only serialises two unrelated bookings for a moment.
+    perform pg_advisory_xact_lock(hashtext(p_port_id)::bigint);
+
+    select s."hostId", s.name, coalesce(s."pricePerKwh", 18.0),
+           coalesce(s."serviceFee", 5.0), coalesce(s."gatewayFee", 4.0)
+      into v_host, v_station_name, v_tariff, v_service, v_gateway
+      from public.charger_stations s
+     where s.id = p_station_id
+       and s."approvalStatus" = 'APPROVED'
+       and coalesce(s."isPaused", false) = false;
+
+    if v_host is null then
+        raise exception 'STATION_UNAVAILABLE' using errcode = 'P0001';
+    end if;
+
+    select 'Port ' || coalesce(p."portNumber"::text, p.id) || ' · '
+           || coalesce(p."connectorType", '') || ' · '
+           || trunc(coalesce(p."powerKw", 0))::text || ' kW'
+      into v_port_label
+      from public.charger_ports p
+     where p.id = p_port_id
+       and p."stationId" = p_station_id
+       and p.status = 'AVAILABLE';
+
+    if v_port_label is null then
+        raise exception 'PORT_UNAVAILABLE' using errcode = 'P0001';
+    end if;
+
+    if exists (
+        select 1
+          from public.reservations r
+         where r."portId" = p_port_id
+           and r.status in ('RESERVED', 'CHECKED_IN', 'CHARGING')
+           and r."startTimeMs" < p_end_ms
+           and r."endTimeMs" > p_start_ms
+    ) then
+        raise exception 'SLOT_TAKEN' using errcode = 'P0001';
+    end if;
+
+    insert into public.reservations (id, "consumerId", "stationId", "stationName",
+        "portId", "portLabel", "bookingCode", "startTimeMs", "endTimeMs", status,
+        "pricePerKwh", "serviceFee", "gatewayFee", "cancellationFee", "isPaid",
+        "paymentId", "checkedInAtMs", "cancelledAtMs", "createdAtMs")
+    values (p_id, v_consumer, p_station_id, v_station_name, p_port_id, v_port_label,
+        btrim(p_booking_code), p_start_ms, p_end_ms, 'RESERVED', v_tariff, v_service,
+        v_gateway, 0.0, false, null, 0, 0, v_now);
+
+    return p_id;
+end;
+$$;
+
+
 -- Completes a session: recomputes the bill from the meter readings and the
--- station's tariff, then writes the session, the reading, the receipt and the
--- capture in one transaction, closes the reservation and frees the port.
+-- station's tariff, then writes the session, the reading and the receipt in one
+-- transaction, closes the reservation and frees the port. Payments are not collected in
+-- this build, so the invoice is issued rather than marked paid and the reservation keeps
+-- isPaid = false.
 create or replace function public.finalize_charging_session(
     p_session_id        text,
     p_reservation_id    text,
@@ -1291,6 +1405,7 @@ declare
     v_energy       double precision;
     v_total        double precision;
     v_payment      text;
+    v_invoice_status text;
     v_now          bigint;
     v_evidence_start double precision;
     v_evidence_end   double precision;
@@ -1363,12 +1478,15 @@ begin
     v_total := public.round2(v_energy + v_service + v_gateway);
     v_now   := (extract(epoch from now()) * 1000)::bigint;
 
-    -- The authorization taken when the slot was booked becomes the capture.
+    -- Payments are disabled in this build: a reservation normally has no payment row. If a
+    -- gateway is connected later, the authorization taken at booking becomes the capture and
+    -- the invoice is PAID; otherwise the invoice is ISSUED and nothing is collected.
     select p.id into v_payment
       from public.payments p
      where p."reservationId" = p_reservation_id
      order by p."createdAtMs" desc
      limit 1;
+    v_invoice_status := case when v_payment is null then 'ISSUED' else 'PAID' end;
 
     insert into public.charging_sessions (id, "reservationId", "consumerId", "hostId",
         "stationId", "stationName", "portId", "startTimeMs", "endTimeMs",
@@ -1412,7 +1530,7 @@ begin
             "adjustmentNote", "finalTotal", "paymentId", status, "issuedAtMs")
         values (p_invoice_id, p_session_id, v_consumer, v_host, v_station_name,
             v_kwh, v_energy, v_service, v_gateway, 0.0,
-            '', v_total, v_payment, 'PAID', v_now)
+            '', v_total, v_payment, v_invoice_status, v_now)
         on conflict (id) do update
             set "verifiedKwh"  = excluded."verifiedKwh",
                 "energyCharge" = excluded."energyCharge",
@@ -1433,7 +1551,9 @@ begin
     end if;
 
     update public.reservations
-       set status = 'COMPLETED', "isPaid" = true, "paymentId" = v_payment
+       set status = 'COMPLETED',
+           "isPaid" = (v_payment is not null),
+           "paymentId" = v_payment
      where id = p_reservation_id;
 
     if v_port is not null then
@@ -1992,6 +2112,8 @@ revoke all on function public.apply_host_enforcement(text, text, double precisio
 
 grant execute on function public.authorize_payment(text, text, text, double precision, text) to authenticated;
 grant execute on function public.finalize_charging_session(text, text, double precision, double precision, boolean, text, text) to authenticated;
+revoke all on function public.create_reservation(text, text, text, bigint, bigint, text) from public;
+grant execute on function public.create_reservation(text, text, text, bigint, bigint, text) to authenticated;
 grant execute on function public.cancel_reservation(text) to authenticated;
 grant execute on function public.decide_station_approval(text, boolean) to authenticated;
 grant execute on function public.resolve_dispute_refund(text) to authenticated;

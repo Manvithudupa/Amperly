@@ -59,9 +59,10 @@ public final class ReservationEngine {
 
     public static final String CANCELLATION_POLICY =
             "• Free cancellation until 60 minutes before the slot.\n"
-                    + "• A disclosed ₹20 late-cancellation fee may apply after that window.\n"
+                    + "• A disclosed ₹20 late-cancellation fee is recorded after that window.\n"
                     + "• No energy charge is applied when no energy was consumed.\n"
-                    + "• Unused payment authorization is released or refunded through the gateway.\n"
+                    + "• No payment is collected in this build: no card is charged and there is "
+                    + "no authorization to release.\n"
                     + "• No hidden penalties: energy, service and gateway charges are always itemised.";
 
     private ReservationEngine() {

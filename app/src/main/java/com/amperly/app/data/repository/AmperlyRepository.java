@@ -9,6 +9,8 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.lifecycle.LiveData;
 
+import com.amperly.app.R;
+import com.amperly.app.communication.ChatManager;
 import com.amperly.app.core.common.AppConstants;
 import com.amperly.app.core.security.AuthManager;
 import com.amperly.app.data.local.AmperlyDatabase;
@@ -45,6 +47,7 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -635,17 +638,154 @@ public class AmperlyRepository {
         return db.reservationDao().countConflicts(portId, startMs, endMs);
     }
 
-    public void saveReservation(Reservation reservation) {
-        run(() -> {
-            db.reservationDao().insert(reservation);
-            pushUpsert("reservations", reservation);
-        });
+    /** The result of asking the server to create a booking. */
+    public static final class BookingResult {
+        public final boolean success;
+        public final String message;
+        @Nullable
+        public final Reservation reservation;
+        /** True when the slot itself was taken, so the caller should reload availability. */
+        public final boolean slotTaken;
+
+        private BookingResult(boolean success, String message, @Nullable Reservation reservation,
+                              boolean slotTaken) {
+            this.success = success;
+            this.message = message;
+            this.reservation = reservation;
+            this.slotTaken = slotTaken;
+        }
+
+        static BookingResult ok(Reservation reservation) {
+            return new BookingResult(true, "", reservation, false);
+        }
+
+        static BookingResult failed(String message) {
+            return new BookingResult(false, message, null, false);
+        }
     }
 
+    /**
+     * Creates a booking on the server and only then writes it to Room.
+     *
+     * <p>The server owns the slot: {@code create_reservation} takes a per-port advisory lock,
+     * checks the requested window against live bookings, reads the station's real tariff and
+     * inserts in one transaction. No local success is shown until that call returns, so two
+     * drivers cannot both be told they have the same port and a failed write cannot leave a
+     * ghost booking on the device.
+     *
+     * <p>Must be called off the main thread (network + Room).
+     */
+    public BookingResult createReservationConfirmed(String reservationId, String bookingCode,
+                                                    ChargerStation station, ChargerPort port,
+                                                    long startMs, long endMs) {
+        if (!SyncEngine.isEnabled()) {
+            return BookingResult.failed(appContext.getString(R.string.reserve_server_required));
+        }
+
+        Map<String, Object> args = new LinkedHashMap<>();
+        args.put("p_id", reservationId);
+        args.put("p_station_id", station.getId());
+        args.put("p_port_id", port.getId());
+        args.put("p_start_ms", startMs);
+        args.put("p_end_ms", endMs);
+        args.put("p_booking_code", bookingCode);
+
+        try {
+            SyncEngine.call("create_reservation", args);
+        } catch (RuntimeException e) {
+            Log.w(TAG, "Reservation was refused by the server: " + e.getMessage());
+            String detail = e.getMessage() == null ? "" : e.getMessage();
+            if (detail.contains("SLOT_TAKEN")) {
+                return new BookingResult(false, appContext.getString(R.string.reserve_slot_taken),
+                        null, true);
+            }
+            if (detail.contains("SLOT_IN_PAST")) {
+                return BookingResult.failed(appContext.getString(R.string.reserve_slot_in_past));
+            }
+            if (detail.contains("SLOT_TOO_LONG")) {
+                return BookingResult.failed(appContext.getString(R.string.reserve_slot_too_long));
+            }
+            if (detail.contains("STATION_UNAVAILABLE")) {
+                return BookingResult.failed(appContext.getString(R.string.reserve_station_unavailable));
+            }
+            if (detail.contains("PORT_UNAVAILABLE")) {
+                return BookingResult.failed(appContext.getString(R.string.reserve_no_slots));
+            }
+            return BookingResult.failed(appContext.getString(R.string.reserve_server_failed));
+        }
+
+        String userId = AuthManager.getInstance().getCurrentUserId();
+        Reservation reservation = new Reservation(reservationId, userId, station.getId(),
+                station.getName(), port.getId(), AvailabilityEngine.portLabel(port), bookingCode,
+                startMs, endMs, AppConstants.STATUS_RESERVED, station.getPricePerKwh(),
+                station.getServiceFee(), station.getGatewayFee(), 0.0, false, null, 0, 0,
+                System.currentTimeMillis());
+
+        // The server row exists now. Write the same row locally, plus the thread and inbox
+        // entry the screens need, before the caller is allowed to navigate.
+        db.reservationDao().insert(reservation);
+
+        User consumer = AuthManager.getInstance().getCurrentUser();
+        User host = getUserSync(station.getHostId());
+        CommunicationThread thread = ChatManager.createThread(reservation, consumer, host);
+        db.communicationThreadDao().insert(thread);
+        pushUpsert("communication_threads", thread);
+
+        com.amperly.app.data.local.entity.Notification notification =
+                new com.amperly.app.data.local.entity.Notification(UUID.randomUUID().toString(), userId,
+                        appContext.getString(R.string.notification_reservation_title),
+                        appContext.getString(R.string.notification_reservation_body, bookingCode,
+                                station.getName()),
+                        false, System.currentTimeMillis());
+        db.notificationDao().insert(notification);
+        pushUpsert("notifications", notification);
+
+        return BookingResult.ok(reservation);
+    }
+
+    /**
+     * Cancels a booking on the server, then mirrors the result locally.
+     *
+     * <p>The cancellation fee is a server decision; the local row is only updated after
+     * {@code cancel_reservation} succeeds, so the UI cannot show a cancelled booking that the
+     * server still considers live.
+     *
+     * @return null on success, or a user-facing reason on failure.
+     */
+    @Nullable
+    public String cancelReservationConfirmed(Reservation reservation, double lateFee) {
+        if (reservation == null) {
+            return null;
+        }
+        if (!SyncEngine.isEnabled()) {
+            return appContext.getString(R.string.cancel_server_required);
+        }
+        try {
+            SyncEngine.call("cancel_reservation",
+                    singleArg("p_reservation_id", reservation.getId()));
+        } catch (RuntimeException e) {
+            recordWriteFailure("Could not cancel reservation", e);
+            return appContext.getString(R.string.cancel_server_failed);
+        }
+
+        reservation.setStatus(AppConstants.STATUS_CANCELLED);
+        reservation.setCancelledAtMs(System.currentTimeMillis());
+        reservation.setCancellationFee(lateFee);
+        db.reservationDao().update(reservation);
+        return null;
+    }
+
+    /**
+     * Updates a booking that already exists on the server.
+     *
+     * <p>A PATCH, not an upsert: the reservation INSERT policy is gone, and a partial update
+     * must not be evaluated against the create rules. The tamper trigger still pins the slot,
+     * port, price and payment fields.
+     */
     public void updateReservation(Reservation reservation) {
         run(() -> {
             db.reservationDao().update(reservation);
-            pushUpsert("reservations", reservation);
+            pushPatch("reservations", reservation.getId(), reservation);
         });
     }
 
@@ -694,41 +834,52 @@ public class AmperlyRepository {
     }
 
     /**
-     * Completes a session on the server (finalize_charging_session).
+     * Completes a session on the server, then writes the local copy.
      *
-     * <p>The server recomputes the bill from the meter readings and the station's
-     * tariff, writes the session, the reading, the receipt and the capture in one
-     * transaction, closes the reservation and frees the port. The local rows written
-     * here are the offline copy — the same figures, computed by the app's BillingEngine
-     * — and are replaced by the server's rows on the next pull.
+     * <p>{@code finalize_charging_session} recomputes the bill from the meter readings and the
+     * station's tariff, writes the session, the reading and the receipt in one transaction,
+     * closes the reservation and frees the port. The local rows are written only after that
+     * call succeeds, so the receipt screen can never open on a settlement the server refused.
+     * Payments are disabled in this build; the invoice is ISSUED, not PAID.
+     *
+     * <p>Must be called off the main thread (network + Room).
+     *
+     * @return null on success, or a user-facing reason on failure.
      */
-    public void finalizeSession(ChargingSession session, MeterReading reading, Invoice invoice,
-                                Payment payment, Reservation reservation) {
-        run(() -> {
-            db.chargingSessionDao().insert(session);
-            if (reading != null) {
-                db.meterReadingDao().insert(reading);
-            }
-            if (invoice != null) {
-                db.invoiceDao().insert(invoice);
-            }
-            if (payment != null) {
-                db.paymentDao().insert(payment);
-            }
-            if (reservation != null) {
-                db.reservationDao().update(reservation);
-            }
+    @Nullable
+    public String finalizeSession(ChargingSession session, MeterReading reading, Invoice invoice,
+                                  Reservation reservation) {
+        if (!SyncEngine.isEnabled()) {
+            return appContext.getString(R.string.session_server_required);
+        }
 
-            Map<String, Object> args = new LinkedHashMap<>();
-            args.put("p_session_id", session.getId());
-            args.put("p_reservation_id", session.getReservationId());
-            args.put("p_start_meter_kwh", session.getStartingMeterKwh());
-            args.put("p_end_meter_kwh", session.getEndingMeterKwh());
-            args.put("p_is_simulated", session.isMeterSimulated());
-            args.put("p_meter_reading_id", reading == null ? null : reading.getId());
-            args.put("p_invoice_id", invoice == null ? null : invoice.getId());
-            pushRpc("finalize_charging_session", args);
-        });
+        Map<String, Object> args = new LinkedHashMap<>();
+        args.put("p_session_id", session.getId());
+        args.put("p_reservation_id", session.getReservationId());
+        args.put("p_start_meter_kwh", session.getStartingMeterKwh());
+        args.put("p_end_meter_kwh", session.getEndingMeterKwh());
+        args.put("p_is_simulated", session.isMeterSimulated());
+        args.put("p_meter_reading_id", reading == null ? null : reading.getId());
+        args.put("p_invoice_id", invoice == null ? null : invoice.getId());
+
+        try {
+            SyncEngine.call("finalize_charging_session", args);
+        } catch (RuntimeException e) {
+            recordWriteFailure("Could not finalize session", e);
+            return appContext.getString(R.string.session_server_failed);
+        }
+
+        db.chargingSessionDao().insert(session);
+        if (reading != null) {
+            db.meterReadingDao().insert(reading);
+        }
+        if (invoice != null) {
+            db.invoiceDao().insert(invoice);
+        }
+        if (reservation != null) {
+            db.reservationDao().update(reservation);
+        }
+        return null;
     }
 
     // ------------------------------------------------------- admin transitions

@@ -3,8 +3,9 @@
   Reserve a port.
 
   The form reads like a booking slip: where, when, what it should cost, what the policy is,
-  then one authorization. The price is labelled as an estimate because the bill is settled
-  from verified meter readings afterwards.
+  then one reservation action. The price is labelled as an estimate because the bill is
+  settled from verified meter readings afterwards. Payments are not collected in this build.
+
 -->
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
@@ -207,7 +208,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="@dimen/amp_space_l"
-                android:text="@string/action_pay" />
+                android:text="@string/action_reserve" />
         </LinearLayout>
 
         <TextView

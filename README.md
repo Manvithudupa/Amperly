@@ -1,9 +1,9 @@
 # Amperly
 ### Smart Reservation and Management Platform for Existing EV Chargers
 
-**Amperly** is an Android-first hyperlocal EV charger-management, route-planning, and reservation platform written in Java. It helps drivers plan a journey around compatible chargers that already exist, reserve a specific port, check in with a QR code, talk to the Host through masked channels, and pay only for **verified meter readings** — with a glanceable version of the same trip on the car display through **Android Auto**.
+**Amperly** is an Android-first hyperlocal EV charger-management, route-planning, and reservation platform written in Java. It helps drivers plan a journey around compatible chargers that already exist, reserve a specific port, check in with a QR code, talk to the Host through masked channels, and see exactly what a charge for **verified meter readings** costs — with a glanceable version of the same trip on the car display through **Android Auto**.
 
-Google Maps powers the map, the destination search and the route. **Amperly helps you reserve, access, use, and pay for the charger** — with route-aware charging plans projected onto the car display.
+Google Maps powers the map, the destination search and the route. **Amperly helps you reserve, access and use the charger** — with route-aware charging plans projected onto the car display.
 
 > Route energy and battery-drain figures are **planning estimates**. The final bill is always based on verified meter readings. Stations without a verified meter can only take a reservation **without automatic billing**.
 
@@ -11,7 +11,7 @@ Google Maps powers the map, the destination search and the route. **Amperly help
 
 ## 1. What this build actually is
 
-The MVP is a **single-process Android application**. There is no live backend and no charger hardware integration:
+The MVP is a **single-process Android application** backed by Supabase/Postgres. There is no charger hardware integration:
 
 | Concern | How it works in this MVP |
 |---|---|
@@ -19,7 +19,7 @@ The MVP is a **single-process Android application**. There is no live backend an
 | Data access | One hub, `AmperlyRepository` (all DAO access, off-main-thread helpers) |
 | Data source | **Supabase is the only source of truth.** No pilot seeding and no offline demo identity: stations, vehicles, reservations and readings are rows the signed-in account is authorised to read through Row Level Security. When the account has no rows, the screens say so instead of inventing content |
 | Maps & navigation | **Google Maps SDK for Android** for the map, user-registered charger markers and in-app navigation; **Google Directions API** for road routes and turn-by-turn; **Google Place autocomplete** for destination and address entry. A missing key shows an actionable setup notice instead of a blank map. See §6 |
-| Payments | `PaymentManager` sandbox: authorize → capture/refund/release, idempotency keys, offline failure path |
+| Payments | **None are collected in this build.** A booking is a free hold and completing a session issues an invoice that is not charged. `PaymentManager` is an in-repo sandbox (authorize → capture/refund/release, idempotency, offline failure) covered by tests, but no gateway is connected and the booking flow does not take a hold |
 | Charger telemetry | None. Availability is schedule-, reservation- and host-update-based, and is labelled with a freshness timestamp |
 | Meter data | `MeterSimulator` / manual entry, always labelled **Demo meter** or **manually entered** |
 | Cloud | Supabase/Postgres backend (`supabase/`), the source of truth. When `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` are set every screen reads and writes it; when they are absent `SyncEngine.isEnabled()` is false, nothing is pushed, and the app can only show what is already in the local Room cache. A trigger on `auth.users` gives every account its `public.users` profile — the row Row Level Security resolves the caller through |
@@ -79,11 +79,11 @@ The phone and the car read the **same** `AppStateStore`, so a reservation or bat
 | `BillingEngine` | Blocks paid billing entirely at stations without a verified meter. Itemises starting/ending readings, verified kWh, energy charge, service fee, gateway fee and final total. Zero energy ⇒ zero charge. Unusually large readings are flagged for admin review. Also owns the cancellation policy and refund/adjustment maths. |
 | `AvailabilityEngine` | Builds bookable slots from operating schedules, port status, maintenance blocks and existing reservations; detects conflicts; summarises openness. |
 | `MeterSimulator` | Cumulative demo readings, session progression, offline state, invalid (reversed) readings and physically implausible readings. |
-| `ReservationEngine` | Double-booking prevention, port-level connector compatibility, paused/unverified station rejection, meterless-station policy, price preview with authorized headroom, booking code and QR payload, and the published cancellation policy copy. |
+| `ReservationEngine` | Double-booking prevention, port-level connector compatibility, paused/unverified station rejection, meterless-station policy, itemised price preview, booking code and QR payload, and the published cancellation policy copy. |
 | `HostAnalyticsEngine` | Utilisation, energy delivered, revenue, repeat consumers, cancellation rate, average session size, disputes and refunds — for one host or the whole platform. |
 | `EnforcementPolicyEngine` | Evidence-based escalation: warning → fine → suspension → ban. An **unverified** accusation results in `NONE`; hosts are never punished on an unproven complaint. |
 
-`PaymentManager` (sandbox authorize/capture/refund/release + idempotency) and `ChatManager` (number masking, text sanitising, off-platform payment detection, 7-day thread expiry) sit alongside the engines.
+`PaymentManager` (sandbox authorize/capture/refund/release + idempotency, not wired into booking because no gateway is connected) and `ChatManager` (number masking, text sanitising, off-platform payment detection, 7-day thread expiry) sit alongside the engines.
 
 ---
 
@@ -96,7 +96,7 @@ These are requirements, not niceties, and the code enforces them:
 3. **The consumer's battery value wins.** A dashboard SoC always overrides Amperly's estimate for the remaining trip, and the remaining route plus every charger recommendation is recalculated from the driver's real position.
 4. **The original plan is never silently rewritten.** Screens show `Original estimate → Actual update → Revised recommendation`, and the audit record is stored.
 5. **Simulated data says so.** Demo meter readings are labelled "Demo meter — simulated reading, not live charger hardware".
-6. **No emergency-service claim.** The SOS screen offers trusted-contact live-location sharing (60 minutes, opt-in, cancellable) and points at local emergency numbers — it does not promise a response.
+6. **No emergency-service claim.** The SOS screen records an on-device event, manages trusted contacts and offers opt-in, cancellable live-location sharing for 60 minutes — but this build sends no SMS and shares nothing with anyone, says so on the screen, and never promises a response. Local emergency numbers are the real path.
 7. **Free-text chat is phone-only.** The car surface never offers typing.
 8. **Freshness is visible.** "Availability last updated X ago" is shown wherever availability is presented.
 9. **The start is the real position.** The route planner takes the device's current location as the origin; it never quietly substitutes a pilot coordinate. When there is no fix the screen says so and offers an explicit map-pin origin.
@@ -288,7 +288,7 @@ Spoken turn-by-turn guidance, `NavigationViewForAuto` and the licence-gated part
 repository. Amperly's navigation layer is written against the `NavigationProvider` interface and the
 audio-guidance flags (`GoogleNavigationProvider.AUDIO_VOICE_ALERTS_AND_GUIDANCE`,
 `AUDIO_BLUETOOTH`) are already modelled, so the licensed SDK can be dropped in behind the same
-interface. See `GOOGLE_NAVIGATION_MIGRATION.md` for the exact seam.
+interface.
 
 ---
 
@@ -380,7 +380,7 @@ Also seeded: full weekly availability schedules, two completed sessions with inv
 | Location | `play-services-location` fused provider for the real position |
 | Routing | **Google Directions API** (traffic-aware), behind the `NavigationProvider` interface |
 | QR codes | ZXing `core` (bitmap generated in-app) |
-| Payments | In-repo sandbox `PaymentManager` (no card data is ever stored) |
+| Payments | None collected; in-repo sandbox `PaymentManager` tested but not connected to a gateway, and no card data is ever stored |
 | Tests | JUnit 4 (unit tests, no device required) |
 
 ---

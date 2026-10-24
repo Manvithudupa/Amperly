@@ -181,8 +181,10 @@ attacker would try first:
 - **A consumer cannot decide what they are charged.** They may add a meter
   reading for their own session, but the reading the bill is calculated from —
   and the amount itself — are written by `finalize_charging_session()` on the
-  server. `payments` and `invoices` have no client write policy at all, and the
-  billing columns of `charging_sessions` are pinned by a trigger.
+  server. `invoices` have no client write policy at all, `payments` money fields
+  are pinned by `prevent_payment_tampering()` (only the settlement functions can
+  capture, refund or release), and the billing columns of `charging_sessions`
+  are pinned by a trigger.
 - **A user cannot promote themselves.** Roles are a column on `users`, and the
   obvious attack is to `PATCH` your own row and set `role = 'ADMIN'`. The
   `prevent_privilege_escalation` trigger rejects any role, block-state or
@@ -199,13 +201,19 @@ longer allowed to *store* one. The billing transitions go through
 
 | Function | Who may call it | What it does |
 |---|---|---|
-| `authorize_payment` | the consumer booking | Creates the authorization (a hold, not a charge) |
-| `finalize_charging_session` | that reservation's consumer or host | Recomputed from the meter readings; writes the session, the receipt and the capture, closes the reservation, frees the port |
-| `cancel_reservation` | that reservation's consumer or host | Applies the published late-cancellation policy server-side and releases the hold |
+| `authorize_payment` | the consumer booking | Creates an authorization (a hold, not a charge). **Not called by this build:** no gateway is connected, so a booking is a free hold |
+| `finalize_charging_session` | that reservation's consumer or host | Recomputed from the meter readings; writes the session and the receipt, closes the reservation, frees the port, and marks the invoice `PAID` only if a payment row exists (otherwise `ISSUED`) |
+| `cancel_reservation` | that reservation's consumer or host | Applies the published late-cancellation policy server-side and releases any hold |
 | `decide_station_approval` | admin | Approves or rejects a listing and notifies the host |
 | `resolve_dispute_refund` | admin | Refunds the invoice's energy charge, refunds the payment, resolves the dispute |
 | `freeze_dispute_payout` | admin | Holds the host's payout |
 | `apply_host_enforcement` | admin | Records the enforcement action and pauses the station when the policy calls for it |
+
+Booking is a function too: `create_reservation` takes a per-port advisory lock,
+checks the requested window against live reservations, reads the station's real
+tariff and inserts in one transaction. It is the only INSERT path into
+`reservations` (there is no insert policy), and it caps a single hold at 12 hours
+so a custom client cannot block a port indefinitely.
 
 Each one checks who is calling before it writes, and the app calls it directly
 from the save that needs it. There is no offline queue: a call that fails is

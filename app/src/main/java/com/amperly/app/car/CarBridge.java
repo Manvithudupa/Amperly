@@ -1,10 +1,9 @@
 package com.amperly.app.car;
 
-import com.amperly.app.core.common.AppConstants;
 import com.amperly.app.core.security.AuthManager;
 import com.amperly.app.core.state.AppStateStore;
+import com.amperly.app.data.local.entity.ChargerPort;
 import com.amperly.app.data.local.entity.ChargerStation;
-import com.amperly.app.data.local.entity.Payment;
 import com.amperly.app.data.local.entity.Reservation;
 import com.amperly.app.data.local.entity.RoutePlan;
 import com.amperly.app.data.local.entity.Vehicle;
@@ -12,7 +11,6 @@ import com.amperly.app.data.repository.AmperlyRepository;
 import com.amperly.app.engine.availability.AvailabilityEngine;
 import com.amperly.app.engine.booking.ReservationEngine;
 import com.amperly.app.engine.soc.SoCEstimatorEngine;
-import com.amperly.app.payment.PaymentManager;
 
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -212,30 +210,30 @@ public final class CarBridge {
                 return "No free slot published for " + station.getName() + " right now.";
             }
             AvailabilityEngine.Slot slot = slots.get(0);
-            String userId = AuthManager.getInstance().getCurrentUserId();
-            String key = PaymentManager.newIdempotencyKey(userId, stationId, slot.getStartMs());
-            double energyEstimate = station.getMaxPowerKw() * 1.0;
-            ReservationEngine.PricePreview preview = ReservationEngine.preview(station, energyEstimate);
-            PaymentManager.PaymentResult paymentResult = PaymentManager.authorize(userId,
-                    station.getHostId(), null, preview.getAuthorizedAmount(), key);
-            if (!paymentResult.isSuccess()) {
-                // A car display gets one short line, never a gateway message.
-                return "Payment could not be verified. Try again.";
+
+            // The slot names a port; the booking call needs the row itself for its label.
+            ChargerPort port = null;
+            for (ChargerPort candidate : repo.getPortsSync(stationId)) {
+                if (candidate.getId().equals(slot.getPortId())) {
+                    port = candidate;
+                    break;
+                }
             }
-            Payment payment = paymentResult.getPayment();
+            if (port == null) {
+                return "That port is no longer listed.";
+            }
+
             String reservationId = UUID.randomUUID().toString();
             String code = ReservationEngine.buildBookingCode();
-            payment.setReservationId(reservationId);
+            // The server owns the slot: it checks the window under a per-port lock and
+            // writes the row, so the car cannot confirm a slot another driver just took.
+            AmperlyRepository.BookingResult result = repo.createReservationConfirmed(
+                    reservationId, code, station, port, slot.getStartMs(), slot.getEndMs());
+            if (!result.success || result.reservation == null) {
+                return result.message == null ? "The booking was refused. Try again." : result.message;
+            }
 
-            Reservation reservation = new Reservation(reservationId, userId, stationId, station.getName(),
-                    slot.getPortId(), slot.getPortLabel(), code, slot.getStartMs(), slot.getEndMs(),
-                    AppConstants.STATUS_RESERVED, station.getPricePerKwh(), station.getServiceFee(),
-                    station.getGatewayFee(), 0.0, true, payment.getId(), 0, 0, System.currentTimeMillis());
-            // authorize_payment resolves the booking server-side, so the reservation is written
-            // first.
-            repo.saveReservation(reservation);
-            repo.authorizePayment(payment, stationId);
-            AppStateStore.get().setActiveReservation(reservation);
+            AppStateStore.get().setActiveReservation(result.reservation);
             AppStateStore.get().setLastBookingCode(code);
             return "Reserved " + slot.getPortLabel() + " at " + station.getName() + " · code " + code;
         }, callback::onResult);

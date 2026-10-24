@@ -355,10 +355,12 @@ public class HostDashboardFragment extends Fragment {
         repo.background(() -> {
             BillingEngine.CancellationResult result = BillingEngine.calculateCancellation(reservation,
                     System.currentTimeMillis());
-            reservation.setStatus(AppConstants.STATUS_CANCELLED);
-            reservation.setCancelledAtMs(System.currentTimeMillis());
-            reservation.setCancellationFee(result.getFee());
-            repo.updateReservation(reservation);
+            // cancel_reservation is the only writer allowed to change the cancellation fee, and
+            // it also releases the port. The local row is updated only after it succeeds.
+            String error = repo.cancelReservationConfirmed(reservation, result.getFee());
+            if (error != null) {
+                return new ReleaseOutcome(false, error);
+            }
             List<ChargerPort> ports = repo.getPortsSync(reservation.getStationId());
             for (ChargerPort port : ports) {
                 if (port.getId().equals(reservation.getPortId())) {
@@ -366,13 +368,28 @@ public class HostDashboardFragment extends Fragment {
                     repo.setPortStatus(port, AppConstants.PORT_AVAILABLE);
                 }
             }
-            return result.getMessage();
-        }, message -> {
-            if (message != null) {
-                Ux.info(this, message);
-                Navigator.openRoot(requireActivity(), new HostDashboardFragment(), "host_dashboard");
+            return new ReleaseOutcome(true, result.getMessage());
+        }, outcome -> {
+            if (outcome == null) {
+                return;
             }
+            if (!outcome.success) {
+                Ux.error(this, outcome.message);
+                return;
+            }
+            Ux.info(this, outcome.message);
+            Navigator.openRoot(requireActivity(), new HostDashboardFragment(), "host_dashboard");
         });
+    }
+
+    private static class ReleaseOutcome {
+        private final boolean success;
+        private final String message;
+
+        ReleaseOutcome(boolean success, String message) {
+            this.success = success;
+            this.message = message;
+        }
     }
 
     /** Everything the host dashboard needs for one render pass, loaded off the main thread. */

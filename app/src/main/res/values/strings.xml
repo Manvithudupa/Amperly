@@ -99,8 +99,18 @@
     <string name="reserve_port">Port</string>
     <string name="reserve_slot">Time slot</string>
     <string name="reserve_policy_title">Cancellation policy</string>
-    <string name="reserve_success">Reservation confirmed. Booking code %1$s</string>
+    <string name="reserve_success">Reservation confirmed by the server. Booking code %1$s</string>
     <string name="reserve_payment_failed">Payment could not be verified. You can retry safely.</string>
+    <string name="reserve_server_required">Connect to the server to reserve a slot. No booking was made.</string>
+    <string name="reserve_slot_taken">That slot was just taken by someone else. Choose another time.</string>
+    <string name="reserve_slot_in_past">That slot has already passed. Choose a later time.</string>
+    <string name="reserve_slot_too_long">A booking can hold a port for at most 12 hours. Choose a shorter slot.</string>
+    <string name="reserve_station_unavailable">This charger is no longer available for booking.</string>
+    <string name="reserve_server_failed">The server could not confirm the booking, so nothing was reserved. Try again.</string>
+    <string name="cancel_server_required">Connect to the server to cancel. The booking is still active.</string>
+    <string name="cancel_server_failed">The server could not cancel the booking, so it is still active. Try again.</string>
+    <string name="session_server_required">Connect to the server to close this session. No receipt was issued.</string>
+    <string name="session_server_failed">The server could not close this session, so no receipt was issued. Try again.</string>
     <string name="reserve_no_slots">No free slots available for this port.</string>
     <string name="reserve_choose_station">Choose a station to reserve</string>
     <string name="reserve_my_reservations">Your reservations</string>
@@ -144,6 +154,7 @@
     <!-- Receipt -->
     <string name="receipt_title">Itemized receipt</string>
     <string name="receipt_paid_label">Payment complete</string>
+    <string name="receipt_unpaid_label">No payment collected (demo)</string>
     <string name="receipt_start_reading">Starting meter reading</string>
     <string name="receipt_end_reading">Ending meter reading</string>
     <string name="receipt_verified_kwh">Verified energy consumed</string>
@@ -297,13 +308,14 @@
     <string name="safety_not_emergency">In a real emergency, call local emergency services.</string>
     <string name="safety_trigger_sos">Trigger SOS</string>
     <string name="safety_confirm_sos">Hold to confirm SOS</string>
-    <string name="safety_sos_active">SOS logged. Support team notified.</string>
+    <string name="safety_sos_active">SOS recorded on this device. This is a demo: no support team or emergency service was contacted.</string>
+    <string name="safety_demo_notice">Demo only. Real SMS alerts and live location sharing are not connected yet; in a real emergency, call local emergency services.</string>
     <string name="safety_contact_name">Contact name</string>
     <string name="safety_contact_phone">Contact phone</string>
     <string name="safety_add_contact">Add trusted contact</string>
     <string name="safety_share_location">Share live location</string>
     <string name="safety_stop_sharing">Stop sharing</string>
-    <string name="safety_sharing_active">Sharing with %1$s until %2$s</string>
+    <string name="safety_sharing_active">Demo sharing recorded for %1$s until %2$s. No location is transmitted.</string>
     <string name="safety_section_contacts">Trusted contacts</string>
     <string name="safety_section_sharing">Live location</string>
     <string name="admin_section_enforcement">Enforcement</string>
@@ -340,10 +352,13 @@
     <string name="auth_value_line">Reserve a charger. Pay for the energy you use.</string>
     <string name="auth_intro">Reservations, sessions and receipts in one place.</string>
     <string name="auth_footer_note">Chargers are listed by their hosts.</string>
+    <string name="auth_name">Your name</string>
+    <string name="auth_name_required">Please enter your name.</string>
     <string name="auth_email">Email address</string>
     <string name="auth_password">Password</string>
     <string name="auth_sign_in">Sign in</string>
     <string name="auth_create_account">Create account</string>
+    <string name="auth_have_account">Already have an account? Sign in</string>
     <string name="auth_signing_in">Signing in…</string>
     <string name="auth_creating">Creating account…</string>
     <string name="auth_email_required">Please enter your email address.</string>
@@ -473,10 +488,10 @@
     <!-- Reservation, session and receipt rows -->
     <string name="reservation_code_line">Booking %1$s</string>
     <string name="reservation_authorized_line">%1$s/kWh · %2$s service · %3$s gateway</string>
-    <string name="reservation_no_billing">No payment authorized.</string>
+    <string name="reservation_no_billing">No payment is collected in this build.</string>
     <string name="reservation_cancel_free">Free cancellation still available.</string>
-    <string name="reservation_cancel_late">Late cancellation fee applies.</string>
-    <string name="reserve_price_note">Every line is disclosed before you authorize payment.</string>
+    <string name="reservation_cancel_late">Late cancellation fee is recorded (not charged).</string>
+    <string name="reserve_price_note">Every line is disclosed up front. Payments are not collected in this build.</string>
     <string name="reserve_no_station_body">Open a charger to reserve a slot.</string>
     <string name="reserve_no_station_status">Choose a charger first.</string>
     <string name="reserve_select_station_first">Choose a charger first.</string>
@@ -486,6 +501,7 @@
     <string name="reserve_service_line">Amperly service fee %1$s</string>
     <string name="reserve_gateway_line">Gateway charge %1$s</string>
     <string name="reserve_total_line">Estimated %1$s · authorize up to %2$s</string>
+    <string name="reserve_total_no_payment">Estimated %1$s · no payment is collected in this build</string>
     <string name="session_states_line">A session goes reserved, then checked in, then charging, then completed.</string>
     <string name="session_none_title">No active session</string>
     <string name="session_none_body">Check in at a booked charger to start charging.</string>
@@ -591,7 +607,6 @@
     <string name="dispute_policy_note">Decisions are recorded against the evidence.</string>
 
     <!-- Safety -->
-    <string name="safety_emergency_guidance_line">In a real emergency, call local emergency services.</string>
     <string name="safety_add_contact_first">Add a trusted contact first.</string>
     <string name="safety_contact_invalid">Enter a name and phone number.</string>
     <string name="safety_contact_saved">Trusted contact saved.</string>
@@ -604,7 +619,7 @@
     <string name="safety_sharing_active_suffix"> · sharing live location</string>
     <string name="safety_sharing_ended_suffix"> · sharing ended</string>
     <string name="safety_sharing_off">Live location sharing is off.</string>
-    <string name="safety_sharing_started">Sharing live location with %1$s.</string>
+    <string name="safety_sharing_started">Demo only: a sharing intent was recorded for %1$s. No location was sent.</string>
     <string name="safety_sharing_stopped">Live location sharing stopped.</string>
     <string name="safety_sharing_already_off">Live location sharing is already off.</string>
 

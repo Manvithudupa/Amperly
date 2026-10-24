@@ -98,6 +98,14 @@ public class ReceiptFragment extends Fragment {
         totalText.setText(getString(R.string.receipt_final_amount,
                 Formatters.money(data.session.getTotalPaid())));
 
+        // Payments are not collected in this build. The invoice is ISSUED, not PAID, so the
+        // receipt must not claim a payment that never happened.
+        boolean paid = data.invoice != null && "PAID".equalsIgnoreCase(data.invoice.getStatus());
+        view.findViewById(R.id.receiptPaidBlock).setVisibility(View.VISIBLE);
+        view.findViewById(R.id.receiptPaidIcon).setVisibility(paid ? View.VISIBLE : View.GONE);
+        ((TextView) view.findViewById(R.id.receiptPaidLabel)).setText(paid
+                ? R.string.receipt_paid_label : R.string.receipt_unpaid_label);
+
         view.findViewById(R.id.reportIssueButton).setOnClickListener(v ->
                 ReportDialog.show(this, getString(R.string.report_title), null, (type, details) -> {
                     repo.background(() -> {

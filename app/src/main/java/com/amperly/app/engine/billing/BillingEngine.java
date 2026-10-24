@@ -175,11 +175,11 @@ public class BillingEngine {
         boolean free = reservation.isInFreeCancellationWindow(nowMs);
         if (free) {
             return new CancellationResult(true, 0, 0,
-                    "Cancelled free of charge. Any unused payment authorization is released, and no energy charge applies because no energy was consumed.");
+                    "Cancelled free of charge. No payment is collected in this build, and no energy charge applies because no energy was consumed.");
         }
         return new CancellationResult(false, lateFee, 0,
                 "Late cancellation: the disclosed " + money(lateFee)
-                        + " reservation-protection fee applies. No energy charge applies because no energy was consumed.");
+                        + " reservation-protection fee is recorded on this booking. No energy charge applies because no energy was consumed. No payment is collected in this build.");
     }
 
     public static Invoice applyRefund(Invoice invoice, double refundAmount, String note) {

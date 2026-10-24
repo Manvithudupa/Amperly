@@ -42,16 +42,22 @@ import com.google.android.material.textfield.TextInputLayout;
 public class SignInFragment extends Fragment {
 
     private AmperlyRepository repo;
+    private EditText nameEdit;
     private EditText emailEdit;
     private EditText passwordEdit;
+    private TextInputLayout nameField;
     private TextInputLayout emailField;
     private TextInputLayout passwordField;
+    private TextView headingText;
     private TextView errorText;
     private TextView infoText;
     private TextView offlineNoteText;
     private MaterialButton signInButton;
     private MaterialButton createAccountButton;
     private LinearProgressIndicator progress;
+
+    /** True while the page is asking for a new account rather than signing an existing one in. */
+    private boolean createMode;
 
     @Nullable
     @Override
@@ -65,10 +71,13 @@ public class SignInFragment extends Fragment {
         super.onViewCreated(view, savedInstanceState);
         repo = AmperlyRepository.getInstance(requireContext());
 
+        nameEdit = view.findViewById(R.id.signInNameEdit);
         emailEdit = view.findViewById(R.id.signInEmailEdit);
         passwordEdit = view.findViewById(R.id.signInPasswordEdit);
+        nameField = view.findViewById(R.id.nameInputLayout);
         emailField = view.findViewById(R.id.emailInputLayout);
         passwordField = view.findViewById(R.id.passwordInputLayout);
+        headingText = view.findViewById(R.id.authHeadingText);
         errorText = view.findViewById(R.id.signInErrorText);
         infoText = view.findViewById(R.id.signInInfoText);
         offlineNoteText = view.findViewById(R.id.signInOfflineNoteText);
@@ -81,15 +90,18 @@ public class SignInFragment extends Fragment {
         // says exactly that instead of offering a local-only way in.
         offlineNoteText.setVisibility(configured ? View.GONE : View.VISIBLE);
 
-        signInButton.setOnClickListener(v -> submit(false));
-        createAccountButton.setOnClickListener(v -> submit(true));
+        signInButton.setOnClickListener(v -> submit(createMode));
+        // "Create account" is a mode switch, not an immediate sign-up: it reveals the name
+        // field and turns the primary button into the one that creates the account.
+        createAccountButton.setOnClickListener(v -> setCreateMode(!createMode));
         // A field-level error belongs on the field, and it goes away as soon as the field is
         // edited rather than staying until the next submit.
+        nameEdit.addTextChangedListener(clearErrorOnEdit(nameField));
         emailEdit.addTextChangedListener(clearErrorOnEdit(emailField));
         passwordEdit.addTextChangedListener(clearErrorOnEdit(passwordField));
         passwordEdit.setOnEditorActionListener((v, actionId, event) -> {
             if (actionId == EditorInfo.IME_ACTION_DONE) {
-                submit(false);
+                submit(createMode);
                 return true;
             }
             return false;
@@ -111,12 +123,21 @@ public class SignInFragment extends Fragment {
     // ------------------------------------------------------------------ actions
 
     private void submit(boolean createAccount) {
+        String name = nameEdit.getText().toString().trim();
         String email = emailEdit.getText().toString().trim();
         String password = passwordEdit.getText().toString();
         hideMessages();
+        if (nameField != null) nameField.setError(null);
         if (emailField != null) emailField.setError(null);
         if (passwordField != null) passwordField.setError(null);
 
+        if (createAccount && TextUtils.isEmpty(name)) {
+            if (nameField != null) {
+                nameField.setError(getString(R.string.auth_name_required));
+            }
+            nameEdit.requestFocus();
+            return;
+        }
         if (TextUtils.isEmpty(email) || !email.contains("@")) {
             if (emailField != null) {
                 emailField.setError(getString(R.string.auth_email_required));
@@ -134,17 +155,17 @@ public class SignInFragment extends Fragment {
 
         Context appContext = requireContext().getApplicationContext();
         setBusy(true, createAccount);
-        repo.background(() -> attempt(appContext, email, password, createAccount), this::handle);
+        repo.background(() -> attempt(appContext, name, email, password, createAccount), this::handle);
     }
 
     // ------------------------------------------------------------- background
 
     /** Runs on a background thread. Never throws: the reason for a failure is the result. */
-    private Outcome attempt(Context appContext, String email, String password,
+    private Outcome attempt(Context appContext, String name, String email, String password,
                             boolean createAccount) {
         try {
             SupabaseAuth.Session session = createAccount
-                    ? SupabaseAuth.signUp(appContext, email, password)
+                    ? SupabaseAuth.signUp(appContext, email, password, name)
                     : SupabaseAuth.signIn(appContext, email, password);
 
             if (session == null) {
@@ -153,7 +174,8 @@ public class SignInFragment extends Fragment {
                         appContext.getString(R.string.auth_confirm_email, email));
             }
 
-            User user = repo.resolveOrCreateAppUser(session.authUserId, session.email, null);
+            User user = repo.resolveOrCreateAppUser(session.authUserId, session.email,
+                    createAccount ? name : null);
             if (user == null) {
                 return Outcome.failed(appContext.getString(R.string.auth_no_profile));
             }
@@ -190,6 +212,9 @@ public class SignInFragment extends Fragment {
             return;
         }
         if (outcome.info) {
+            // Sign-up succeeded but the email still has to be confirmed. Go back to sign-in
+            // so the confirmed address can be used without the name field in the way.
+            setCreateMode(false);
             showInfo(outcome.message);
         } else {
             showError(outcome.message);
@@ -201,13 +226,39 @@ public class SignInFragment extends Fragment {
     private void setBusy(boolean busy, boolean createAccount) {
         boolean configured = serverConfigured();
         progress.setVisibility(busy ? View.VISIBLE : View.GONE);
+        nameEdit.setEnabled(!busy);
         emailEdit.setEnabled(!busy);
         passwordEdit.setEnabled(!busy);
         signInButton.setEnabled(!busy && configured);
         createAccountButton.setEnabled(!busy && configured);
-        signInButton.setText(busy
-                ? (createAccount ? R.string.auth_creating : R.string.auth_signing_in)
-                : R.string.auth_sign_in);
+        if (busy) {
+            signInButton.setText(createAccount
+                    ? R.string.auth_creating : R.string.auth_signing_in);
+        } else {
+            signInButton.setText(createMode
+                    ? R.string.auth_create_account : R.string.auth_sign_in);
+        }
+    }
+
+    /**
+     * Switches between signing in and creating an account.
+     *
+     * <p>The name field exists only in create mode: an existing account already has a display
+     * name, and asking for it again on every sign-in would be noise. The label on the primary
+     * button follows the mode, so there is one action to take in each state.
+     */
+    private void setCreateMode(boolean enabled) {
+        createMode = enabled;
+        nameField.setVisibility(enabled ? View.VISIBLE : View.GONE);
+        headingText.setText(enabled ? R.string.auth_create_account : R.string.auth_title);
+        signInButton.setText(enabled ? R.string.auth_create_account : R.string.auth_sign_in);
+        createAccountButton.setText(enabled
+                ? R.string.auth_have_account : R.string.auth_create_account);
+        if (nameField != null) nameField.setError(null);
+        hideMessages();
+        if (enabled) {
+            nameEdit.requestFocus();
+        }
     }
 
     private void hideMessages() {

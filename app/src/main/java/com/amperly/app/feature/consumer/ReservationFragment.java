@@ -19,27 +19,20 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import com.amperly.app.R;
-import com.amperly.app.communication.ChatManager;
 import com.amperly.app.core.common.AppConstants;
 import com.amperly.app.core.common.Formatters;
-import com.amperly.app.core.common.UserMessages;
 import com.amperly.app.core.nav.Navigator;
 import com.amperly.app.core.security.AuthManager;
 import com.amperly.app.core.security.RoleGuard;
 import com.amperly.app.core.state.AppStateStore;
 import com.amperly.app.data.local.entity.ChargerPort;
 import com.amperly.app.data.local.entity.ChargerStation;
-import com.amperly.app.data.local.entity.CommunicationThread;
-import com.amperly.app.data.local.entity.Notification;
-import com.amperly.app.data.local.entity.Payment;
 import com.amperly.app.data.local.entity.Reservation;
-import com.amperly.app.data.local.entity.User;
 import com.amperly.app.data.local.entity.Vehicle;
 import com.amperly.app.data.repository.AmperlyRepository;
 import com.amperly.app.engine.availability.AvailabilityEngine;
 import com.amperly.app.engine.billing.BillingEngine;
 import com.amperly.app.engine.booking.ReservationEngine;
-import com.amperly.app.payment.PaymentManager;
 import com.amperly.app.ui.Ux;
 import com.amperly.app.ui.adapter.ReservationAdapter;
 import com.google.android.material.textfield.MaterialAutoCompleteTextView;
@@ -51,8 +44,10 @@ import java.util.UUID;
 
 /**
  * Reservations: pick a real free slot, see the transparent price breakdown and the published
- * cancellation policy, authorize in sandbox mode, and only then create the booking. If the gateway
- * cannot be reached nothing is reserved.
+ * cancellation policy, then ask the server to create the booking. The server checks the slot
+ * under a per-port lock, so a slot that another driver just took is refused rather than shown as
+ * confirmed. Payments are not collected in this build; the price is an estimate and the action
+ * only reserves the slot.
  */
 public class ReservationFragment extends Fragment implements ReservationAdapter.Listener {
 
@@ -106,7 +101,7 @@ public class ReservationFragment extends Fragment implements ReservationAdapter.
         policy.setText(ReservationEngine.CANCELLATION_POLICY);
         TextView priceNote = view.findViewById(R.id.priceNoteText);
         priceNote.setText(R.string.reserve_price_note);
-        authorize.setText(R.string.action_pay);
+        authorize.setText(R.string.action_reserve);
 
         final String userId = AuthManager.getInstance().getCurrentUserId();
         if (stationId != null) {
@@ -151,7 +146,7 @@ public class ReservationFragment extends Fragment implements ReservationAdapter.
         portDropdown = view.findViewById(R.id.portDropdown);
         slotDropdown = view.findViewById(R.id.slotDropdown);
         Button authorize = view.findViewById(R.id.authorizeButton);
-        authorize.setText(R.string.action_pay);
+        authorize.setText(R.string.action_reserve);
 
         repo.background(() -> {
             ChargerStation loaded = repo.getStationSync(stationId);
@@ -275,9 +270,8 @@ public class ReservationFragment extends Fragment implements ReservationAdapter.
         ((TextView) view.findViewById(R.id.priceGatewayText)).setText(
                 getString(R.string.reserve_gateway_line, Formatters.money(preview.getGatewayFee())));
         ((TextView) view.findViewById(R.id.priceTotalText)).setText(
-                getString(R.string.reserve_total_line,
-                        Formatters.money(preview.getEstimatedTotal()),
-                        Formatters.money(preview.getAuthorizedAmount())));
+                getString(R.string.reserve_total_no_payment,
+                        Formatters.money(preview.getEstimatedTotal())));
     }
 
     private void authorizeBooking(String userId) {
@@ -301,60 +295,29 @@ public class ReservationFragment extends Fragment implements ReservationAdapter.
 
         final Context appContext = requireContext().getApplicationContext();
         repo.background(() -> {
+            // A local check gives a friendly message before the network call. The server
+            // remains the authority: it re-checks the window under a per-port lock.
             Vehicle vehicle = repo.getVehicleSync(userId);
             int conflicts = repo.countSlotConflicts(port.getId(), slot.getStartMs(), slot.getEndMs());
             ReservationEngine.BookingCheck check = ReservationEngine.check(station, port, vehicle,
                     slot.getStartMs(), slot.getEndMs(), conflicts, station.isPaused());
             if (!check.isAllowed()) {
-                return new BookingOutcome(false, check.getReason(), null, null, null);
-            }
-
-            double estimatedKwh = port.getPowerKw() * (AvailabilityEngine.DEFAULT_SLOT_MINUTES / 60.0) * 0.75;
-            ReservationEngine.PricePreview preview = ReservationEngine.preview(station, estimatedKwh);
-            String idempotencyKey = PaymentManager.newIdempotencyKey(userId, station.getId(), slot.getStartMs());
-            PaymentManager.PaymentResult paymentResult = PaymentManager.authorize(userId,
-                    station.getHostId(), null, preview.getAuthorizedAmount(), idempotencyKey);
-            if (!paymentResult.isSuccess()) {
-                return new BookingOutcome(false,
-                        UserMessages.fromText(appContext, paymentResult.getMessage(),
-                                R.string.reserve_payment_failed),
-                        null, null, null);
+                return new BookingOutcome(false, check.getReason(), null, null, true);
             }
 
             String reservationId = UUID.randomUUID().toString();
             String bookingCode = ReservationEngine.buildBookingCode();
-            Payment payment = paymentResult.getPayment();
-            payment.setReservationId(reservationId);
+            AmperlyRepository.BookingResult result = repo.createReservationConfirmed(
+                    reservationId, bookingCode, station, port, slot.getStartMs(), slot.getEndMs());
+            if (!result.success || result.reservation == null) {
+                return new BookingOutcome(false, result.message, null, null, result.slotTaken);
+            }
 
-            Reservation reservation = new Reservation(reservationId, userId, station.getId(),
-                    station.getName(), port.getId(), AvailabilityEngine.portLabel(port), bookingCode,
-                    slot.getStartMs(), slot.getEndMs(), AppConstants.STATUS_RESERVED,
-                    station.getPricePerKwh(), station.getServiceFee(), station.getGatewayFee(), 0.0,
-                    station.supportsPaidEnergyBilling(), payment.getId(), 0, 0, System.currentTimeMillis());
-            // The reservation has to exist on the server before authorize_payment runs: that
-            // function looks the booking up to decide who may hold the authorization.
-            repo.saveReservation(reservation);
-            repo.authorizePayment(payment, station.getId());
-
-            User consumer = AuthManager.getInstance().getCurrentUser();
-            User host = repo.getUserSync(station.getHostId());
-            CommunicationThread thread = ChatManager.createThread(reservation, consumer, host);
-            repo.saveThread(thread);
-
-            // Only the booking consumer's notification is written. `notifications` is scoped to
-            // its owner by Row Level Security, so a notification addressed to the host was
-            // refused by the server on every attempt; it never reached the database.
-            repo.saveNotification(new Notification(UUID.randomUUID().toString(), userId,
-                    appContext.getString(R.string.notification_reservation_title),
-                    appContext.getString(R.string.notification_reservation_body, bookingCode,
-                            station.getName()),
-                    false, System.currentTimeMillis()));
-
-            AppStateStore.get().setActiveReservation(reservation);
+            AppStateStore.get().setActiveReservation(result.reservation);
             AppStateStore.get().setLastBookingCode(bookingCode);
             return new BookingOutcome(true,
                     appContext.getString(R.string.reserve_success, bookingCode),
-                    reservationId, bookingCode, payment.getId());
+                    reservationId, bookingCode, false);
         }, outcome -> {
             if (outcome == null || !isAdded()) {
                 return;
@@ -362,6 +325,10 @@ public class ReservationFragment extends Fragment implements ReservationAdapter.
             reserveStatusText.setText(outcome.message);
             if (!outcome.success) {
                 Ux.error(this, outcome.message);
+                if (outcome.refreshSlots) {
+                    // The slot disappeared under this driver; show what is actually free now.
+                    loadSlots(port);
+                }
                 return;
             }
             Ux.success(this, outcome.message);
@@ -424,26 +391,31 @@ public class ReservationFragment extends Fragment implements ReservationAdapter.
         repo.background(() -> {
             BillingEngine.CancellationResult result =
                     BillingEngine.calculateCancellation(reservation, System.currentTimeMillis());
-            reservation.setStatus(AppConstants.STATUS_CANCELLED);
-            reservation.setCancelledAtMs(System.currentTimeMillis());
-            reservation.setCancellationFee(result.getFee());
-            repo.updateReservation(reservation);
-
-            Payment payment = repo.getPaymentForReservationSync(reservation.getId());
-            if (payment != null) {
-                PaymentManager.PaymentResult release = PaymentManager.release(payment, result.getFee());
-                repo.savePayment(release.getPayment());
+            String error = repo.cancelReservationConfirmed(reservation, result.getFee());
+            return error == null
+                    ? new CancelOutcome(true, result.getMessage())
+                    : new CancelOutcome(false, error);
+        }, outcome -> {
+            if (outcome == null) {
+                return;
             }
-            // The server applies the same published policy and releases the authorization;
-            // the local rows above are the immediate view.
-            repo.cancelReservationOnServer(reservation.getId());
-            return result.getMessage();
-        }, message -> {
-            if (message != null) {
-                reserveStatusText.setText(message);
-                Ux.info(this, message);
+            reserveStatusText.setText(outcome.message);
+            if (outcome.success) {
+                Ux.info(this, outcome.message);
+            } else {
+                Ux.error(this, outcome.message);
             }
         });
+    }
+
+    private static class CancelOutcome {
+        private final boolean success;
+        private final String message;
+
+        CancelOutcome(boolean success, String message) {
+            this.success = success;
+            this.message = message;
+        }
     }
 
     private static class BookingData {
@@ -463,15 +435,15 @@ public class ReservationFragment extends Fragment implements ReservationAdapter.
         private final String message;
         private final String reservationId;
         private final String bookingCode;
-        private final String paymentId;
+        private final boolean refreshSlots;
 
         BookingOutcome(boolean success, String message, String reservationId, String bookingCode,
-                       String paymentId) {
+                       boolean refreshSlots) {
             this.success = success;
             this.message = message;
             this.reservationId = reservationId;
             this.bookingCode = bookingCode;
-            this.paymentId = paymentId;
+            this.refreshSlots = refreshSlots;
         }
     }
 }

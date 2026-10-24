@@ -24,12 +24,10 @@ import com.amperly.app.data.local.entity.ChargerPort;
 import com.amperly.app.data.local.entity.ChargerStation;
 import com.amperly.app.data.local.entity.ChargingSession;
 import com.amperly.app.data.local.entity.MeterReading;
-import com.amperly.app.data.local.entity.Payment;
 import com.amperly.app.data.local.entity.Reservation;
 import com.amperly.app.data.repository.AmperlyRepository;
 import com.amperly.app.engine.billing.BillingEngine;
 import com.amperly.app.engine.meter.MeterSimulator;
-import com.amperly.app.payment.PaymentManager;
 import com.amperly.app.ui.Ux;
 
 import java.util.Locale;
@@ -325,18 +323,15 @@ public class ActiveSessionFragment extends Fragment {
                     System.currentTimeMillis(), true);
             activeSession.setMeterReadingId(reading.getId());
 
-            Payment payment = repo.getPaymentForReservationSync(active.getId());
-            if (payment != null) {
-                PaymentManager.PaymentResult capture = PaymentManager.capture(payment,
-                        activeSession.getId(), billing.getFinalTotal());
-                payment = capture.getPayment();
-            }
-
             active.setStatus(AppConstants.STATUS_COMPLETED);
             // One server call settles the session: the server recomputes the bill from
             // these readings, writes the session, the receipt and the capture, closes the
-            // reservation and frees the port. The rows passed in are the offline copy.
-            repo.finalizeSession(activeSession, reading, billing.getInvoice(), payment, active);
+            // reservation and frees the port. The rows passed in are the offline copy, and
+            // are written only if that call succeeds.
+            String error = repo.finalizeSession(activeSession, reading, billing.getInvoice(), active);
+            if (error != null) {
+                return new Completion(null, error, null);
+            }
 
             ChargerPort loadedPort = active.getPortId() == null ? null
                     : repo.database().chargerPortDao().getPortByIdSync(active.getPortId());

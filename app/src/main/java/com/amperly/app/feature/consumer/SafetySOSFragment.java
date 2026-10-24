@@ -78,7 +78,7 @@ public class SafetySOSFragment extends Fragment implements ContactAdapter.Listen
         });
 
         ((TextView) view.findViewById(R.id.emergencyNumbersText)).setText(
-                R.string.safety_emergency_guidance_line);
+                R.string.safety_demo_notice);
 
         View sosButton = view.findViewById(R.id.sosButton);
         sosButton.setOnClickListener(v -> Ux.info(this, getString(R.string.safety_confirm_sos)));

@@ -34,6 +34,7 @@ import com.amperly.app.data.repository.AmperlyRepository;
 import com.amperly.app.feature.admin.AdminDashboardFragment;
 import com.amperly.app.feature.auth.AccountFragment;
 import com.amperly.app.feature.auth.SignInFragment;
+import com.amperly.app.feature.common.NotificationsFragment;
 import com.amperly.app.feature.consumer.ActiveSessionFragment;
 import com.amperly.app.feature.consumer.ChargerDiscoveryFragment;
 import com.amperly.app.feature.consumer.HostChatFragment;
@@ -463,8 +464,14 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        // The three destinations that used to sit here now live in the profile dropdown, which is
-        // triggered from the badge's own click listener rather than from a menu item id.
+        if (item.getItemId() == R.id.action_notifications) {
+            // The bell is the shortcut to the same inbox the Account page links to, so the
+            // inbox is one tap away from any tab instead of three.
+            Navigator.openRoot(this, new NotificationsFragment(), "notifications");
+            return true;
+        }
+        // The remaining destinations live in the profile dropdown, which is triggered from the
+        // badge's own click listener rather than from a menu item id.
         return super.onOptionsItemSelected(item);
     }
 
