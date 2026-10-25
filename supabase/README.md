@@ -27,6 +27,11 @@ The last statement in the file prints every Auth account next to the application
 profile it resolves to. Every row must show an `app_user_id`: a blank one is the
 single cause of an app that signs in and then shows nothing at all.
 
+On a fresh project there is **no data to import**: the app ships no seed rows and
+fills the tables as accounts use it. `public.vehicles` is ready for several
+profiles per account (`"isActive"` marks the one the app plans against); the
+`alter table` after the table definition adds that column to an older project too.
+
 ### 1b. Close the listing-review holes (existing projects only)
 
 If the project already had `schema.sql` applied before `security_hardening.sql`
@@ -129,6 +134,23 @@ receive the link.
 
 The profile row is created either way, at the moment the account is created, so
 the app works as soon as the user is able to sign in.
+
+#### Deleting an account deletes its data
+
+Delete the user in **Authentication → Users**. That is the only step: a trigger on
+`auth.users` removes the profile and every row that account owned — vehicles, plans,
+stops, battery updates, reservations, sessions, meter readings, invoices, payments,
+disputes, chats, safety events, trusted contacts, notifications, Android Auto sessions,
+and, for a host, their stations with their ports and opening hours. The rows of the
+other party in a booking are not touched except where the booking itself goes with a
+removed station.
+
+Deleting the row from `public.users` in the SQL editor is **not** the same thing: it
+only removes the profile. Delete the Auth account, and the app data goes with it.
+
+What this does not reach is the copy already cached on a device. A phone that has
+signed in keeps its Room rows until the app clears them, so wipe app data on a device
+you are handing on.
 
 ---
 

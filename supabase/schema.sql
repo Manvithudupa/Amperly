@@ -69,7 +69,9 @@ $$;
 -- users ---------------------------------------------------------------
 create table if not exists public.users (
     id                  text primary key,
-    "authUserId"        uuid unique references auth.users (id) on delete set null,
+    -- Deleting the sign-in account deletes this row. See section 1d: the rest of
+    -- the account's data goes with it through a trigger on auth.users.
+    "authUserId"        uuid unique references auth.users (id) on delete cascade,
     name                text,
     email               text,
     phone               text,
@@ -98,8 +100,17 @@ create table if not exists public.vehicles (
     "minArrivalSocPercent"          integer,
     "maxChargeSocPercent"           integer,
     "licensePlate"                  text,
+    -- One active profile per account: the vehicle every range, connector and
+    -- reservation rule is evaluated against. The app keeps the flag single-valued;
+    -- selecting another vehicle clears the others locally and here.
+    "isActive"                      boolean not null default true,
     "serverUpdatedAt"               timestamptz not null default now()
 );
+
+-- Adds the multi-vehicle flag to a project created before an account could keep more than
+-- one profile. On a fresh project the column already exists from the create above.
+alter table public.vehicles
+    add column if not exists "isActive" boolean not null default true;
 
 -- charger_stations ----------------------------------------------------
 create table if not exists public.charger_stations (
@@ -659,7 +670,194 @@ create trigger on_auth_user_created
 -- which would let any signed-in caller mint a profile row for an arbitrary Auth
 -- account. A trigger still fires after this revoke.
 revoke all on function public.ensure_app_user(uuid, text, jsonb) from public;
-revoke all on function public.handle_new_auth_user() from public;
+revoke all on function public.handle_new_auth_user() from public;-- ---------------------------------------------------------------------------
+-- 1d. Deleting an Auth account deletes that account's data
+--
+--  Deleting the sign-in account used to leave the rest of the account behind:
+--  public.users kept a NULL "authUserId" (the FK said on delete set null) and
+--  the other tables key on plain text ids with no foreign keys at all, so their
+--  rows survived forever with nothing left able to reach them. A car, a booking,
+--  a chat, a safety event — all of it stayed in the database after the person it
+--  belonged to was removed, and the application id could never be reused.
+--
+--  The profile row now goes with the account, and a trigger runs the same
+--  cleanup across every table that holds that account's rows.
+--
+--  It has to be a BEFORE DELETE trigger. The FK cascade below deletes the
+--  profile as part of the same statement, and the seeded accounts
+--  ('user_student_1', ...) carry an application id that is not the Auth uuid, so
+--  the id has to be read while the link still exists: an AFTER trigger would
+--  find no profile row and know only the uuid, leaving every seeded row behind.
+-- ---------------------------------------------------------------------------
+
+-- Replaces the create-time "on delete set null" on a project that already ran
+-- this file, whatever name that constraint ended up with. Re-runnable: the loop
+-- simply finds nothing once the cascade is in place.
+do $$
+declare
+    constraint_name text;
+begin
+    for constraint_name in
+        select c.conname
+          from pg_constraint c
+          join pg_class t on t.oid = c.conrelid
+          join pg_namespace n on n.oid = t.relnamespace
+         where n.nspname = 'public'
+           and t.relname = 'users'
+           and c.contype = 'f'
+           and pg_get_constraintdef(c.oid) ilike '%auth.users%'
+    loop
+        execute format('alter table public.users drop constraint %I', constraint_name);
+    end loop;
+end $$;
+
+alter table public.users
+    add constraint users_authUserId_fkey
+    foreign key ("authUserId") references auth.users (id) on delete cascade;
+
+-- Removes every row that belongs to one Auth account.
+-- SECURITY DEFINER: it runs from a trigger on auth.users, and without it Row
+-- Level Security would hide the rows of a caller deleting somebody else.
+create or replace function public.delete_app_user_data(p_auth_user_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+    v_app_id text;
+    -- The application id, plus the Auth uuid as text: ensure_app_user() uses the
+    -- uuid as the profile id, while the seeded demo accounts use their own ids.
+    v_ids    text[];
+begin
+    if p_auth_user_id is null then
+        return;
+    end if;
+
+    v_app_id := (select u.id
+                   from public.users u
+                  where u."authUserId" = p_auth_user_id
+                  limit 1);
+    v_ids := array_remove(array[v_app_id, p_auth_user_id::text], null);
+
+    -- Conversation first: messages hang off threads and reservations.
+    delete from public.chat_messages
+     where "senderId" = any(v_ids)
+        or "receiverId" = any(v_ids)
+        or "threadId" in (select t.id from public.communication_threads t
+                           where t."consumerId" = any(v_ids) or t."hostId" = any(v_ids))
+        or "reservationId" in (select r.id from public.reservations r
+                                where r."consumerId" = any(v_ids));
+
+    delete from public.communication_threads
+     where "consumerId" = any(v_ids) or "hostId" = any(v_ids);
+
+    -- Money and charging history.
+    delete from public.disputes
+     where "consumerId" = any(v_ids) or "hostId" = any(v_ids);
+
+    delete from public.meter_readings
+     where "sessionId" in (select s.id from public.charging_sessions s
+                            where s."consumerId" = any(v_ids) or s."hostId" = any(v_ids));
+
+    delete from public.invoices
+     where "consumerId" = any(v_ids) or "hostId" = any(v_ids);
+
+    delete from public.payments
+     where "consumerId" = any(v_ids) or "hostId" = any(v_ids);
+
+    delete from public.charging_sessions
+     where "consumerId" = any(v_ids) or "hostId" = any(v_ids);
+
+    -- A booking at a removed host's station has lost its station, its sessions
+    -- and its payments, so it goes with them.
+    delete from public.reservations
+     where "consumerId" = any(v_ids)
+        or "stationId" in (select st.id from public.charger_stations st
+                            where st."hostId" = any(v_ids));
+
+    delete from public.reports
+     where "reporterId" = any(v_ids) or "targetHostId" = any(v_ids);
+
+    delete from public.host_enforcements
+     where "hostId" = any(v_ids);
+
+    -- A host's listings, with their ports and opening hours.
+    delete from public.availability_schedules
+     where "stationId" in (select st.id from public.charger_stations st
+                            where st."hostId" = any(v_ids));
+
+    delete from public.charger_ports
+     where "stationId" in (select st.id from public.charger_stations st
+                            where st."hostId" = any(v_ids));
+
+    delete from public.charger_stations
+     where "hostId" = any(v_ids);
+
+    -- Driving and battery history, which hangs off the vehicles and plans.
+    delete from public.battery_updates
+     where "vehicleId" in (select v.id from public.vehicles v
+                            where v."userId" = any(v_ids));
+
+    delete from public.trip_estimates
+     where "planId" in (select p.id from public.route_plans p
+                         where p."consumerId" = any(v_ids));
+
+    delete from public.route_stops
+     where "planId" in (select p.id from public.route_plans p
+                         where p."consumerId" = any(v_ids));
+
+    delete from public.route_plans
+     where "consumerId" = any(v_ids);
+
+    delete from public.android_auto_sessions
+     where "userId" = any(v_ids);
+
+    delete from public.vehicles
+     where "userId" = any(v_ids);
+
+    -- Personal rows that only ever belonged to this account.
+    delete from public.trusted_contacts
+     where "userId" = any(v_ids);
+
+    delete from public.safety_events
+     where "consumerId" = any(v_ids);
+
+    delete from public.notifications
+     where "userId" = any(v_ids);
+
+    -- The profile itself. The FK cascade above would also do this; doing it here
+    -- keeps the trigger right even on a database where the constraint was not
+    -- replaced.
+    delete from public.users
+     where id = any(v_ids);
+end;
+$$;
+
+create or replace function public.handle_deleted_auth_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+    perform public.delete_app_user_data(old.id);
+    return old;
+end;
+$$;
+
+drop trigger if exists on_auth_user_deleted on auth.users;
+create trigger on_auth_user_deleted
+    before delete on auth.users
+    for each row execute function public.handle_deleted_auth_user();
+
+-- Neither function is API surface: an account's data is deleted by deleting the
+-- account, not by calling this with somebody else's id. The trigger still fires
+-- after the revoke.
+revoke all on function public.delete_app_user_data(uuid) from public;
+revoke all on function public.handle_deleted_auth_user() from public;
+
+
 
 
 -- ---------------------------------------------------------------------------
