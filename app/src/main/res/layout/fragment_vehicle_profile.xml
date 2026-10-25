@@ -36,6 +36,49 @@
             android:text="@string/vehicle_intro"
             android:textAppearance="@style/TextAppearance.Amperly.BodySmall" />
 
+        <!-- ===================================================== The garage -->
+        <!--
+          One chip per saved vehicle plus an Add chip. The checked chip is the profile in
+          use for planning; picking another one switches the plan to it.
+        -->
+        <com.google.android.material.card.MaterialCardView
+            style="@style/Widget.Amperly.Card"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/amp_space_m">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="@dimen/amp_space_m">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/vehicle_garage_title"
+                    android:textAppearance="@style/TextAppearance.Amperly.SectionTitle" />
+
+                <com.google.android.material.chip.ChipGroup
+                    android:id="@+id/vehicleChipGroup"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/amp_space_xs"
+                    app:chipSpacingHorizontal="@dimen/amp_space_xs"
+                    app:chipSpacingVertical="@dimen/amp_space_xs"
+                    app:selectionRequired="false"
+                    app:singleSelection="false" />
+
+                <TextView
+                    android:id="@+id/vehicleGarageHint"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/amp_space_xs"
+                    android:text="@string/vehicle_garage_hint"
+                    android:textAppearance="@style/TextAppearance.Amperly.Label" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
         <!-- ========================================================== Identity -->
         <com.google.android.material.card.MaterialCardView
             style="@style/Widget.Amperly.Card"
@@ -347,5 +390,14 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/amp_space_l"
             android:text="@string/action_save_vehicle" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/deleteVehicleButton"
+            style="@style/Widget.Amperly.Button.Outlined"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/amp_space_s"
+            android:text="@string/vehicle_delete"
+            android:visibility="gone" />
     </LinearLayout>
 </ScrollView>

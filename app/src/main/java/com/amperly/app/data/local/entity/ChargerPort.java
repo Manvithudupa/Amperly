@@ -2,9 +2,10 @@ package com.amperly.app.data.local.entity;
 
 import androidx.annotation.NonNull;
 import androidx.room.Entity;
+import androidx.room.Index;
 import androidx.room.PrimaryKey;
 
-@Entity(tableName = "charger_ports")
+@Entity(tableName = "charger_ports", indices = {@Index("stationId")})
 public class ChargerPort {
     @PrimaryKey
     @NonNull

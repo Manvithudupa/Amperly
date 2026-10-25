@@ -15,7 +15,7 @@ The MVP is a **single-process Android application** backed by Supabase/Postgres.
 
 | Concern | How it works in this MVP |
 |---|---|
-| Persistence | Room database (`AmperlyDatabase`, **v4, 23 entities + 23 DAOs**), the single source of truth |
+| Persistence | Room database (`AmperlyDatabase`, **v5, 23 entities + 23 DAOs**), the single source of truth |
 | Data access | One hub, `AmperlyRepository` (all DAO access, off-main-thread helpers) |
 | Data source | **Supabase is the only source of truth.** No pilot seeding and no offline demo identity: stations, vehicles, reservations and readings are rows the signed-in account is authorised to read through Row Level Security. When the account has no rows, the screens say so instead of inventing content |
 | Maps & navigation | **MapLibre Native** renders an OpenStreetMap-based vector style for the map, the charger markers and in-app navigation; **Geoapify** supplies the address search (autocomplete and reverse geocoding), the road routes and the turn-by-turn steps. There is **no live-traffic data**: drive times follow real roads and are labelled as estimates where no measurement exists. A missing key shows an actionable setup notice instead of a blank map. See §6.1 |
@@ -23,7 +23,7 @@ The MVP is a **single-process Android application** backed by Supabase/Postgres.
 | Charger telemetry | None. Availability is schedule-, reservation- and host-update-based, and is labelled with a freshness timestamp |
 | Meter data | `MeterSimulator` / manual entry, always labelled **Demo meter** or **manually entered** |
 | Cloud | Supabase/Postgres backend (`supabase/`), the source of truth. When `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` are set every screen reads and writes it; when they are absent `SyncEngine.isEnabled()` is false, nothing is pushed, and the app can only show what is already in the local Room cache. A trigger on `auth.users` gives every account its `public.users` profile — the row Row Level Security resolves the caller through |
-| Sync | Room is the read cache only. Every save is written straight to Supabase by `SyncEngine` in the same task, so there is no outbox to drain and no manual sync control; `SyncEngine.syncNow` pulls rows changed since a per-table cursor so server-side and other-device changes appear in the app |
+| Sync | Room is the read cache only. Every save is written straight to Supabase by `SyncEngine` in the same task, so there is no outbox to drain and no manual sync control; `SyncEngine.syncNow` pulls rows changed since a per-table cursor and then reconciles each table's live id list, so a server-side edit, a deletion or another device's change all reach the app |
 
 `AmperlyDatabase` uses `fallbackToDestructiveMigration()`, so a schema change resets local demo data instead of migrating it.
 
@@ -126,7 +126,7 @@ com.amperly.app/
 │   └── state/      AppStateStore, SocStore   (shared phone ↔ car trip + SoC state)
 │
 ├── data/
-│   ├── local/      AmperlyDatabase (v4)
+│   ├── local/      AmperlyDatabase (v5)
 │   │   ├── dao/    23 DAOs
 │   │   ├── entity/ 23 entities (User, Vehicle, ChargerStation, ChargerPort,
 │   │               AvailabilitySchedule, Reservation, ChargingSession,
@@ -302,6 +302,15 @@ account's own rows from Supabase (Room is only the read cache; saves are written
 database). Sign-up creates the `public.users` profile row through the `auth.users` trigger, so a
 brand-new account starts with empty lists and honest empty states.
 
+An account can keep **several vehicle profiles** (`vehicles` rows). Exactly one carries
+`"isActive" = true`; that is the profile every range, connector-compatibility and reservation
+check uses, and the Profile → Vehicle screen switches it. Deleting the active profile promotes
+another one, so planning never runs without a vehicle.
+
+To start from a clean database, run `supabase/schema.sql` against a new Supabase project. It
+creates every table (including `vehicles."isActive"`) and is safe to re-run; there is no data to
+migrate because the app holds no demo rows.
+
 Chargers appear only when a host publishes one: sign in, switch to the **Host** capacity and add a
 charger from **Stations**. It reaches the map once an administrator approves it from the
 verification queue, which is also how a fresh project shows its first real listing.
@@ -360,7 +369,7 @@ verification queue, which is also how a fresh project shows its first real listi
 | Compile/target SDK | 35 (minSdk 24) |
 | UI | Material 3 components, XML layouts with `findViewById`, RecyclerView, custom `Widget.Amperly.*` styles + `values-night` theme |
 | Car UI | Android for Cars App Library (`androidx.car.app:app:1.4.0`), Charging + Navigation categories, navigation template |
-| Persistence | Room (`room-runtime 2.6.1`, schema v4) — 23 entities, 23 DAOs; local read cache only, with no offline write queue |
+| Persistence | Room (`room-runtime 2.6.1`, schema v5) — 23 entities, 23 DAOs; local read cache only, with no offline write queue |
 | Backend (optional) | Supabase — Postgres with Row Level Security, PostgREST data API and GoTrue auth, over Retrofit/OkHttp. See [`supabase/README.md`](supabase/README.md) |
 | Maps | **MapLibre Native for Android** (`org.maplibre.gl:android-sdk`) rendering a Geoapify vector style; map data © OpenStreetMap contributors |
 | Places | **Geoapify** autocomplete + reverse geocoding over HTTPS (no Places SDK) |

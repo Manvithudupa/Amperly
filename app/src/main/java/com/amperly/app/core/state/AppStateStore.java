@@ -1,5 +1,7 @@
 package com.amperly.app.core.state;
 
+import androidx.annotation.Nullable;
+
 import com.amperly.app.data.local.entity.ChargerStation;
 import com.amperly.app.data.local.entity.Reservation;
 import com.amperly.app.data.local.entity.RoutePlan;
@@ -33,6 +35,8 @@ public final class AppStateStore {
     private RoutePlannerEngine.RoutePlanResult lastPlanResult;
     private int estimatedSoc = -1;
     private int authoritativeSoc = -1;   // -1 means the consumer has not corrected the estimate yet
+    /** Which vehicle the battery figures belong to, so a switch cannot carry them across. */
+    private String activeSocVehicleId = "";
     private long socUpdatedAtMs;
     private boolean socIsAuthoritative;
     private String lastRecalculationSummary = "";
@@ -127,6 +131,34 @@ public final class AppStateStore {
     /** The value used for planning: the consumer's corrected figure when one exists. */
     public int getCurrentSoc() {
         return socIsAuthoritative && authoritativeSoc >= 0 ? authoritativeSoc : estimatedSoc;
+    }
+
+    /**
+     * Applies the remembered reading of the vehicle that is now in use.
+     *
+     * <p>A battery percentage belongs to a car, not to the account: carrying the car's 80%
+     * over to the van that is actually at 20% would plan a range the driver cannot drive. The
+     * first call for a new vehicle therefore drops the previous vehicle's authoritative value
+     * before the stored one is applied.
+     *
+     * @param vehicleId the active vehicle, or null when no profile exists
+     * @param soc       the stored reading, or -1 when there is none or it is stale
+     */
+    public void applyStoredSoc(@Nullable String vehicleId, int soc) {
+        String id = vehicleId == null ? "" : vehicleId;
+        boolean switched = !id.equals(activeSocVehicleId);
+        activeSocVehicleId = id;
+        if (switched) {
+            authoritativeSoc = -1;
+            socIsAuthoritative = false;
+            socUpdatedAtMs = 0;
+        }
+        if (soc >= 0 && soc <= 100) {
+            estimatedSoc = soc;
+        } else if (switched) {
+            estimatedSoc = -1;
+        }
+        notifyChanged();
     }
 
     public int getAuthoritativeSoc() {
@@ -224,11 +256,19 @@ public final class AppStateStore {
     public void reset() {
         activePlan = null;
         lastPlanResult = null;
+        vehicle = null;
+        userId = "";
         estimatedSoc = -1;
         authoritativeSoc = -1;
         socIsAuthoritative = false;
+        socUpdatedAtMs = 0;
+        activeSocVehicleId = "";
         lastRecalculationSummary = "";
         noSafeChargerMessage = "";
+        activeReservationId = "";
+        activeSessionId = "";
+        lastBookingCode = "";
+        carConnected = false;
         notifyChanged();
     }
 }

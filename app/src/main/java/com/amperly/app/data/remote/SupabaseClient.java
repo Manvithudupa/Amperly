@@ -28,6 +28,8 @@ public final class SupabaseClient {
 
     private static Retrofit postgrestRetrofit;
     private static Retrofit goTrueRetrofit;
+    /** Both Retrofit instances share one client, so they also share its connection pool. */
+    private static volatile OkHttpClient httpClient;
 
     private SupabaseClient() {
     }
@@ -57,7 +59,28 @@ public final class SupabaseClient {
         return token == null || token.isEmpty() ? null : "Bearer " + token;
     }
 
+    /**
+     * The one HTTP client.
+     *
+     * <p>Built once and cached: every OkHttpClient owns a connection pool, a dispatcher and its
+     * thread pools, and rebuilding it per Retrofit instance threw all of that away, so each
+     * screen that talked to the server could open a fresh TLS connection instead of reusing the
+     * warm one.
+     */
     private static OkHttpClient httpClient() {
+        OkHttpClient existing = httpClient;
+        if (existing != null) {
+            return existing;
+        }
+        synchronized (SupabaseClient.class) {
+            if (httpClient == null) {
+                httpClient = buildHttpClient();
+            }
+            return httpClient;
+        }
+    }
+
+    private static OkHttpClient buildHttpClient() {
         // BASIC, not BODY: request/response bodies carry JWTs, phone numbers, masked
         // numbers and meter readings, and must not end up in logcat.
         HttpLoggingInterceptor logging = new HttpLoggingInterceptor();

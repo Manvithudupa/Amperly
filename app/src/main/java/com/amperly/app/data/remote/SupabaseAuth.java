@@ -493,19 +493,33 @@ public final class SupabaseAuth {
         return new Session(access, refresh, userId, email, expiresAt);
     }
 
+    /**
+     * The server's reason for refusing the call.
+     *
+     * <p>The machine-readable {@code error_code} is appended when GoTrue supplies one, because
+     * it is stable while {@code msg} is a sentence. Both stay internal: the classifier turns
+     * them into one friendly line and the raw text only reaches the log.
+     */
     private static String describe(HttpResult result, String fallback) {
         String message = null;
+        String errorCode = null;
         if (!result.body.isEmpty()) {
             try {
                 JsonObject json = result.json();
                 message = firstNonEmpty(optString(json, "error_description"),
                         optString(json, "msg"), optString(json, "message"),
                         optString(json, "error"));
+                errorCode = optString(json, "error_code");
             } catch (RuntimeException ignored) {
                 message = null;
+                errorCode = null;
             }
         }
-        return message != null ? message : fallback + " (HTTP " + result.code + ")";
+        if (message == null) {
+            message = fallback + " (HTTP " + result.code + ")";
+        }
+        return errorCode != null && !errorCode.trim().isEmpty()
+                ? message + " [" + errorCode.trim() + "]" : message;
     }
 
     @Nullable
@@ -530,14 +544,19 @@ public final class SupabaseAuth {
     }
 
     /**
-     * Runs a call and reads the body exactly once. Reading a {@link ResponseBody} twice
-     * throws, and error bodies are the only place GoTrue puts its message, so the body
-     * has to survive into {@link #describe}.
+     * Runs a call and reads the body exactly once.
+     *
+     * <p>Retrofit stores a non-2xx payload in {@link Response#errorBody()}, and a rejected
+     * sign-in is always non-2xx: reading only {@code body()} threw away GoTrue's
+     * "Invalid login credentials" and left nothing to classify, so the screen blamed the
+     * internet. The body is read exactly once because a {@link ResponseBody} can only be
+     * consumed once.
      */
     private static HttpResult execute(CallSupplier supplier) {
         try {
             Response<ResponseBody> response = supplier.get();
-            ResponseBody body = response.body();
+            ResponseBody body = response.isSuccessful()
+                    ? response.body() : response.errorBody();
             String raw = body == null ? "" : body.string();
             return new HttpResult(response.code(), raw);
         } catch (IOException ioException) {

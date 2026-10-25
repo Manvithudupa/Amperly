@@ -2,16 +2,21 @@ package com.amperly.app.data.remote;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.database.Cursor;
 import android.util.Log;
 
 import androidx.annotation.Nullable;
+import androidx.sqlite.db.SupportSQLiteDatabase;
 
 import com.amperly.app.R;
 import com.amperly.app.core.common.Formatters;
 import com.amperly.app.data.local.AmperlyDatabase;
 import com.google.gson.Gson;
 
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * The app's connection to Supabase.
@@ -23,7 +28,9 @@ import java.util.List;
  *
  * <p>{@link #syncNow} is the read direction. It pages each table forward from its per-table
  * cursor and upserts the changed rows into Room, so another device's changes — and the rows
- * the settlement functions write on the server — appear in the app.
+ * the settlement functions write on the server — appear in the app. A row deleted on the
+ * server has no {@code serverUpdatedAt} left to page to, so after each table is pulled its
+ * live id list is read as well and any cached row missing from it is deleted.
  */
 public final class SyncEngine {
 
@@ -33,6 +40,8 @@ public final class SyncEngine {
     private static final String KEY_LAST_ERROR = "__lastError";
 
     private static final int MAX_PULL_PAGES = 20;
+    /** 23 tables of 500 ids are far more than any account holds; this only stops a runaway. */
+    private static final int MAX_ID_PAGES = 40;
     private static final Gson GSON = new Gson();
 
     private SyncEngine() {
@@ -42,24 +51,28 @@ public final class SyncEngine {
     public static final class Result {
         public final boolean ran;
         public final int pulled;
+        /** Cached rows removed because the server no longer has them. */
+        public final int removed;
         @Nullable
         public final String message;
 
-        Result(boolean ran, int pulled, @Nullable String message) {
+        Result(boolean ran, int pulled, int removed, @Nullable String message) {
             this.ran = ran;
             this.pulled = pulled;
+            this.removed = removed;
             this.message = message;
         }
 
         static Result skipped(String message) {
-            return new Result(false, 0, message);
+            return new Result(false, 0, 0, message);
         }
 
         public String summary() {
             if (!ran) {
                 return message == null ? "Sync did not run." : message;
             }
-            return pulled + " pulled.";
+            return pulled + " pulled"
+                    + (removed > 0 ? ", " + removed + " removed" : "") + ".";
         }
     }
 
@@ -131,27 +144,36 @@ public final class SyncEngine {
         }
 
         int pulled;
+        int removed;
         try {
-            pulled = pull(context, db);
+            Counts counts = pull(context, db);
+            pulled = counts.pulled;
+            removed = counts.removed;
         } catch (SupabaseRest.RestException restException) {
             // The status, the URL and the server body stay in the log; the app stores one line.
             Log.w(TAG, "Sync stopped", restException);
             recordError(context, context.getString(R.string.sync_failed));
-            return new Result(true, 0, context.getString(R.string.sync_failed));
+            return new Result(true, 0, 0, context.getString(R.string.sync_failed));
         } catch (RuntimeException unexpected) {
             Log.w(TAG, "Sync stopped unexpectedly", unexpected);
             recordError(context, context.getString(R.string.sync_failed));
-            return new Result(true, 0, context.getString(R.string.sync_failed));
+            return new Result(true, 0, 0, context.getString(R.string.sync_failed));
         }
 
         recordSuccess(context);
-        return new Result(true, pulled, null);
+        return new Result(true, pulled, removed, null);
     }
 
-    /** Pages every table forward from its stored cursor. */
-    private static int pull(Context context, AmperlyDatabase db) {
+    /** What one pull moved, for the log line the sign-in flow writes. */
+    private static final class Counts {
+        int pulled;
+        int removed;
+    }
+
+    /** Pages every table forward from its stored cursor, then reconciles deletions. */
+    private static Counts pull(Context context, AmperlyDatabase db) {
         SharedPreferences cursors = cursors(context);
-        int pulled = 0;
+        Counts counts = new Counts();
 
         for (SyncTables.Table table : SyncTables.ALL) {
             String cursor = cursors.getString(table.name, null);
@@ -168,7 +190,7 @@ public final class SyncEngine {
                             SyncTables.write(db, table, row);
                         }
                     });
-                    pulled += rows.size();
+                    counts.pulled += rows.size();
                 }
                 if (result.cursor != null) {
                     cursor = result.cursor;
@@ -178,8 +200,75 @@ public final class SyncEngine {
                     break;
                 }
             }
+            counts.removed += removeDeletedRows(table, db);
         }
-        return pulled;
+        return counts;
+    }
+
+    /**
+     * Deletes cached rows that the server no longer has.
+     *
+     * <p>The cursor cannot see a deletion, so the check is the table's live id list. It is
+     * read after the page pull, so a row that changed and stayed is already updated and only
+     * genuinely missing ids are removed. Room's own change triggers fire for these writes,
+     * so open screens drop the row without a reload.
+     */
+    private static int removeDeletedRows(SyncTables.Table table, AmperlyDatabase db) {
+        // Nothing cached means nothing can have been deleted, so the whole id sweep is skipped.
+        // A new account has six empty tables out of seven, and each skipped table is a request
+        // the pull no longer has to make.
+        List<String> local = localIds(db, table.name);
+        if (local.isEmpty()) {
+            return 0;
+        }
+
+        Set<String> remote = new HashSet<>();
+        boolean complete = false;
+        for (int page = 0; page < MAX_ID_PAGES; page++) {
+            List<String> ids = SupabaseRest.selectIds(table.name, SupabaseRest.PAGE_SIZE,
+                    page * SupabaseRest.PAGE_SIZE);
+            remote.addAll(ids);
+            if (ids.size() < SupabaseRest.PAGE_SIZE) {
+                complete = true;
+                break;
+            }
+        }
+        if (!complete) {
+            // An id list that stopped at the page guard is not the whole table, and deleting
+            // the rest would look exactly like a server-side purge. Skip instead.
+            Log.w(TAG, "Skipped deletion check for " + table.name + ": id list did not finish");
+            return 0;
+        }
+
+        List<String> stale = SyncReconciler.staleIds(local, remote);
+        if (stale.isEmpty()) {
+            return 0;
+        }
+        db.runInTransaction(() -> {
+            SupportSQLiteDatabase writable = db.getOpenHelper().getWritableDatabase();
+            for (String id : stale) {
+                // The table name is a registry constant, never user input; the id is bound.
+                writable.execSQL("DELETE FROM \"" + table.name + "\" WHERE id = ?",
+                        new Object[]{id});
+            }
+        });
+        Log.i(TAG, "Removed " + stale.size() + " deleted row(s) from " + table.name);
+        return stale.size();
+    }
+
+    /** Every cached primary key in one table. */
+    private static List<String> localIds(AmperlyDatabase db, String tableName) {
+        List<String> ids = new ArrayList<>();
+        Cursor cursor = db.getOpenHelper().getReadableDatabase()
+                .query("SELECT id FROM \"" + tableName + "\"");
+        try {
+            while (cursor.moveToNext()) {
+                ids.add(cursor.getString(0));
+            }
+        } finally {
+            cursor.close();
+        }
+        return ids;
     }
 
     // ------------------------------------------------------------------- state

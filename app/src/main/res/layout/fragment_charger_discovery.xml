@@ -85,14 +85,47 @@
                 </LinearLayout>
             </LinearLayout>
 
-            <TextView
-                android:id="@+id/discoveryContextText"
+            <!-- The active vehicle, and the shortcut to change it. The whole line is the
+                 target: opening the profile page first would be two taps for a switch. -->
+            <LinearLayout
+                android:id="@+id/vehicleSwitcherRow"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="2dp"
-                android:ellipsize="end"
-                android:maxLines="2"
-                android:textAppearance="@style/TextAppearance.Amperly.BodySmall" />
+                android:background="?attr/selectableItemBackground"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center_vertical"
+                android:minHeight="@dimen/amp_touch_target"
+                android:orientation="horizontal"
+                android:paddingTop="@dimen/amp_space_xs"
+                android:paddingBottom="@dimen/amp_space_xs">
+
+                <ImageView
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:contentDescription="@null"
+                    android:src="@drawable/ic_vehicle"
+                    app:tint="@color/amp_primary" />
+
+                <TextView
+                    android:id="@+id/discoveryContextText"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="@dimen/amp_space_xs"
+                    android:layout_weight="1"
+                    android:ellipsize="end"
+                    android:maxLines="2"
+                    android:textAppearance="@style/TextAppearance.Amperly.BodySmall" />
+
+                <ImageView
+                    android:layout_width="18dp"
+                    android:layout_height="18dp"
+                    android:layout_marginStart="@dimen/amp_space_xs"
+                    android:contentDescription="@null"
+                    android:src="@drawable/ic_chevron"
+                    app:tint="@color/amp_ink_secondary" />
+            </LinearLayout>
 
             <LinearLayout
                 android:layout_width="match_parent"

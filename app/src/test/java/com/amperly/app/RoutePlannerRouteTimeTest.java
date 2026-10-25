@@ -29,7 +29,7 @@ public class RoutePlannerRouteTimeTest {
 
     private Vehicle vehicle() {
         return new Vehicle("veh_1", "user_1", "Tata", "Nexon EV", "Max", 2023, 40.5,
-                "CCS_2_DC", 7.2, 30.0, 6.5, 96.0, 0.0, 15, 80, "KA09EV1234");
+                "CCS_2_DC", 7.2, 30.0, 6.5, 96.0, 0.0, 15, 80, "KA09EV1234", true);
     }
 
     @Test

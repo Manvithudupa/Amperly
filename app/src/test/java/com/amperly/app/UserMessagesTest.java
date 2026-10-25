@@ -63,6 +63,23 @@ public class UserMessagesTest {
     }
 
     @Test
+    public void aWrongPasswordIsNeverReportedAsANetworkProblem() {
+        // GoTrue answers a rejected sign-in with 400 and this message. It used to reach the
+        // screen as "check your internet connection", because the error body was discarded and
+        // nothing was left to classify.
+        assertEquals(UserMessages.Kind.AUTH_INVALID_CREDENTIALS,
+                UserMessages.classify(400, "Invalid login credentials"));
+        assertEquals(UserMessages.Kind.AUTH_INVALID_CREDENTIALS,
+                UserMessages.classify(-1, "invalid_credentials"));
+        assertEquals(UserMessages.Kind.AUTH_INVALID_CREDENTIALS,
+                UserMessages.classify(400, "Invalid login credentials [invalid_credentials]"));
+        assertEquals(UserMessages.Kind.AUTH_INVALID_CREDENTIALS,
+                UserMessages.classify(400, "Incorrect password"));
+        assertNotEquals(UserMessages.Kind.OFFLINE,
+                UserMessages.classify(400, "Invalid login credentials"));
+    }
+
+    @Test
     public void transportAndDatabaseFailuresKeepTheirExistingMeaning() {
         assertEquals(UserMessages.Kind.OFFLINE, UserMessages.classify(0, null));
         assertEquals(UserMessages.Kind.OFFLINE,

@@ -2,9 +2,10 @@ package com.amperly.app.data.local.entity;
 
 import androidx.annotation.NonNull;
 import androidx.room.Entity;
+import androidx.room.Index;
 import androidx.room.PrimaryKey;
 
-@Entity(tableName = "reservations")
+@Entity(tableName = "reservations", indices = {@Index("consumerId"), @Index("stationId")})
 public class Reservation {
     @PrimaryKey
     @NonNull

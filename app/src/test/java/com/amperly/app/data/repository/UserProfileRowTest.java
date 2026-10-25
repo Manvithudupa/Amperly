@@ -38,6 +38,15 @@ import java.util.Set;
  */
 public class UserProfileRowTest {
 
+    /** Every table in supabase/schema.sql, which is also the list the cleanup must cover. */
+    private static final Set<String> ALL_TABLES = new LinkedHashSet<>(Arrays.asList(
+            "users", "vehicles", "charger_stations", "charger_ports", "availability_schedules",
+            "reservations", "charging_sessions", "meter_readings", "invoices", "payments",
+            "route_plans", "route_stops", "trip_estimates", "battery_updates",
+            "communication_threads", "chat_messages", "safety_events", "trusted_contacts",
+            "reports", "disputes", "host_enforcements", "notifications",
+            "android_auto_sessions"));
+
     private static final Set<String> EXPECTED_COLUMNS = new LinkedHashSet<>(Arrays.asList(
             "id", "authUserId", "email", "name", "phone", "role", "organizationName",
             "verificationStatus", "isBlocked"));
@@ -119,6 +128,35 @@ public class UserProfileRowTest {
             assertTrue("public.users has no column named " + column
                             + " (schema has: " + columns + ")",
                     columns.contains(column));
+        }
+    }
+
+    @Test
+    public void deletingAnAuthAccountDeletesEverythingThatAccountOwned() throws Exception {
+        File schema = findSchemaFile();
+        assumeTrue("supabase/schema.sql is not present in this checkout", schema != null);
+        String sql = readFile(schema);
+
+        // The profile row must not outlive the sign-in account as an orphan with a null
+        // authUserId: nothing would ever reach it again, and the id could not be reused.
+        assertTrue("public.users must be deleted with its auth.users row",
+                sql.contains("references auth.users (id) on delete cascade"));
+
+        assertTrue("schema.sql must install a trigger that clears the account's data",
+                sql.contains("create trigger on_auth_user_deleted"));
+        assertTrue("that trigger must fire on delete of the Auth account",
+                sql.contains("before delete on auth.users"));
+        assertTrue("the trigger must call the cleanup function",
+                sql.contains("execute function public.handle_deleted_auth_user()"));
+
+        // A missed table is silent: the rows stay forever and nobody notices. Every table that
+        // can hold a userId/consumerId/hostId column is listed here, so adding one to the schema
+        // without extending the cleanup fails this test.
+        for (String table : ALL_TABLES) {
+            assertTrue("deleting an account must also delete from public." + table
+                            + "; its rows would otherwise be stranded",
+                    sql.contains("delete from public." + table + "\n")
+                            || sql.contains("delete from public." + table + "\r\n"));
         }
     }
 

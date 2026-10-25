@@ -60,7 +60,7 @@ import com.amperly.app.data.local.entity.Vehicle;
         TrustedContact.class, BatteryUpdate.class, HostEnforcementAction.class,
         Notification.class, ChatMessage.class, CommunicationThread.class, RoutePlan.class,
         RouteStop.class, TripEstimate.class, AndroidAutoSession.class
-}, version = 4, exportSchema = false)
+}, version = 5, exportSchema = false)
 public abstract class AmperlyDatabase extends RoomDatabase {
 
     private static volatile AmperlyDatabase INSTANCE;

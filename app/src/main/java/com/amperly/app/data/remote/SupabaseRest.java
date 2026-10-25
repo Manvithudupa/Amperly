@@ -141,6 +141,46 @@ public final class SupabaseRest {
         return parseList(body, type);
     }
 
+    /**
+     * The primary keys of every row the signed-in account may read, one page at a time.
+     *
+     * <p>Ids only: this is the cheap half of a deletion check, and a page of ids is far
+     * smaller than a page of rows. Ordered by id so paging cannot skip or repeat a row.
+     */
+    public static List<String> selectIds(String table, int limit, int offset) {
+        Map<String, String> query = new HashMap<>();
+        query.put("select", "id");
+        query.put("order", "id.asc");
+        query.put("limit", String.valueOf(limit));
+        query.put("offset", String.valueOf(offset));
+
+        Response<ResponseBody> response = call(() ->
+                SupabaseClient.postgrest()
+                        .select(table, query, SupabaseClient.authHeader())
+                        .execute());
+        String body = read(response);
+        requireSuccess(response, body, "Reading " + table);
+
+        List<String> ids = new ArrayList<>();
+        if (body == null || body.isEmpty()) {
+            return ids;
+        }
+        JsonElement parsed = JsonParser.parseString(body);
+        if (!parsed.isJsonArray()) {
+            return ids;
+        }
+        for (JsonElement element : parsed.getAsJsonArray()) {
+            if (!element.isJsonObject()) {
+                continue;
+            }
+            JsonElement id = element.getAsJsonObject().get("id");
+            if (id != null && id.isJsonPrimitive()) {
+                ids.add(id.getAsString());
+            }
+        }
+        return ids;
+    }
+
     /** Confirms the project is reachable and the publishable key is accepted. */
     public static boolean ping() {
         Response<ResponseBody> response = call(() ->
@@ -309,8 +349,17 @@ public final class SupabaseRest {
         return "no details";
     }
 
-    private static String read(Response<ResponseBody> response) {
-        ResponseBody body = response.body();
+    /**
+     * The body of a response, successful or not.
+     *
+     * <p>Retrofit puts a non-2xx payload in {@link Response#errorBody()}, not in
+     * {@link Response#body()}. Reading only {@code body()} therefore discarded every server
+     * message — including GoTrue's reason for rejecting a sign-in — and left the caller with a
+     * bare HTTP status. That is how a wrong password came to be reported as a connection
+     * problem.
+     */
+    static String read(Response<ResponseBody> response) {
+        ResponseBody body = response.isSuccessful() ? response.body() : response.errorBody();
         if (body == null) {
             return "";
         }

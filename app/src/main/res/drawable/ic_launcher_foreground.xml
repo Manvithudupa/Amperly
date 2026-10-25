@@ -1,25 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Adaptive icon foreground: the Amperly bolt.
+  Adaptive icon foreground: an EV charging plug with a bolt.
 
-  Two constraints shape this path:
+  The artwork is a plug face rather than a bare bolt: it says what Amperly is about (a
+  charging connector) while the amber bolt keeps the energy motif that the in-app brand
+  mark uses. Amber is the palette's energy role; deep green is the primary.
 
-  1. The launcher masks the 108x108 canvas down to roughly a 72dp shape and only the
-     central 66dp circle is guaranteed visible. The furthest vertex sits 31.3dp from the
-     centre, inside that 33dp radius, so no mask crops the mark.
-  2. It is a single flat white silhouette, so the same artwork doubles as the monochrome
-     themed layer (Android 13+) instead of needing a separate file.
-
-  The proportions were chosen by rasterising candidates and comparing them: a narrower
-  bolt is legible but has too little presence at 48dp, and a taller one leaves no room
-  for the launcher's mask.
+  Everything sits inside the 66dp safe circle: the furthest point is 31.1dp from the
+  centre, so a circular, squircle or rounded-square launcher mask crops background only.
+  The plug body is white so it stays legible on any wallpaper behind a transparent mask.
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <path
-        android:fillColor="#FFFFFFFF"
-        android:pathData="M49,84 L45,84 L49,61 L34,61 L59,24 L63,24 L59,47 L74,47 Z" />
+    <group
+        android:scaleX="0.2109375"
+        android:scaleY="0.2109375">
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M224.00,136.00 h2.00 a26.00,26.00 0 0 1 26.00,26.00 v38.00 a26.00,26.00 0 0 1 -26.00,26.00 h-2.00 a26.00,26.00 0 0 1 -26.00,-26.00 v-38.00 a26.00,26.00 0 0 1 26.00,-26.00 Z M286.00,136.00 h2.00 a26.00,26.00 0 0 1 26.00,26.00 v38.00 a26.00,26.00 0 0 1 -26.00,26.00 h-2.00 a26.00,26.00 0 0 1 -26.00,-26.00 v-38.00 a26.00,26.00 0 0 1 26.00,-26.00 Z M204.00,206.00 h104.00 a58.00,58.00 0 0 1 58.00,58.00 v32.00 a58.00,58.00 0 0 1 -58.00,58.00 h-104.00 a58.00,58.00 0 0 1 -58.00,-58.00 v-32.00 a58.00,58.00 0 0 1 58.00,-58.00 Z" />
+        <path
+            android:fillColor="#FFF2A516"
+            android:pathData="M278 226 L204 300 L246 300 L232 342 L314 258 L268 258 Z" />
+    </group>
 </vector>

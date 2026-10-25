@@ -402,15 +402,160 @@ public class AmperlyRepository {
         return db.vehicleDao().getVehicleByUserId(userId);
     }
 
+    /** Every vehicle the account keeps, the active one first. */
+    public LiveData<List<Vehicle>> observeVehicles(String userId) {
+        return db.vehicleDao().observeVehiclesForUser(userId);
+    }
+
+    /**
+     * The vehicle every range, compatibility and reservation rule is evaluated against.
+     *
+     * <p>An account may keep more than one; this always resolves to the one the driver selected
+     * rather than to whichever row the database happened to return first.
+     */
     public Vehicle getVehicleSync(String userId) {
         return db.vehicleDao().getVehicleByUserIdSync(userId);
     }
 
+    public List<Vehicle> getVehiclesSync(String userId) {
+        return db.vehicleDao().getVehiclesForUserSync(userId);
+    }
+
+    /**
+     * Saves one profile and, when it is flagged active, makes it the only active one.
+     *
+     * <p>The other profiles are deactivated locally and patched on the server in the same task.
+     * Skipping the patch would look fine until the next pull, when those rows would still say
+     * {@code isActive = true} and the plan would start moving between vehicles on its own.
+     */
     public void saveVehicle(Vehicle vehicle) {
+        if (vehicle == null) {
+            return;
+        }
         run(() -> {
+            List<String> previousActive = new ArrayList<>();
+            if (vehicle.isActive() && vehicle.getUserId() != null) {
+                previousActive.addAll(db.vehicleDao()
+                        .activeIdsExcept(vehicle.getUserId(), vehicle.getId()));
+                db.vehicleDao().deactivateOthers(vehicle.getUserId(), vehicle.getId());
+            }
             db.vehicleDao().insert(vehicle);
             pushUpsert("vehicles", vehicle);
+            for (String id : previousActive) {
+                pushPatch("vehicles", id, Collections.singletonMap("isActive", false));
+            }
         });
+    }
+
+    /**
+     * Selects the profile used for planning.
+     *
+     * <p>Exactly one row keeps the flag: the chosen profile is activated and every other one is
+     * cleared, locally and on the server.
+     */
+    public void setActiveVehicle(Vehicle vehicle) {
+        if (vehicle == null || vehicle.getUserId() == null) {
+            return;
+        }
+        run(() -> setActiveVehicleNow(vehicle));
+    }
+
+    /**
+     * Switches the active profile and reports the garage, in one ordered task.
+     *
+     * <p>The read happens after the switch on the same thread, so a screen that reloads off the
+     * callback cannot race the change and plan against the previous vehicle again.
+     */
+    public void setActiveVehicle(Vehicle vehicle, Callback<List<Vehicle>> callback) {
+        if (vehicle == null || vehicle.getUserId() == null) {
+            if (callback != null) {
+                callback.onResult(Collections.emptyList());
+            }
+            return;
+        }
+        writeExecutor.execute(() -> {
+            List<Vehicle> remaining = null;
+            try {
+                setActiveVehicleNow(vehicle);
+                remaining = getVehiclesSync(vehicle.getUserId());
+            } catch (RuntimeException e) {
+                Log.e(TAG, "Could not switch the active vehicle: " + e, e);
+            }
+            final List<Vehicle> result = remaining;
+            mainHandler.post(() -> {
+                if (callback != null) {
+                    callback.onResult(result);
+                }
+            });
+        });
+    }
+
+    private void setActiveVehicleNow(Vehicle vehicle) {
+        List<String> previousActive = new ArrayList<>(db.vehicleDao()
+                .activeIdsExcept(vehicle.getUserId(), vehicle.getId()));
+        db.vehicleDao().deactivateOthers(vehicle.getUserId(), vehicle.getId());
+        db.vehicleDao().markActive(vehicle.getId());
+        vehicle.setActive(true);
+        pushPatch("vehicles", vehicle.getId(), Collections.singletonMap("isActive", true));
+        for (String id : previousActive) {
+            pushPatch("vehicles", id, Collections.singletonMap("isActive", false));
+        }
+    }
+
+    /**
+     * Removes one profile and promotes another one when the deleted profile was in use, so the
+     * planner never loses its vehicle behind the driver's back.
+     */
+    public void deleteVehicle(Vehicle vehicle) {
+        if (vehicle == null) {
+            return;
+        }
+        run(() -> deleteVehicleNow(vehicle));
+    }
+
+    /**
+     * Deletes one profile and reports the remaining garage, in one ordered task.
+     *
+     * <p>The read happens on the same thread as the delete: asking for the list separately
+     * could return the profile that is still being removed.
+     */
+    public void deleteVehicle(Vehicle vehicle, Callback<List<Vehicle>> callback) {
+        if (vehicle == null) {
+            if (callback != null) {
+                callback.onResult(Collections.emptyList());
+            }
+            return;
+        }
+        // On the write executor, so the delete keeps its place in the write order, and the
+        // remaining list is read in the same task.
+        writeExecutor.execute(() -> {
+            List<Vehicle> remaining = null;
+            try {
+                String userId = vehicle.getUserId();
+                deleteVehicleNow(vehicle);
+                remaining = userId == null
+                        ? Collections.<Vehicle>emptyList() : getVehiclesSync(userId);
+            } catch (RuntimeException e) {
+                Log.e(TAG, "Could not delete the vehicle: " + e, e);
+            }
+            final List<Vehicle> result = remaining;
+            mainHandler.post(() -> {
+                if (callback != null) {
+                    callback.onResult(result);
+                }
+            });
+        });
+    }
+
+    private void deleteVehicleNow(Vehicle vehicle) {
+        db.vehicleDao().deleteById(vehicle.getId());
+        pushDelete("vehicles", vehicle.getId());
+        Vehicle next = db.vehicleDao().getVehicleByUserIdSync(vehicle.getUserId());
+        if (next != null && !next.isActive()) {
+            db.vehicleDao().markActive(next.getId());
+            next.setActive(true);
+            pushPatch("vehicles", next.getId(), Collections.singletonMap("isActive", true));
+        }
     }
 
     // ------------------------------------------------------------- stations
@@ -600,6 +745,57 @@ public class AmperlyRepository {
                 System.currentTimeMillis());
     }
 
+    /**
+     * Availability for a whole result list, in four reads instead of four per charger.
+     *
+     * <p>Discover used to call {@link #getAvailabilitySummary} once per station, and each call
+     * re-read that station's ports, schedules and reservations. With a full result list that is
+     * 4N queries every time the screen resumes. The same rows are grouped here in memory, so the
+     * cost stays constant however many chargers are listed. Must be called off the main thread.
+     */
+    @NonNull
+    public Map<String, AvailabilityEngine.AvailabilitySummary> availabilitySummaries(
+            @Nullable List<ChargerStation> stations) {
+        Map<String, AvailabilityEngine.AvailabilitySummary> summaries = new LinkedHashMap<>();
+        if (stations == null || stations.isEmpty()) {
+            return summaries;
+        }
+
+        Map<String, List<ChargerPort>> portsByStation = new LinkedHashMap<>();
+        for (ChargerPort port : getAllPortsSync()) {
+            if (port != null && port.getStationId() != null) {
+                portsByStation.computeIfAbsent(port.getStationId(), key -> new ArrayList<>())
+                        .add(port);
+            }
+        }
+        Map<String, List<AvailabilitySchedule>> schedulesByStation = new LinkedHashMap<>();
+        for (AvailabilitySchedule schedule : getAllSchedulesSync()) {
+            if (schedule != null && schedule.getStationId() != null) {
+                schedulesByStation.computeIfAbsent(schedule.getStationId(),
+                        key -> new ArrayList<>()).add(schedule);
+            }
+        }
+        Map<String, List<Reservation>> reservationsByStation = new LinkedHashMap<>();
+        for (Reservation reservation : getAllReservationsSync()) {
+            if (reservation != null && reservation.getStationId() != null) {
+                reservationsByStation.computeIfAbsent(reservation.getStationId(),
+                        key -> new ArrayList<>()).add(reservation);
+            }
+        }
+
+        long nowMs = System.currentTimeMillis();
+        for (ChargerStation station : stations) {
+            if (station == null || station.getId() == null) {
+                continue;
+            }
+            summaries.put(station.getId(), AvailabilityEngine.summarise(station,
+                    portsByStation.get(station.getId()),
+                    schedulesByStation.get(station.getId()),
+                    reservationsByStation.get(station.getId()), nowMs));
+        }
+        return summaries;
+    }
+
     // --------------------------------------------------------- reservations
 
     public LiveData<List<Reservation>> observeReservationsForConsumer(String consumerId) {
@@ -620,6 +816,10 @@ public class AmperlyRepository {
 
     public List<Reservation> getReservationsForStationSync(String stationId) {
         return db.reservationDao().getReservationsForStationSync(stationId);
+    }
+
+    public List<Reservation> getAllReservationsSync() {
+        return db.reservationDao().getAllReservationsSync();
     }
 
     public Reservation getActiveReservationSync(String consumerId) {
@@ -1420,8 +1620,7 @@ public class AmperlyRepository {
     public void saveBatteryUpdate(BatteryUpdate update) {
         run(() -> {
             db.batteryUpdateDao().insert(update);
-            Vehicle vehicle = db.vehicleDao()
-                    .getVehicleByUserIdSync(AuthManager.getInstance().getCurrentUserId());
+            Vehicle vehicle = db.vehicleDao().getByIdSync(update.getVehicleId());
             if (vehicle != null && vehicle.getId().equals(update.getVehicleId())) {
                 pushUpsert("battery_updates", update);
             }

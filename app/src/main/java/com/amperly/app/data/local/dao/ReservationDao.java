@@ -37,6 +37,10 @@ public interface ReservationDao {
     @Query("SELECT * FROM reservations WHERE stationId = :stationId ORDER BY startTimeMs DESC")
     List<Reservation> getReservationsForStationSync(String stationId);
 
+    /** Every cached reservation, for the grouped availability read in Discover. */
+    @Query("SELECT * FROM reservations")
+    List<Reservation> getAllReservationsSync();
+
     @Query("SELECT * FROM reservations WHERE id = :id LIMIT 1")
     Reservation getReservationByIdSync(String id);
 

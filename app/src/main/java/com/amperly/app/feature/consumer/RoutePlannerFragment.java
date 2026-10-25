@@ -15,6 +15,7 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -27,6 +28,7 @@ import com.amperly.app.core.location.LocationProvider;
 import com.amperly.app.core.map.MapPanel;
 import com.amperly.app.core.nav.GeoapifyNavigationProvider;
 import com.amperly.app.core.nav.NavigationProvider;
+import com.amperly.app.core.nav.Navigator;
 import com.amperly.app.core.places.GeoapifyGeocoder;
 import com.amperly.app.core.places.PlacesAutocomplete;
 import com.amperly.app.core.routing.DirectionsRoute;
@@ -44,6 +46,7 @@ import com.amperly.app.engine.routing.RoutePlannerEngine;
 import com.amperly.app.engine.soc.SoCEstimatorEngine;
 import com.amperly.app.ui.Ux;
 import com.amperly.app.ui.adapter.RouteStopAdapter;
+import com.amperly.app.ui.dialog.VehicleSwitcherDialog;
 import com.google.android.material.chip.ChipGroup;
 import com.google.android.material.textfield.MaterialAutoCompleteTextView;
 import com.google.android.material.textfield.TextInputLayout;
@@ -73,6 +76,7 @@ public class RoutePlannerFragment extends Fragment implements RouteStopAdapter.L
     private TextView destinationResolvedText;
     private TextView summaryText;
     private TextView confidenceText;
+    private TextView planVehicleText;
     private TextView planStatusText;
     private TextView socSourceText;
     private TextView directionsMetaText;
@@ -91,7 +95,16 @@ public class RoutePlannerFragment extends Fragment implements RouteStopAdapter.L
     private RouteStopAdapter candidatesAdapter;
     private MapPanel mapPanel;
 
-    private final NavigationProvider navigationProvider = new GeoapifyNavigationProvider();
+    /** The car the current plan is being made for, and the row that shows and switches it. */
+    @Nullable private Vehicle activeVehicle;
+    @Nullable private View plannerVehicleRow;
+    @Nullable private TextView plannerVehicleText;
+
+    /** Discards a lookup that was already in flight when the driver switched car by hand. */
+    private int vehicleLoadGeneration;
+
+    /** Created in {@link #onViewCreated} with the app context, so route failures can be explained. */
+    private NavigationProvider navigationProvider;
 
     private double corridorKm = AppConstants.DEFAULT_CORRIDOR_KM;
     private String preference = RoutePlannerEngine.PREF_FASTEST;
@@ -140,6 +153,7 @@ public class RoutePlannerFragment extends Fragment implements RouteStopAdapter.L
         actualSocEdit = view.findViewById(R.id.actualSocEdit);
         summaryText = view.findViewById(R.id.routeSummaryText);
         confidenceText = view.findViewById(R.id.confidenceText);
+        planVehicleText = view.findViewById(R.id.planVehicleText);
         planStatusText = view.findViewById(R.id.planStatusText);
         socSourceText = view.findViewById(R.id.socSourceText);
         directionsMetaText = view.findViewById(R.id.directionsMetaText);
@@ -149,6 +163,8 @@ public class RoutePlannerFragment extends Fragment implements RouteStopAdapter.L
         directionsContainer = view.findViewById(R.id.directionsContainer);
         noSafeChargerCard = view.findViewById(R.id.noSafeChargerContainer);
         mapContainer = view.findViewById(R.id.routeMapContainer);
+        navigationProvider = new GeoapifyNavigationProvider(
+                requireContext().getApplicationContext());
 
         plannedAdapter = new RouteStopAdapter(this);
         backupsAdapter = new RouteStopAdapter(this);
@@ -159,8 +175,115 @@ public class RoutePlannerFragment extends Fragment implements RouteStopAdapter.L
 
         setUpChips(view);
         setUpInputs(view);
+
+        plannerVehicleRow = view.findViewById(R.id.plannerVehicleRow);
+        plannerVehicleText = view.findViewById(R.id.plannerVehicleText);
+        if (plannerVehicleRow != null) {
+            plannerVehicleRow.setOnClickListener(v -> showVehicleSwitcher());
+        }
+
         attachMap();
         resolveOrigin();
+    }
+
+    /**
+     * Re-reads the active car on every return to this screen.
+     *
+     * <p>The profile page (or the other device) can change which car is in use while this screen
+     * is away. The row follows it, and a plan already on screen is remade for the new car rather
+     * than left describing the old one.
+     */
+    @Override
+    public void onResume() {
+        super.onResume();
+        loadActiveVehicle();
+    }
+
+    private void loadActiveVehicle() {
+        final int generation = ++vehicleLoadGeneration;
+        repo.background(() -> repo.getVehicleSync(AuthManager.getInstance().getCurrentUserId()),
+                vehicle -> {
+                    if (!isAdded() || generation != vehicleLoadGeneration) {
+                        return;
+                    }
+                    String previousId = activeVehicle == null ? null : activeVehicle.getId();
+                    String newId = vehicle == null ? null : vehicle.getId();
+                    boolean firstLoad = activeVehicle == null;
+                    boolean same = previousId == null ? newId == null : previousId.equals(newId);
+
+                    applyVehicle(vehicle);
+                    if (firstLoad) {
+                        // Only fill an empty field: a battery the driver is typing right now wins.
+                        if (TextUtils.isEmpty(currentSocEdit.getText())) {
+                            applyBatteryForVehicle(vehicle);
+                        }
+                    } else if (!same) {
+                        applyBatteryForVehicle(vehicle);
+                        if (lastPlan != null) {
+                            planRoute();
+                        }
+                    }
+                });
+    }
+
+    /** Shows the active car on the step-3 row. */
+    private void applyVehicle(@Nullable Vehicle vehicle) {
+        activeVehicle = vehicle;
+        if (plannerVehicleText != null) {
+            plannerVehicleText.setText(vehicle == null
+                    ? getString(R.string.vehicle_none_add) : vehicle.displayName());
+        }
+        updateVehicleRowDescription();
+        AppStateStore.get().setVehicle(vehicle);
+    }
+
+    /** Puts this car's remembered battery reading in the field, replacing the other car's. */
+    private void applyBatteryForVehicle(@Nullable Vehicle vehicle) {
+        int stored = vehicle == null ? -1
+                : SocStore.load(requireContext(), AuthManager.getInstance().getCurrentUserId(),
+                vehicle.getId());
+        AppStateStore.get().applyStoredSoc(vehicle == null ? null : vehicle.getId(), stored);
+        currentSocEdit.setText(stored >= 0 ? String.valueOf(stored) : "");
+    }
+
+    private void updateVehicleRowDescription() {
+        if (plannerVehicleRow != null) {
+            String label = plannerVehicleText == null || plannerVehicleText.getText().length() == 0
+                    ? getString(R.string.vehicle_none_add)
+                    : plannerVehicleText.getText().toString();
+            plannerVehicleRow.setContentDescription(
+                    getString(R.string.vehicle_switch_description, label));
+        }
+    }
+
+    /** Offers the other saved cars and plans against whichever is chosen. */
+    private void showVehicleSwitcher() {
+        VehicleSwitcherDialog.show(this,
+                activeVehicle == null ? null : activeVehicle.getId(),
+                new VehicleSwitcherDialog.Listener() {
+                    @Override
+                    public void onVehicleSwitched(@NonNull Vehicle vehicle) {
+                        if (!isAdded()) {
+                            return;
+                        }
+                        // A lookup started before this tap must not overwrite the choice.
+                        vehicleLoadGeneration++;
+                        applyVehicle(vehicle);
+                        applyBatteryForVehicle(vehicle);
+                        Ux.toast(RoutePlannerFragment.this,
+                                getString(R.string.vehicle_switched, vehicle.displayName()));
+                        // A trip on screen belongs to the car that was in use; remake it.
+                        if (lastPlan != null) {
+                            planRoute();
+                        }
+                    }
+
+                    @Override
+                    public void onManageVehicles() {
+                        Navigator.open(RoutePlannerFragment.this,
+                                new VehicleProfileFragment(), "vehicle");
+                    }
+                });
     }
 
     private void setUpChips(View view) {
@@ -479,12 +602,13 @@ public class RoutePlannerFragment extends Fragment implements RouteStopAdapter.L
             AppStateStore store = AppStateStore.get();
             store.setVehicle(vehicle);
             store.setEstimatedSoc(startSoc);
-            SocStore.save(getContext(), userId, startSoc);
+            SocStore.save(getContext(), userId, vehicle == null ? null : vehicle.getId(),
+                    startSoc);
             store.setActivePlan(plan);
             store.setLastPlanResult(result);
             store.setUserId(userId);
 
-            return new PlanBundle(result, plan, route, fromProfile);
+            return new PlanBundle(result, plan, route, fromProfile, vehicle);
         }, bundle -> {
             if (bundle == null || !isAdded()) {
                 return;
@@ -507,6 +631,7 @@ public class RoutePlannerFragment extends Fragment implements RouteStopAdapter.L
                 getString(R.string.route_confidence, result.getConfidence()),
                 (int) result.getCorridorKm(), result.getCandidates().size(),
                 result.getExcluded().size()));
+        renderPlanVehicle(bundle.vehicle);
 
         if (result.getNoStopWarning() != null) {
             showStatus(result.getNoStopWarning());
@@ -699,7 +824,9 @@ public class RoutePlannerFragment extends Fragment implements RouteStopAdapter.L
 
     private void renderRecalculation(SoCEstimatorEngine.RecalculationResult result, int previousEstimate) {
         AppStateStore.get().applySocCorrection(previousEstimate, result.getActualDashboardSoc());
+        Vehicle activeVehicle = AppStateStore.get().getVehicle();
         SocStore.save(requireContext(), AuthManager.getInstance().getCurrentUserId(),
+                activeVehicle == null ? null : activeVehicle.getId(),
                 result.getActualDashboardSoc());
         AppStateStore.get().setLastRecalculationSummary(result.getExplanation());
         AppStateStore.get().setNoSafeChargerMessage(result.getWarningMessage() == null ? ""
@@ -859,18 +986,56 @@ public class RoutePlannerFragment extends Fragment implements RouteStopAdapter.L
         }
     }
 
+    /**
+     * Names the car the plan belongs to, so a plan kept on screen is never read as the current
+     * vehicle's.
+     *
+     * <p>The profile is re-checked here rather than trusted from the plan alone: the active car
+     * can change on another device, or the profile can be removed while this plan is displayed.
+     * A mismatch is stated in the warning colour instead of being silently corrected, because
+     * the driver is the one who decides which car the trip is for.
+     */
+    private void renderPlanVehicle(@Nullable Vehicle plannedFor) {
+        if (planVehicleText == null) {
+            return;
+        }
+        if (plannedFor == null) {
+            planVehicleText.setText(R.string.route_plan_no_vehicle);
+            planVehicleText.setTextColor(ContextCompat.getColor(requireContext(),
+                    R.color.amp_ink_secondary));
+            return;
+        }
+        boolean changed = activeVehicle != null
+                && !activeVehicle.getId().equals(plannedFor.getId());
+        if (changed) {
+            planVehicleText.setText(getString(R.string.route_plan_vehicle_stale,
+                    plannedFor.displayName(), activeVehicle.displayName()));
+            planVehicleText.setTextColor(ContextCompat.getColor(requireContext(),
+                    R.color.amp_busy_ink));
+        } else {
+            planVehicleText.setText(getString(R.string.route_plan_vehicle,
+                    plannedFor.displayName()));
+            planVehicleText.setTextColor(ContextCompat.getColor(requireContext(),
+                    R.color.amp_ink_secondary));
+        }
+    }
+
     private static class PlanBundle {
         private final RoutePlannerEngine.RoutePlanResult result;
         private final RoutePlan plan;
         private final DirectionsRoute route;
         private final boolean fromProfile;
+        /** The car the plan was calculated for, or null when no profile was available. */
+        @Nullable
+        private final Vehicle vehicle;
 
         PlanBundle(RoutePlannerEngine.RoutePlanResult result, RoutePlan plan, DirectionsRoute route,
-                   boolean fromProfile) {
+                   boolean fromProfile, @Nullable Vehicle vehicle) {
             this.result = result;
             this.plan = plan;
             this.route = route;
             this.fromProfile = fromProfile;
+            this.vehicle = vehicle;
         }
     }
 }

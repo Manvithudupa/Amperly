@@ -1,5 +1,7 @@
 package com.amperly.app.core.nav;
 
+import android.content.Context;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
@@ -40,13 +42,29 @@ public final class GeoapifyNavigationProvider implements NavigationProvider {
     public static final String PROVIDER_NAME = "Geoapify (OpenStreetMap data) + MapLibre";
 
     private final GeoapifyRoutingClient.TravelMode defaultMode;
+    /**
+     * Only used so a failed route can be explained in the driver's language instead of the
+     * generic "map service is unavailable" that every failure used to collapse into.
+     */
+    @Nullable private final Context appContext;
     private volatile NavigationState state = NavigationState.idle();
 
     public GeoapifyNavigationProvider() {
-        this(GeoapifyRoutingClient.TravelMode.DRIVING);
+        this(null, GeoapifyRoutingClient.TravelMode.DRIVING);
     }
 
     public GeoapifyNavigationProvider(@NonNull GeoapifyRoutingClient.TravelMode defaultMode) {
+        this(null, defaultMode);
+    }
+
+    /** A provider that can name the real reason a route failed. */
+    public GeoapifyNavigationProvider(@NonNull Context context) {
+        this(context.getApplicationContext(), GeoapifyRoutingClient.TravelMode.DRIVING);
+    }
+
+    private GeoapifyNavigationProvider(@Nullable Context appContext,
+                                       @NonNull GeoapifyRoutingClient.TravelMode defaultMode) {
+        this.appContext = appContext;
         this.defaultMode = defaultMode;
     }
 
@@ -76,11 +94,11 @@ public final class GeoapifyNavigationProvider implements NavigationProvider {
             }
         };
         if (request.hasDestinationQuery()) {
-            GeoapifyRoutingClient.routeToAddress(null, mode, request.getOriginLat(),
+            GeoapifyRoutingClient.routeToAddress(appContext, mode, request.getOriginLat(),
                     request.getOriginLng(), request.getDestinationQuery(), inner);
             return;
         }
-        GeoapifyRoutingClient.route(null, mode, request.getOriginLat(), request.getOriginLng(),
+        GeoapifyRoutingClient.route(appContext, mode, request.getOriginLat(), request.getOriginLng(),
                 request.getDestinationLat(), request.getDestinationLng(), inner);
     }
 

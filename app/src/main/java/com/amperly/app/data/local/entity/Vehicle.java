@@ -2,13 +2,20 @@ package com.amperly.app.data.local.entity;
 
 import androidx.annotation.NonNull;
 import androidx.room.Entity;
+import androidx.room.Index;
 import androidx.room.PrimaryKey;
 
 /**
  * Consumer vehicle profile. Battery health and efficiency values are planning inputs only and
  * are never presented as a certified measurement of battery degradation.
+ *
+ * <p>An account may hold several vehicles. Exactly one of them is the <em>active</em> profile —
+ * the one every range, compatibility and reservation rule is evaluated against — and
+ * {@code isActive} is what marks it. The column is mirrored by {@code vehicles."isActive"} in
+ * {@code supabase/schema.sql}, so a switch made on one device reaches the other through the
+ * normal sync.
  */
-@Entity(tableName = "vehicles")
+@Entity(tableName = "vehicles", indices = {@Index("userId")})
 public class Vehicle {
     @PrimaryKey
     @NonNull
@@ -28,12 +35,15 @@ public class Vehicle {
     private int minArrivalSocPercent;
     private int maxChargeSocPercent;
     private String licensePlate;
+    /** True for the one profile used for planning; false for the rest of the garage. */
+    private boolean isActive;
 
     public Vehicle(@NonNull String id, String userId, String make, String model, String variant,
                    int purchaseYear, double batteryCapacityKwh, String connectorType,
                    double maxAcKw, double maxDcKw, double typicalEfficiencyKmPerKwh,
                    double batteryHealthPercent, double efficiencyCorrectionPercent,
-                   int minArrivalSocPercent, int maxChargeSocPercent, String licensePlate) {
+                   int minArrivalSocPercent, int maxChargeSocPercent, String licensePlate,
+                   boolean isActive) {
         this.id = id;
         this.userId = userId;
         this.make = make;
@@ -50,6 +60,7 @@ public class Vehicle {
         this.minArrivalSocPercent = minArrivalSocPercent;
         this.maxChargeSocPercent = maxChargeSocPercent;
         this.licensePlate = licensePlate;
+        this.isActive = isActive;
     }
 
     @NonNull
@@ -100,6 +111,21 @@ public class Vehicle {
 
     public String getLicensePlate() { return licensePlate; }
     public void setLicensePlate(String licensePlate) { this.licensePlate = licensePlate; }
+
+    public boolean isActive() { return isActive; }
+    public void setActive(boolean active) { this.isActive = active; }
+
+    /** "Make Model", or a neutral label for a profile that has not been filled in yet. */
+    public String displayName() {
+        String make = this.make == null ? "" : this.make.trim();
+        String model = this.model == null ? "" : this.model.trim();
+        String name = (make + " " + model).trim();
+        if (!name.isEmpty()) {
+            return name;
+        }
+        String plate = licensePlate == null ? "" : licensePlate.trim();
+        return plate.isEmpty() ? "Vehicle" : plate;
+    }
 
     /** Planning-only capacity after the user-provided health adjustment. */
     public double effectiveCapacityKwh() {

@@ -181,8 +181,10 @@ public class SignInFragment extends Fragment {
             }
             return Outcome.signedIn(user);
         } catch (SupabaseAuth.Failure failure) {
+            // A rejected sign-in is about the credentials, not the network. The generic text
+            // says so when the server's reason is something the classifier does not know.
             return Outcome.failed(UserMessages.from(appContext, failure,
-                    R.string.auth_unexpected));
+                    R.string.auth_failed_generic));
         } catch (SupabaseAuth.NetworkFailure network) {
             return Outcome.failed(UserMessages.from(appContext, network,
                     R.string.auth_unexpected));
@@ -190,8 +192,10 @@ public class SignInFragment extends Fragment {
             return Outcome.failed(UserMessages.from(appContext, rest,
                     R.string.auth_no_profile));
         } catch (RuntimeException unexpected) {
+            // Not necessarily a connection problem: a local failure (the secure session store,
+            // for one) lands here, and blaming the internet sent people the wrong way.
             return Outcome.failed(UserMessages.from(appContext, unexpected,
-                    R.string.auth_unexpected));
+                    R.string.auth_not_completed));
         }
     }
 
@@ -201,7 +205,7 @@ public class SignInFragment extends Fragment {
         }
         setBusy(false, false);
         if (outcome == null) {
-            showError(getString(R.string.auth_unexpected));
+            showError(getString(R.string.auth_not_completed));
             return;
         }
         if (outcome.isSuccess()) {

@@ -23,6 +23,7 @@ import androidx.fragment.app.Fragment;
 
 import com.amperly.app.R;
 import com.amperly.app.core.common.AppConstants;
+import com.amperly.app.core.common.Formatters;
 import com.amperly.app.core.location.LocationProvider;
 import com.amperly.app.core.map.MapPanel;
 import com.amperly.app.core.nav.Navigator;
@@ -63,6 +64,8 @@ public class RegisterStationFragment extends Fragment {
             "Level 2 — integrated smart meter (simulated)",
             "Level 3 — no verified meter (discovery only)"};
     private static final String[] CONNECTORS = {"TYPE_2_AC", "CCS_2_DC", "GB_T", "CHADEMO"};
+    /** The stored codes stay as they are; only the dropdown reads them as people say them. */
+    private static final String[] CONNECTOR_LABELS = connectorLabels();
 
     private static final int REQUEST_LOCATION = 1001;
 
@@ -118,8 +121,8 @@ public class RegisterStationFragment extends Fragment {
 
         MaterialAutoCompleteTextView portConnectorDropdown = view.findViewById(R.id.portConnectorDropdown);
         portConnectorDropdown.setAdapter(new ArrayAdapter<>(requireContext(),
-                R.layout.item_dropdown, CONNECTORS));
-        portConnectorDropdown.setText(CONNECTORS[0], false);
+                R.layout.item_dropdown, CONNECTOR_LABELS));
+        portConnectorDropdown.setText(CONNECTOR_LABELS[0], false);
         portConnectorDropdown.setOnItemClickListener((parent, v, position, id) ->
                 portConnectorIndex = position);
 
@@ -464,6 +467,15 @@ public class RegisterStationFragment extends Fragment {
 
     private static String pick(String[] values, int index) {
         return index >= 0 && index < values.length ? values[index] : values[0];
+    }
+
+    /** The dropdown labels, so the host reads "Type 2 AC" instead of the stored code. */
+    private static String[] connectorLabels() {
+        String[] labels = new String[CONNECTORS.length];
+        for (int i = 0; i < CONNECTORS.length; i++) {
+            labels[i] = Formatters.connectorType(CONNECTORS[i]);
+        }
+        return labels;
     }
 
     private double parse(String value, double fallback) {

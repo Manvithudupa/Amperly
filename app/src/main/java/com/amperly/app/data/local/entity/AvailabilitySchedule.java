@@ -2,13 +2,14 @@ package com.amperly.app.data.local.entity;
 
 import androidx.annotation.NonNull;
 import androidx.room.Entity;
+import androidx.room.Index;
 import androidx.room.PrimaryKey;
 
 /**
  * Host-managed opening window for one port on one day of the week. The MVP has no charger API, so
  * availability is derived from these schedules, reservation records, port status and blocks.
  */
-@Entity(tableName = "availability_schedules")
+@Entity(tableName = "availability_schedules", indices = {@Index("stationId")})
 public class AvailabilitySchedule {
     @PrimaryKey
     @NonNull

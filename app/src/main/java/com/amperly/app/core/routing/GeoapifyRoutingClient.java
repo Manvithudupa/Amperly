@@ -405,6 +405,13 @@ public final class GeoapifyRoutingClient {
         if (context == null) {
             return MAP_UNAVAILABLE;
         }
-        return UserMessages.from(context.getApplicationContext(), e, R.string.error_map_unavailable);
+        Context appContext = context.getApplicationContext();
+        UserMessages.Kind kind = UserMessages.classify(e, null);
+        // A request the routing service refused is a destination problem, not the "couldn't
+        // save that" wording the shared validation bucket carries, and not an outage either.
+        if (kind == UserMessages.Kind.VALIDATION || kind == UserMessages.Kind.UNKNOWN) {
+            return appContext.getString(R.string.route_plan_failed);
+        }
+        return UserMessages.messageFor(appContext, kind, R.string.error_map_unavailable);
     }
 }

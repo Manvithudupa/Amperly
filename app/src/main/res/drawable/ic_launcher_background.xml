@@ -1,11 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Adaptive icon background.
+  Adaptive icon background: the brand deep green with a soft light source at the top left.
 
-  This replaced the Android Studio template's green wireframe grid, which shipped the
-  stock robot artwork as the app's launcher icon. The brand green is a vertical gradient
-  rather than a flat fill so the icon has some depth at large sizes without depending on
-  a shadow, which the launcher mask would crop anyway.
+  A gradient rather than a flat fill, so the icon has depth at large sizes without a shadow
+  that the launcher mask would crop away.
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:aapt="http://schemas.android.com/aapt"
@@ -17,20 +15,28 @@
     <path android:pathData="M0,0h108v108h-108z">
         <aapt:attr name="android:fillColor">
             <gradient
-                android:startX="54"
+                android:startX="0"
                 android:startY="0"
-                android:endX="54"
+                android:endX="38"
                 android:endY="108"
                 android:type="linear">
-                <item
-                    android:color="#FF12594A"
-                    android:offset="0.0" />
-                <item
-                    android:color="#FF0F5C4D"
-                    android:offset="0.55" />
-                <item
-                    android:color="#FF0B4438"
-                    android:offset="1.0" />
+                <item android:color="#FF14705D" android:offset="0.0" />
+                <item android:color="#FF0F5C4D" android:offset="0.55" />
+                <item android:color="#FF0A3F34" android:offset="1.0" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <path android:pathData="M0,0h108v108h-108z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:centerX="30"
+                android:centerY="13"
+                android:gradientRadius="97"
+                android:type="radial">
+                <item android:color="#992F7A67" android:offset="0.0" />
+                <item android:color="#142F7A67" android:offset="0.62" />
+                <item android:color="#002F7A67" android:offset="1.0" />
             </gradient>
         </aapt:attr>
     </path>

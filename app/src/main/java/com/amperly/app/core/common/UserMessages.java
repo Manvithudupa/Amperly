@@ -104,7 +104,9 @@ public final class UserMessages {
     public static Kind classify(int httpCode, @Nullable String technicalText) {
         String text = technicalText == null ? "" : technicalText.toLowerCase(Locale.US);
 
-        if (containsAny(text, "invalid login credentials", "invalid_credentials", "invalid grant")) {
+        if (containsAny(text, "invalid login credentials", "invalid_credentials", "invalid grant",
+                "wrong password", "incorrect password", "invalid password", "user not found",
+                "email not found")) {
             return Kind.AUTH_INVALID_CREDENTIALS;
         }
         if (containsAny(text, "email not confirmed", "email_not_confirmed")) {

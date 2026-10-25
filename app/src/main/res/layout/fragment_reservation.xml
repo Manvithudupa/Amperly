@@ -47,6 +47,58 @@
             android:orientation="vertical"
             android:visibility="gone">
 
+            <!-- ===================================================== Vehicle -->
+            <!-- The car this booking is for; a second car is one tap away. -->
+            <TextView
+                style="@style/Widget.Amperly.SectionTitle"
+                android:text="@string/booking_vehicle_section" />
+
+            <com.google.android.material.card.MaterialCardView
+                style="@style/Widget.Amperly.Card"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
+                <LinearLayout
+                    android:id="@+id/bookingVehicleRow"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="?attr/selectableItemBackground"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:gravity="center_vertical"
+                    android:minHeight="@dimen/amp_touch_target"
+                    android:orientation="horizontal"
+                    android:paddingStart="@dimen/amp_space_m"
+                    android:paddingEnd="@dimen/amp_space_m">
+
+                    <ImageView
+                        android:layout_width="18dp"
+                        android:layout_height="18dp"
+                        android:contentDescription="@null"
+                        android:src="@drawable/ic_vehicle"
+                        app:tint="@color/amp_primary" />
+
+                    <TextView
+                        android:id="@+id/bookingVehicleText"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="@dimen/amp_space_s"
+                        android:layout_weight="1"
+                        android:ellipsize="end"
+                        android:maxLines="1"
+                        android:text="@string/vehicle_none_add"
+                        android:textAppearance="@style/TextAppearance.Amperly.Body" />
+
+                    <ImageView
+                        android:layout_width="18dp"
+                        android:layout_height="18dp"
+                        android:layout_marginStart="@dimen/amp_space_xs"
+                        android:contentDescription="@null"
+                        android:src="@drawable/ic_chevron"
+                        app:tint="@color/amp_ink_secondary" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
             <!-- ======================================================== Slot -->
             <TextView
                 style="@style/Widget.Amperly.SectionTitle"
@@ -228,5 +280,14 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:nestedScrollingEnabled="false" />
+
+        <TextView
+            android:id="@+id/reservationsEmptyText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/reserve_no_reservations"
+            android:textAppearance="@style/TextAppearance.Amperly.Body"
+            android:textColor="@color/amp_ink_secondary"
+            android:visibility="gone" />
     </LinearLayout>
 </ScrollView>

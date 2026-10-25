@@ -35,6 +35,7 @@ import com.amperly.app.engine.billing.BillingEngine;
 import com.amperly.app.engine.booking.ReservationEngine;
 import com.amperly.app.ui.Ux;
 import com.amperly.app.ui.adapter.ReservationAdapter;
+import com.amperly.app.ui.dialog.VehicleSwitcherDialog;
 import com.google.android.material.textfield.MaterialAutoCompleteTextView;
 
 import java.util.ArrayList;
@@ -59,6 +60,10 @@ public class ReservationFragment extends Fragment implements ReservationAdapter.
     private String stationId;
 
     private ChargerStation station;
+    /** The car this booking is for, and the row that shows and switches it. */
+    @Nullable private Vehicle activeVehicle;
+    @Nullable private View bookingVehicleRow;
+    @Nullable private TextView bookingVehicleText;
     private final List<ChargerPort> ports = new ArrayList<>();
     private final List<AvailabilityEngine.Slot> slots = new ArrayList<>();
     private MaterialAutoCompleteTextView portDropdown;
@@ -85,13 +90,26 @@ public class ReservationFragment extends Fragment implements ReservationAdapter.
         LinearLayout formContainer = view.findViewById(R.id.bookingFormContainer);
         Button authorize = view.findViewById(R.id.authorizeButton);
 
+        bookingVehicleRow = view.findViewById(R.id.bookingVehicleRow);
+        bookingVehicleText = view.findViewById(R.id.bookingVehicleText);
+        if (bookingVehicleRow != null) {
+            bookingVehicleRow.setOnClickListener(v -> showVehicleSwitcher());
+        }
+
         RecyclerView reservations = view.findViewById(R.id.reservationsRecyclerView);
         reservations.setLayoutManager(new LinearLayoutManager(requireContext()));
         adapter = new ReservationAdapter(this);
         reservations.setAdapter(adapter);
 
+        TextView reservationsEmpty = view.findViewById(R.id.reservationsEmptyText);
         repo.observeReservationsForConsumer(AuthManager.getInstance().getCurrentUserId())
-                .observe(getViewLifecycleOwner(), list -> adapter.submit(list));
+                .observe(getViewLifecycleOwner(), list -> {
+                    adapter.submit(list);
+                    // An empty list used to leave the heading over nothing at all, which reads
+                    // as a screen that failed to load.
+                    reservationsEmpty.setVisibility(
+                            list == null || list.isEmpty() ? View.VISIBLE : View.GONE);
+                });
 
         view.findViewById(R.id.chooseStationButton).setOnClickListener(v -> {
             Navigator.openRoot(requireActivity(), new ChargerDiscoveryFragment(), "discover");
@@ -159,6 +177,7 @@ public class ReservationFragment extends Fragment implements ReservationAdapter.
                 return;
             }
             station = data.station;
+            applyVehicle(data.vehicle);
             stationText.setText(getString(R.string.reserve_station_meta, station.getName(),
                     station.getAddress(), station.getOperatingHours(),
                     Formatters.connectorTypes(station.getConnectorTypes())));
@@ -183,6 +202,71 @@ public class ReservationFragment extends Fragment implements ReservationAdapter.
 
             view.findViewById(R.id.authorizeButton).setOnClickListener(v -> authorizeBooking(userId));
         });
+    }
+
+    /**
+     * Re-reads the active car on every return to this screen.
+     *
+     * <p>The profile page can change the car while this screen is away, and the booking check at
+     * Reserve time uses whichever profile is active then. Showing the row from a fresh read
+     * keeps the two from disagreeing.
+     */
+    @Override
+    public void onResume() {
+        super.onResume();
+        refreshActiveVehicle();
+    }
+
+    private void refreshActiveVehicle() {
+        String userId = AuthManager.getInstance().getCurrentUserId();
+        repo.background(() -> repo.getVehicleSync(userId), vehicle -> {
+            if (isAdded()) {
+                applyVehicle(vehicle);
+            }
+        });
+    }
+
+    /** Puts the car in use on the booking form's vehicle row. */
+    private void applyVehicle(@Nullable Vehicle vehicle) {
+        activeVehicle = vehicle;
+        if (bookingVehicleText != null) {
+            bookingVehicleText.setText(vehicle == null
+                    ? getString(R.string.vehicle_none_add) : vehicle.displayName());
+        }
+        if (bookingVehicleRow != null) {
+            String label = bookingVehicleText == null
+                    ? getString(R.string.vehicle_none_add)
+                    : bookingVehicleText.getText().toString();
+            bookingVehicleRow.setContentDescription(
+                    getString(R.string.vehicle_switch_description, label));
+        }
+        AppStateStore.get().setVehicle(vehicle);
+    }
+
+    /**
+     * Offers the other saved cars. The slot and port stay selected: only the profile changes,
+     * and the compatibility check runs against it when Reserve is pressed.
+     */
+    private void showVehicleSwitcher() {
+        VehicleSwitcherDialog.show(this,
+                activeVehicle == null ? null : activeVehicle.getId(),
+                new VehicleSwitcherDialog.Listener() {
+                    @Override
+                    public void onVehicleSwitched(@NonNull Vehicle vehicle) {
+                        if (!isAdded()) {
+                            return;
+                        }
+                        applyVehicle(vehicle);
+                        Ux.toast(ReservationFragment.this,
+                                getString(R.string.vehicle_switched, vehicle.displayName()));
+                    }
+
+                    @Override
+                    public void onManageVehicles() {
+                        Navigator.open(ReservationFragment.this,
+                                new VehicleProfileFragment(), "vehicle");
+                    }
+                });
     }
 
     /** Rebuilds the port list and re-runs the selection the Spinner used to perform by default. */

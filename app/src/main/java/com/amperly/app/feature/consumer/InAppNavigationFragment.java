@@ -63,7 +63,8 @@ public class InAppNavigationFragment extends Fragment {
 
     private static final long PROGRESS_INTERVAL_MS = 6000L;
 
-    private final NavigationProvider provider = new GeoapifyNavigationProvider();
+    /** Created in {@link #onViewCreated} with the app context, so route failures can be explained. */
+    private NavigationProvider provider;
     private final Handler handler = new Handler(Looper.getMainLooper());
 
     private TextView nextTurnText;
@@ -103,6 +104,8 @@ public class InAppNavigationFragment extends Fragment {
         String rawLabel = args.getString(ARG_LABEL);
         label = rawLabel == null || rawLabel.isEmpty()
                 ? getString(R.string.nav_destination_fallback) : rawLabel;
+
+        provider = new GeoapifyNavigationProvider(requireContext().getApplicationContext());
 
         nextTurnText = view.findViewById(R.id.navNextTurnText);
         instructionText = view.findViewById(R.id.navInstructionText);
@@ -334,7 +337,10 @@ public class InAppNavigationFragment extends Fragment {
                     field.setError(null);
                     dialog.dismiss();
                     AppStateStore.get().applySocCorrection(AppStateStore.get().getCurrentSoc(), soc);
-                    SocStore.save(getContext(), AuthManager.getInstance().getCurrentUserId(), soc);
+                    com.amperly.app.data.local.entity.Vehicle active =
+                            AppStateStore.get().getVehicle();
+                    SocStore.save(getContext(), AuthManager.getInstance().getCurrentUserId(),
+                            active == null ? null : active.getId(), soc);
                     AppStateStore.get().setLastRecalculationSummary(
                             getString(R.string.soc_update_authoritative, soc));
                     recalculateFromPosition();

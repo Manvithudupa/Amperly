@@ -57,13 +57,24 @@ public class StationAdapter extends RecyclerView.Adapter<StationAdapter.StationV
 
     private final List<StationRow> rows = new ArrayList<>();
     private final Listener listener;
-    private final com.amperly.app.data.local.entity.Vehicle vehicle;
+    private com.amperly.app.data.local.entity.Vehicle vehicle;
     @Nullable
     private String selectedStationId;
 
     public StationAdapter(Listener listener, com.amperly.app.data.local.entity.Vehicle vehicle) {
         this.listener = listener;
         this.vehicle = vehicle;
+    }
+
+    /**
+     * Swaps the vehicle the compatibility labels are evaluated against.
+     *
+     * <p>The adapter is kept across reloads, so the list does not jump back to the top every
+     * time the screen resumes or the battery is updated.
+     */
+    public void setVehicle(@Nullable com.amperly.app.data.local.entity.Vehicle vehicle) {
+        this.vehicle = vehicle;
+        notifyDataSetChanged();
     }
 
     public void submit(List<StationRow> newRows) {

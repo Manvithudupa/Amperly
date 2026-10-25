@@ -1,6 +1,7 @@
 package com.amperly.app.feature.consumer;
 
 import android.Manifest;
+import android.content.Context;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
@@ -34,6 +35,7 @@ import com.amperly.app.engine.availability.AvailabilityEngine;
 import com.amperly.app.engine.routing.RoutePlannerEngine;
 import com.amperly.app.ui.Ux;
 import com.amperly.app.ui.adapter.StationAdapter;
+import com.amperly.app.ui.dialog.VehicleSwitcherDialog;
 import com.google.android.material.chip.ChipGroup;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.textfield.TextInputEditText;
@@ -42,6 +44,7 @@ import com.google.android.material.textfield.TextInputLayout;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 /**
  * Discovery is honest about what it knows: availability comes from host schedules and reservations,
@@ -91,6 +94,10 @@ public class ChargerDiscoveryFragment extends Fragment implements StationAdapter
     /** "Pilot area: ... · vehicle: ...": the context the list is being filtered against. */
     private String contextLine = "";
 
+    /** The tappable line that shows the active vehicle and opens the quick switch. */
+    @Nullable
+    private View vehicleSwitcherRow;
+
     private final List<StationAdapter.StationRow> allRows = new ArrayList<>();
     private final List<ChargerStation> allStations = new ArrayList<>();
     private Vehicle vehicle;
@@ -123,6 +130,12 @@ public class ChargerDiscoveryFragment extends Fragment implements StationAdapter
         View updateVehicleBtn = view.findViewById(R.id.updateVehicleButton);
         if (updateVehicleBtn != null) {
             updateVehicleBtn.setOnClickListener(v -> Navigator.open(this, new VehicleProfileFragment(), "vehicle"));
+        }
+
+        // A second car should be one tap away, not a trip to the profile page first.
+        vehicleSwitcherRow = view.findViewById(R.id.vehicleSwitcherRow);
+        if (vehicleSwitcherRow != null) {
+            vehicleSwitcherRow.setOnClickListener(v -> showVehicleSwitcher());
         }
 
         // The battery card is the driver's own reading: there is nowhere else to state it, and
@@ -172,24 +185,34 @@ public class ChargerDiscoveryFragment extends Fragment implements StationAdapter
 
     private void loadStations() {
         String userId = AuthManager.getInstance().getCurrentUserId();
+        Context appContext = requireContext().getApplicationContext();
         repo.background(() -> {
             vehicle = repo.getVehicleSync(userId);
+            // The reading is scoped to the active vehicle, so switching cars cannot carry the
+            // previous battery figure into the range estimate.
+            int storedSoc = vehicle == null ? -1
+                    : SocStore.load(appContext, userId, vehicle.getId());
             List<StationAdapter.StationRow> rows = new ArrayList<>();
-            String vehicleLabel = vehicle == null
+            // With no profile there is nothing to plan for, so the line is a sentence of its own
+            // rather than "Planning for No vehicle saved yet."
+            String summary = vehicle == null
                     ? getString(R.string.discovery_vehicle_none)
-                    : getString(R.string.discovery_vehicle_value, vehicle.getMake(),
-                    vehicle.getModel(),
-                    com.amperly.app.core.common.Formatters.connectorType(
-                            vehicle.getConnectorType()));
-            String summary = getString(R.string.discovery_vehicle_line, vehicleLabel);
-            DiscoveredData data = new DiscoveredData(rows, summary);
+                    : getString(R.string.discovery_vehicle_line,
+                    getString(R.string.discovery_vehicle_value, vehicle.getMake(),
+                            vehicle.getModel(),
+                            com.amperly.app.core.common.Formatters.connectorType(
+                                    vehicle.getConnectorType())));
+            DiscoveredData data = new DiscoveredData(rows, summary, storedSoc);
             // Distances are measured from the driver's real position, never a fixed pilot point.
             Double fromLat = userLat;
             Double fromLng = userLng;
-            for (ChargerStation station : repo.getApprovedStationsSync()) {
-                AvailabilityEngine.AvailabilitySummary availability =
-                        repo.getAvailabilitySummary(station.getId());
-                rows.add(new StationAdapter.StationRow(station, availability,
+            // One grouped availability read for the whole result list instead of one read per
+            // station; the screen resumes often and the old path was 4 queries per charger.
+            List<ChargerStation> stations = repo.getApprovedStationsSync();
+            Map<String, AvailabilityEngine.AvailabilitySummary> availability =
+                    repo.availabilitySummaries(stations);
+            for (ChargerStation station : stations) {
+                rows.add(new StationAdapter.StationRow(station, availability.get(station.getId()),
                         distanceFrom(fromLat, fromLng, station)));
             }
             return data;
@@ -207,6 +230,7 @@ public class ChargerDiscoveryFragment extends Fragment implements StationAdapter
             if (contextText != null) {
                 contextText.setText(contextLine);
             }
+            updateSwitcherContentDescription();
 
             if (getView() != null) {
                 TextView heroBattery = getView().findViewById(R.id.heroBatteryText);
@@ -219,6 +243,8 @@ public class ChargerDiscoveryFragment extends Fragment implements StationAdapter
                 // The battery figure is the driver's own reading when they have given one,
                 // otherwise the planner's labelled estimate. It is never a hard-coded number,
                 // and battery HEALTH is not a state of charge — the two are different fields.
+                AppStateStore.get().applyStoredSoc(vehicle == null ? null : vehicle.getId(),
+                        data.storedSoc);
                 int batteryPct = AppStateStore.get().getCurrentSoc();
                 if (heroBattery != null) {
                     heroBattery.setText(batteryPct >= 0
@@ -263,9 +289,16 @@ public class ChargerDiscoveryFragment extends Fragment implements StationAdapter
                 }
             }
 
-            adapter = new StationAdapter(this, vehicle);
+            // Reuse the adapter: replacing it on every reload threw away the scroll position,
+            // so coming back from a charger detail (or saving the battery) jumped the list to
+            // the top.
+            if (adapter == null) {
+                adapter = new StationAdapter(this, vehicle);
+                recyclerView.setAdapter(adapter);
+            } else {
+                adapter.setVehicle(vehicle);
+            }
             adapter.setSelectedStationId(selectedStationId);
-            recyclerView.setAdapter(adapter);
             applyFilter();
             MapPanel.attach(this, mapContainer, panel -> {
                 mapPanel = panel;
@@ -278,6 +311,57 @@ public class ChargerDiscoveryFragment extends Fragment implements StationAdapter
                 });
             });
         });
+    }
+
+    /**
+     * Offers the saved vehicles of this account and switches the one in use.
+     *
+     * <p>The garage is read fresh instead of from the last station load, so a profile added on
+     * the profile page a moment ago is already offered here. With no profile yet there is
+     * nothing to switch between, and the profile page is the useful destination.
+     */
+    private void showVehicleSwitcher() {
+        VehicleSwitcherDialog.show(this, vehicle == null ? null : vehicle.getId(),
+                new VehicleSwitcherDialog.Listener() {
+                    @Override
+                    public void onVehicleSwitched(@NonNull Vehicle switched) {
+                        applyVehicleSwitch(switched);
+                    }
+
+                    @Override
+                    public void onManageVehicles() {
+                        Navigator.open(ChargerDiscoveryFragment.this,
+                                new VehicleProfileFragment(), "vehicle");
+                    }
+                });
+    }
+
+    /** Redraws this screen for the profile the shared picker has already stored. */
+    private void applyVehicleSwitch(Vehicle chosen) {
+        if (!isAdded()) {
+            return;
+        }
+        vehicle = chosen;
+        AppStateStore.get().setVehicle(chosen);
+        String label = getString(R.string.discovery_vehicle_value, chosen.getMake(),
+                chosen.getModel(),
+                com.amperly.app.core.common.Formatters.connectorType(
+                        chosen.getConnectorType()));
+        contextLine = getString(R.string.discovery_vehicle_line, label);
+        if (contextText != null) {
+            contextText.setText(contextLine);
+        }
+        updateSwitcherContentDescription();
+        Ux.toast(this, getString(R.string.vehicle_switched, chosen.displayName()));
+        loadStations();
+    }
+
+    /** TalkBack reads the row as an action, with the current vehicle as the detail. */
+    private void updateSwitcherContentDescription() {
+        if (vehicleSwitcherRow != null && contextLine != null) {
+            vehicleSwitcherRow.setContentDescription(
+                    getString(R.string.vehicle_switch_description, contextLine));
+        }
     }
 
     /** Distance to the charger, or null while no real position is known. */
@@ -362,7 +446,8 @@ public class ChargerDiscoveryFragment extends Fragment implements StationAdapter
 
     private void saveBattery(int soc) {
         AppStateStore.get().applySocCorrection(AppStateStore.get().getCurrentSoc(), soc);
-        SocStore.save(requireContext(), AuthManager.getInstance().getCurrentUserId(), soc);
+        SocStore.save(requireContext(), AuthManager.getInstance().getCurrentUserId(),
+                vehicle == null ? null : vehicle.getId(), soc);
         Ux.success(this, getString(R.string.discovery_set_battery_saved, soc));
         // Reloading redraws the hero, the range estimate and the compatibility labels with
         // the new reading rather than leaving the old figure on screen.
@@ -578,10 +663,13 @@ public class ChargerDiscoveryFragment extends Fragment implements StationAdapter
     private static class DiscoveredData {
         private final List<StationAdapter.StationRow> rows;
         private final String summary;
+        /** The active vehicle's remembered battery reading, or -1 when there is none. */
+        private final int storedSoc;
 
-        DiscoveredData(List<StationAdapter.StationRow> rows, String summary) {
+        DiscoveredData(List<StationAdapter.StationRow> rows, String summary, int storedSoc) {
             this.rows = rows;
             this.summary = summary;
+            this.storedSoc = storedSoc;
         }
     }
 }

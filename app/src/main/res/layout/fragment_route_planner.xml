@@ -152,6 +152,46 @@
                     android:text="@string/route_battery_step"
                     android:textAppearance="@style/TextAppearance.Amperly.TitleSmall" />
 
+                <!-- The car the plan is for, and the shortcut to plan for another one. The
+                     battery below it belongs to this vehicle, so the two sit together. -->
+                <LinearLayout
+                    android:id="@+id/plannerVehicleRow"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="?attr/selectableItemBackground"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:gravity="center_vertical"
+                    android:minHeight="@dimen/amp_touch_target"
+                    android:orientation="horizontal">
+
+                    <ImageView
+                        android:layout_width="18dp"
+                        android:layout_height="18dp"
+                        android:contentDescription="@null"
+                        android:src="@drawable/ic_vehicle"
+                        app:tint="@color/amp_primary" />
+
+                    <TextView
+                        android:id="@+id/plannerVehicleText"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="@dimen/amp_space_s"
+                        android:layout_weight="1"
+                        android:ellipsize="end"
+                        android:maxLines="1"
+                        android:text="@string/vehicle_none_add"
+                        android:textAppearance="@style/TextAppearance.Amperly.Body" />
+
+                    <ImageView
+                        android:layout_width="18dp"
+                        android:layout_height="18dp"
+                        android:layout_marginStart="@dimen/amp_space_xs"
+                        android:contentDescription="@null"
+                        android:src="@drawable/ic_chevron"
+                        app:tint="@color/amp_ink_secondary" />
+                </LinearLayout>
+
                 <com.google.android.material.textfield.TextInputLayout
                     style="@style/Widget.Amperly.TextInput"
                     android:layout_width="match_parent"
@@ -310,6 +350,15 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:textAppearance="@style/TextAppearance.Amperly.Label" />
+
+        <!-- Which car this plan was made for. A plan is never presented as if it were the
+             current vehicle's when it is not. -->
+        <TextView
+            android:id="@+id/planVehicleText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/amp_space_xs"
+            android:textAppearance="@style/TextAppearance.Amperly.LabelStrong" />
 
         <TextView
             android:id="@+id/planStatusText"
