@@ -153,14 +153,14 @@ com.amperly.app/
 │
 ├── feature/
 │   ├── consumer/   ChargerDiscovery, ChargerDetails, InAppNavigation, RoutePlanner,
-│   │               VehicleProfile, Reservation, BookingQr, ActiveSession, Receipt,
-│   │               SafetySOS, HostChat
+│   │               VehicleProfile, VehicleForm, Reservation, BookingQr, ActiveSession,
+│   │               Receipt, SafetySOS, HostChat
 │   ├── auth/       SignIn, Account
 │   ├── common/     Notifications
 │   ├── host/       HostDashboard, RegisterStation
 │   └── admin/      AdminDashboard
 │
-├── ui/             Ux, adapter/* (10 adapters), dialog/* (ReportDialog, MeterEvidenceDialog)
+├── ui/             Ux, adapter/* (11 adapters), dialog/* (ReportDialog, MeterEvidenceDialog)
 │
 ├── car/
 │   ├── AmperlyCarAppService.java, AmperlyCarSession.java, CarBridge.java, CarScreenFactory.java
@@ -304,8 +304,14 @@ brand-new account starts with empty lists and honest empty states.
 
 An account can keep **several vehicle profiles** (`vehicles` rows). Exactly one carries
 `"isActive" = true`; that is the profile every range, connector-compatibility and reservation
-check uses, and the Profile → Vehicle screen switches it. Deleting the active profile promotes
-another one, so planning never runs without a vehicle.
+check uses.
+
+**Profile → Vehicle** is the garage, headed **My vehicles**. Every saved car is a card showing its
+name, registration, connector and usable range, with the one in use marked **In use**. Tapping a
+card opens that profile in the **Edit vehicle** form; **Add a car**, below the list, opens the same
+form blank. Saving a profile makes it the one in use, and **Use this car** on any other card
+switches the active profile without opening the form. Deleting the active profile from its form
+promotes another one, so planning never runs without a vehicle.
 
 To start from a clean database, run `supabase/schema.sql` against a new Supabase project. It
 creates every table (including `vehicles."isActive"`) and is safe to re-run; there is no data to
@@ -320,7 +326,7 @@ verification queue, which is also how a fresh project shows its first real listi
 ## 8. Suggested demo script
 
 1. **Host** → add a charger from **Stations**; **Admin** → approve it from the verification queue, and it becomes a public marker on the map.
-2. **Consumer** → set the vehicle profile and open **Discover**: the map centres on your real position, shows how far each charger is, and plots every approved, compatible charger.
+2. **Consumer** → open **Profile → Vehicle** (**My vehicles**) and press **Add a car**; save it and it appears as a card marked **In use**. Then open **Discover**: the map centres on your real position, shows how far each charger is, and plots every approved, compatible charger.
 3. **Consumer** → open **Route planner**. The start is already your current location; type a destination and pick it from the **Geoapify address search**. Enter your battery %. Geoapify supplies the road distance, the measured drive time and the **turn-by-turn directions** listed under the summary.
 4. **Consumer** → see the corridor chargers, the detour/charge-time/arrival trade-off, the recommended stop plus **backup stops before and after**, the recorded assumptions, and the confidence level.
 5. **Consumer** → enter a lower **actual dashboard SoC**. The value becomes authoritative: unreachable chargers are removed, the remaining trip is recalculated, and the revised recommendation is explained. Drop the battery very low to demonstrate the **no safe charger** state — alternatives are offered instead of a route past the safe range.

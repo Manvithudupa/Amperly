@@ -234,9 +234,17 @@
     <string name="vehicle_section_battery">Battery and charging</string>
     <string name="vehicle_section_preferences">Preferences</string>
     <string name="vehicle_health_disclaimer">Vehicle details optimize route planning.</string>
-    <string name="vehicle_garage_title">Your vehicles</string>
-    <string name="vehicle_garage_hint">The selected vehicle is the one every range, charging and reservation check uses.</string>
-    <string name="vehicle_add">Add vehicle</string>
+    <string name="vehicle_garage_heading">My vehicles</string>
+    <string name="vehicle_garage_intro">Every car you save here can be used for planning. The one marked in use is what range, charging and reservation checks use.</string>
+    <string name="vehicle_add_car">Add a car</string>
+    <string name="vehicle_empty_title">No vehicles yet</string>
+    <string name="vehicle_empty_body">Add your car to get range estimates, connector matching and reservations.</string>
+    <string name="vehicle_card_meta">%1$s · %2$s</string>
+    <string name="vehicle_card_stats">%1$.1f kWh · %2$.1f km/kWh · about %3$d km</string>
+    <string name="vehicle_use_this">Use this car</string>
+    <string name="vehicle_form_title_new">Add a car</string>
+    <string name="vehicle_form_title_edit">Edit vehicle</string>
+    <string name="vehicle_no_registration">No registration</string>
     <string name="vehicle_delete">Delete this vehicle</string>
     <string name="vehicle_delete_title">Delete %1$s?</string>
     <string name="vehicle_delete_body">It will be removed from your garage. Reservations and receipts already made are not affected.</string>
@@ -675,7 +683,6 @@
     <string name="stop_detail_planned">%1$.1f km along · +%2$.1f km / +%3$d min · %4$d min charge · %5$s</string>
 
     <!-- Vehicle -->
-    <string name="vehicle_empty_hint">Add your vehicle to sharpen range estimates.</string>
     <string name="vehicle_new_hint">Fill in the new vehicle, then save to add it to your garage.</string>
     <string name="vehicle_error_make_model">Enter the make and model.</string>
     <string name="vehicle_planning_default">Range estimates use default figures until you add capacity and efficiency.</string>
