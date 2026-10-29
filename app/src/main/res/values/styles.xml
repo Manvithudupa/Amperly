@@ -203,6 +203,17 @@
         <item name="android:stateListAnimator">@null</item>
     </style>
 
+    <!--
+      The quieter destructive action, used by the Host Dashboard's delete-station button. It only
+      swaps the colours: size, text style, radius and elevation stay exactly as Danger defines
+      them, and Danger itself is untouched for the screens that want the loud red.
+    -->
+    <style name="Widget.Amperly.Button.DeleteStation" parent="Widget.Amperly.Button.Danger">
+        <item name="backgroundTint">@color/amp_delete_station_bg</item>
+        <item name="android:textColor">@color/amp_delete_station_text</item>
+        <item name="iconTint">@color/amp_delete_station_text</item>
+    </style>
+
     <!-- Legacy alias kept for any screen still referencing the old name. -->
 
     <!-- =============================================================== Cards -->

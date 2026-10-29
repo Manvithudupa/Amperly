@@ -36,6 +36,13 @@
     <color name="amp_busy_tint">#382C18</color>
     <color name="amp_error">#F0A69C</color>
     <color name="amp_error_tint">#3C211E</color>
+
+    <!--
+      The muted destructive button keeps exactly the same pair in the dark theme: it is already
+      a dark brown with a light label, so it reads the same on either background.
+    -->
+    <color name="amp_delete_station_bg">#38211F</color>
+    <color name="amp_delete_station_text">#DFABA8</color>
     <color name="amp_info">#9CC3E5</color>
     <color name="amp_info_tint">#1E2E3D</color>
 

@@ -149,7 +149,7 @@
         <!-- Destructive, so it stands alone at the bottom of the page. -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/deleteStationButton"
-            style="@style/Widget.Amperly.Button.Danger"
+            style="@style/Widget.Amperly.Button.DeleteStation"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/amp_space_xl"

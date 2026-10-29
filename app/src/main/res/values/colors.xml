@@ -41,6 +41,14 @@
     <color name="amp_busy_tint">#FBEEDA</color>
     <color name="amp_error">#B3261E</color>
     <color name="amp_error_tint">#FBE7E4</color>
+
+    <!--
+      The quieter destructive action. Deleting a station is undone by registering it again, and
+      the button sits alone at the foot of the dashboard, so it is a muted brown with a soft pink
+      label instead of the loud error red.
+    -->
+    <color name="amp_delete_station_bg">#38211F</color>
+    <color name="amp_delete_station_text">#DFABA8</color>
     <color name="amp_info">#2F5D8A</color>
     <color name="amp_info_tint">#E7EFF7</color>
 

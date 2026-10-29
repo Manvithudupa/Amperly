@@ -69,6 +69,12 @@ public class BookingQrFragment extends Fragment {
                 return;
             }
             if (reservation == null) {
+                // The booking was cancelled or deleted while this page was filed away under its
+                // tab. Falling back to the list is truthful — a page about a booking that no
+                // longer exists is not — and it is only popped when it is the page on show.
+                if (isVisible() && Navigator.pop(this)) {
+                    return;
+                }
                 codeText.setText(R.string.qr_no_reservation_title);
                 stationText.setText(R.string.qr_no_reservation_body);
                 return;

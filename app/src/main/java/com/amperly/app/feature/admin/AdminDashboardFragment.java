@@ -1,6 +1,7 @@
 package com.amperly.app.feature.admin;
 
 import android.os.Bundle;
+import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -18,6 +19,7 @@ import com.amperly.app.core.common.Formatters;
 import com.amperly.app.core.security.AuthManager;
 import com.amperly.app.core.security.RoleGuard;
 import com.amperly.app.data.local.entity.ChargerStation;
+import com.amperly.app.data.local.entity.ChargingSession;
 import com.amperly.app.data.local.entity.Dispute;
 import com.amperly.app.data.local.entity.HostEnforcementAction;
 import com.amperly.app.data.local.entity.Invoice;
@@ -53,8 +55,14 @@ public class AdminDashboardFragment extends Fragment {
     private AmperlyRepository repo;
     private PendingStationAdapter pendingAdapter;
     private DisputeAdapter disputeAdapter;
-    private ReportAdapter reportAdapter;
+    /** The two report lists share one listener: the same three decisions, two audiences. */
+    private ReportAdapter consumerReportAdapter;
+    private ReportAdapter hostReportAdapter;
     private TextView analyticsText;
+
+    /** The section this desk was opened on; the queue when no section was asked for. */
+    @NonNull
+    private String section = SECTION_QUEUE;
 
     @Nullable
     @Override
@@ -144,33 +152,66 @@ public class AdminDashboardFragment extends Fragment {
                 confirmReportBan(report);
             }
         };
-        reportAdapter = new ReportAdapter(reportActions);
-        RecyclerView reports = view.findViewById(R.id.reportsRecyclerView);
-        reports.setLayoutManager(new LinearLayoutManager(requireContext()));
-        reports.setNestedScrollingEnabled(false);
-        reports.setAdapter(reportAdapter);
+        consumerReportAdapter = new ReportAdapter(reportActions);
+        hostReportAdapter = new ReportAdapter(reportActions);
+        RecyclerView consumerReports = view.findViewById(R.id.consumerReportsRecyclerView);
+        consumerReports.setLayoutManager(new LinearLayoutManager(requireContext()));
+        consumerReports.setNestedScrollingEnabled(false);
+        consumerReports.setAdapter(consumerReportAdapter);
+        RecyclerView hostReports = view.findViewById(R.id.hostReportsRecyclerView);
+        hostReports.setLayoutManager(new LinearLayoutManager(requireContext()));
+        hostReports.setNestedScrollingEnabled(false);
+        hostReports.setAdapter(hostReportAdapter);
+
+        // Each bottom-navigation destination is one section of the desk, so the section that was
+        // not opened is not drawn at all instead of sitting further down a shared scroll.
+        String requested = getArguments() == null ? null : getArguments().getString(ARG_SECTION);
+        section = requested == null ? SECTION_QUEUE : requested;
+        applySection(section);
 
         load();
+    }
 
-        // The two bottom-navigation destinations are one desk: Queue opens at the queue,
-        // Reports opens at the disputes above the reports list.
-        String section = getArguments() == null ? null : getArguments().getString(ARG_SECTION);
-        if (section != null) {
-            view.postDelayed(() -> scrollToSection(section), 250);
+    /** True when this desk was opened on the approval queue. */
+    private boolean isQueueSection() {
+        return !SECTION_REPORTS.equals(section);
+    }
+
+    /**
+     * Shows only the section this desk was opened on.
+     *
+     * <p>Queue is the approval work; Reports is the disputes and the reports users filed. The
+     * other section is hidden with its headings and its empty state, and the list on show keeps
+     * whichever of the list or the empty line {@link #load()} decided for it.
+     */
+    private void applySection(@NonNull String section) {
+        boolean queue = !SECTION_REPORTS.equals(section);
+        show(R.id.adminQueueSection, queue);
+        show(R.id.adminReportsSection, !queue);
+        show(R.id.adminConsumerReportsHeading, !queue);
+        show(R.id.adminHostReportsHeading, !queue);
+        show(R.id.adminDisputesSection, !queue);
+        if (queue) {
+            // The reports and disputes belong to the other tab, so their lists start hidden and
+            // only that tab's own load brings them back.
+            show(R.id.consumerReportsRecyclerView, false);
+            show(R.id.adminConsumerReportsEmptyText, false);
+            show(R.id.hostReportsRecyclerView, false);
+            show(R.id.adminHostReportsEmptyText, false);
+            show(R.id.disputesRecyclerView, false);
+            show(R.id.adminDisputesEmptyText, false);
+        } else {
+            show(R.id.pendingStationsRecyclerView, false);
+            show(R.id.adminQueueEmptyText, false);
         }
     }
 
-    private void scrollToSection(String section) {
+    /** Shows or hides one view of the page, tolerating a view the page has already dropped. */
+    private void show(int viewId, boolean visible) {
         View root = getView();
-        if (root == null) {
-            return;
-        }
-        int targetId = SECTION_REPORTS.equals(section) ? R.id.adminDisputesSection
-                : R.id.adminQueueSection;
-        View scroll = root.findViewById(R.id.adminScrollView);
-        View target = root.findViewById(targetId);
-        if (scroll instanceof android.widget.ScrollView && target != null) {
-            ((android.widget.ScrollView) scroll).smoothScrollTo(0, target.getTop());
+        View view = root == null ? null : root.findViewById(viewId);
+        if (view != null) {
+            view.setVisibility(visible ? View.VISIBLE : View.GONE);
         }
     }
 
@@ -187,33 +228,44 @@ public class AdminDashboardFragment extends Fragment {
                         : repo.getMeterReadingsSync(dispute.getSessionId());
                 disputeRows.add(new DisputeAdapter.DisputeRow(dispute, evidence));
             }
-            // The names on the card come from the entities the report only references by id.
-            List<ReportAdapter.Item> reportRows = new ArrayList<>();
+            // The names on the card come from the entities the report only references by id, and
+            // which list a report belongs in is decided here rather than in bind: both need reads,
+            // and this is the thread allowed to make them.
+            List<ReportAdapter.Item> consumerReports = new ArrayList<>();
+            List<ReportAdapter.Item> hostReports = new ArrayList<>();
             for (Report report : reports) {
-                reportRows.add(new ReportAdapter.Item(report,
-                        reporterName(report), reportedName(report)));
+                ReportAdapter.Item row = new ReportAdapter.Item(report,
+                        reporterName(report), reportedName(report));
+                if (isHostReport(report)) {
+                    hostReports.add(row);
+                } else {
+                    consumerReports.add(row);
+                }
             }
-            return new AdminData(pendingStations, disputeRows, reportRows, analytics);
+            return new AdminData(pendingStations, disputeRows, consumerReports, hostReports,
+                    analytics);
         }, data -> {
             if (data == null || !isAdded()) {
                 return;
             }
             pendingAdapter.submit(data.pending);
             disputeAdapter.submit(data.disputes);
-            reportAdapter.submit(data.reports);
-            // An empty section says so instead of looking like a screen that failed to load.
-            View root = getView();
-            if (root != null) {
-                root.findViewById(R.id.adminQueueEmptyText).setVisibility(
-                        data.pending.isEmpty() ? View.VISIBLE : View.GONE);
-                root.findViewById(R.id.adminDisputesEmptyText).setVisibility(
-                        data.disputes.isEmpty() ? View.VISIBLE : View.GONE);
-                root.findViewById(R.id.adminReportsEmptyText).setVisibility(
-                        data.reports.isEmpty() ? View.VISIBLE : View.GONE);
-            }
+            consumerReportAdapter.submit(data.consumerReports);
+            hostReportAdapter.submit(data.hostReports);
+            // An empty section says so instead of looking like a screen that failed to load. Only
+            // the section on show is filled in: the other tab's lists stay hidden with it.
+            boolean queue = isQueueSection();
+            show(R.id.pendingStationsRecyclerView, queue && !data.pending.isEmpty());
+            show(R.id.adminQueueEmptyText, queue && data.pending.isEmpty());
+            show(R.id.consumerReportsRecyclerView, !queue && !data.consumerReports.isEmpty());
+            show(R.id.adminConsumerReportsEmptyText, !queue && data.consumerReports.isEmpty());
+            show(R.id.hostReportsRecyclerView, !queue && !data.hostReports.isEmpty());
+            show(R.id.adminHostReportsEmptyText, !queue && data.hostReports.isEmpty());
+            show(R.id.disputesRecyclerView, !queue && !data.disputes.isEmpty());
+            show(R.id.adminDisputesEmptyText, !queue && data.disputes.isEmpty());
             analyticsText.setText(getString(R.string.admin_platform_summary,
                     data.pending.size(), data.disputes.size(),
-                    data.reports.size(),
+                    data.consumerReports.size() + data.hostReports.size(),
                     data.analytics.getSessionsCompleted(),
                     String.format(Locale.US, "%.1f kWh", data.analytics.getEnergyDeliveredKwh()),
                     Formatters.money(data.analytics.getRevenue()),
@@ -387,6 +439,36 @@ public class AdminDashboardFragment extends Fragment {
 
     // ------------------------------------------------------------- reports
 
+    /**
+     * True when a report belongs under "Reports from hosts".
+     *
+     * <p>A report is filed by the side of the incident the reporter was on, so the session it
+     * names is what decides: the account that owns the session is its host, and the reporter is
+     * either that host or the driver. A report with no session names the host or the station it
+     * is about when a driver filed it, which is what a consumer's report does. Anything left is
+     * settled by the reporter's own standing, and a customer is the default because that is who
+     * most reports come from.
+     *
+     * <p>Reads the database, so it runs on the loading thread with the rows it classifies.
+     */
+    private boolean isHostReport(@NonNull Report report) {
+        String reporterId = report.getReporterId();
+        String sessionId = report.getSessionId();
+        if (!TextUtils.isEmpty(sessionId)) {
+            ChargingSession session = repo.getSessionSync(sessionId);
+            if (session != null) {
+                return reporterId != null && reporterId.equals(session.getHostId());
+            }
+        }
+        if (!TextUtils.isEmpty(report.getTargetHostId())
+                || !TextUtils.isEmpty(report.getTargetStationId())) {
+            // Naming a host or a station is what a driver's report does.
+            return false;
+        }
+        User reporter = TextUtils.isEmpty(reporterId) ? null : repo.getUserSync(reporterId);
+        return reporter != null && AppConstants.ROLE_HOST.equalsIgnoreCase(reporter.getRole());
+    }
+
     /** The display name of the person who filed the report. */
     @Nullable
     private String reporterName(Report report) {
@@ -529,15 +611,18 @@ public class AdminDashboardFragment extends Fragment {
     private static class AdminData {
         private final List<ChargerStation> pending;
         private final List<DisputeAdapter.DisputeRow> disputes;
-        private final List<ReportAdapter.Item> reports;
+        private final List<ReportAdapter.Item> consumerReports;
+        private final List<ReportAdapter.Item> hostReports;
         private final HostAnalyticsEngine.HostAnalytics analytics;
 
         AdminData(List<ChargerStation> pending, List<DisputeAdapter.DisputeRow> disputes,
-                  List<ReportAdapter.Item> reports,
+                  List<ReportAdapter.Item> consumerReports,
+                  List<ReportAdapter.Item> hostReports,
                   HostAnalyticsEngine.HostAnalytics analytics) {
             this.pending = pending;
             this.disputes = disputes;
-            this.reports = reports;
+            this.consumerReports = consumerReports;
+            this.hostReports = hostReports;
             this.analytics = analytics;
         }
     }

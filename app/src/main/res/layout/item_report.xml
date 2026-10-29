@@ -1,15 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  One report, in its own tinted card. Who filed it, who it is about, what happened and when —
-  then exactly three decisions: warn, suspend, or ban the reported account.
+  One report, in its own tinted card. Closed it is a summary — who filed it, who it is about and
+  when, with a chevron saying the card opens. Open it adds the description and exactly three
+  decisions: warn, suspend, or ban the reported account. The tint and the hairline stroke are what
+  say "tap me" without a button, so a list of reports reads as a list rather than a wall of actions.
 -->
 <com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/reportCard"
     style="@style/Widget.Amperly.Card"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_marginBottom="@dimen/amp_space_s"
-    app:cardBackgroundColor="@color/amp_surface_variant">
+    android:clickable="true"
+    android:focusable="true"
+    app:cardBackgroundColor="@color/amp_primary_tint"
+    app:strokeColor="@color/amp_primary"
+    app:strokeWidth="1dp">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -39,6 +46,15 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="@dimen/amp_space_s" />
+
+            <ImageView
+                android:id="@+id/reportChevron"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:layout_marginStart="@dimen/amp_space_xs"
+                android:importantForAccessibility="no"
+                android:src="@drawable/ic_chevron_down"
+                app:tint="@color/amp_primary" />
         </LinearLayout>
 
         <TextView
@@ -56,51 +72,65 @@
             android:textAppearance="@style/TextAppearance.Amperly.Label" />
 
         <TextView
-            android:id="@+id/reportDescriptionText"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/amp_space_xs"
-            android:textAppearance="@style/TextAppearance.Amperly.BodySmall" />
-
-        <TextView
             android:id="@+id/reportDateText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/amp_space_xs"
             android:textAppearance="@style/TextAppearance.Amperly.Label" />
 
+        <!-- What the card opens into: hidden until the card is tapped. -->
         <LinearLayout
+            android:id="@+id/reportActionsContainer"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/amp_space_s"
-            android:orientation="horizontal">
+            android:orientation="vertical"
+            android:visibility="gone">
 
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/reportWarningButton"
-                style="@style/Widget.Amperly.Button.Outlined"
-                android:layout_width="0dp"
+            <TextView
+                android:id="@+id/reportDescriptionText"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:minWidth="0dp"
-                android:text="@string/admin_report_action_warning" />
+                android:layout_marginTop="@dimen/amp_space_s"
+                android:textAppearance="@style/TextAppearance.Amperly.BodySmall" />
 
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/reportSuspendButton"
-                style="@style/Widget.Amperly.Button.Tonal"
-                android:layout_width="0dp"
+            <!--
+              The two lighter decisions share a row; a permanent ban sits below them at full
+              width. "Ban permanently" does not fit in a third of a phone's width — it wrapped to
+              three lines and made the row ragged — and keeping the destructive choice apart is
+              the clearer hierarchy anyway.
+            -->
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="@dimen/amp_space_s"
-                android:layout_weight="1"
-                android:minWidth="0dp"
-                android:text="@string/admin_report_action_suspend" />
+                android:layout_marginTop="@dimen/amp_space_s"
+                android:orientation="horizontal">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/reportWarningButton"
+                    style="@style/Widget.Amperly.Button.Outlined"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:minWidth="0dp"
+                    android:text="@string/admin_report_action_warning" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/reportSuspendButton"
+                    style="@style/Widget.Amperly.Button.Tonal"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="@dimen/amp_space_s"
+                    android:layout_weight="1"
+                    android:minWidth="0dp"
+                    android:text="@string/admin_report_action_suspend" />
+            </LinearLayout>
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/reportBanButton"
                 style="@style/Widget.Amperly.Button.Danger"
-                android:layout_width="0dp"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="@dimen/amp_space_s"
-                android:layout_weight="1"
+                android:layout_marginTop="@dimen/amp_space_s"
                 android:minWidth="0dp"
                 android:text="@string/admin_report_action_ban" />
         </LinearLayout>

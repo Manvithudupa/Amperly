@@ -337,7 +337,7 @@
     <!-- Admin -->
     <string name="admin_title">Administrator desk</string>
     <string name="admin_intro">Verify listings, review evidence, settle disputes.</string>
-    <string name="admin_queue">Station verification queue</string>
+    <string name="admin_queue">Pending list of charger station approval requests</string>
     <string name="admin_disputes">Disputes and evidence</string>
     <string name="admin_approve">Approve listing</string>
     <string name="admin_decline">Decline listing</string>
@@ -347,14 +347,18 @@
     <string name="admin_fine">Issue fine</string>
     <string name="admin_suspend">Suspend station</string>
     <string name="admin_ban">Ban station</string>
-    <string name="admin_queue_empty">No listings are waiting for review.</string>
+    <string name="admin_queue_empty">No pending approval requests</string>
     <string name="admin_disputes_empty">No disputes are open.</string>
-    <string name="admin_reports_empty">No reports are waiting.</string>
-    <string name="admin_reports_from_users">Reports from users</string>
+    <string name="admin_reports_from_consumers">Reports from consumers</string>
+    <string name="admin_reports_from_hosts">Reports from hosts</string>
+    <string name="admin_reports_consumers_empty">No reports from consumers.</string>
+    <string name="admin_reports_hosts_empty">No reports from hosts.</string>
     <string name="admin_report_reporter">Reporter: %1$s</string>
     <string name="admin_report_target">Reported: %1$s</string>
     <string name="admin_report_no_target_short">No account named</string>
     <string name="admin_report_date">Reported %1$s</string>
+    <string name="admin_report_card_description">%1$s, status %2$s. Filed by %3$s about %4$s. %5$s</string>
+    <string name="admin_report_show_actions">Double-tap to show the actions.</string>
     <string name="admin_confirm_warning_title">Issue a warning?</string>
     <string name="admin_confirm_warning_body">Recorded on the host’s history. The station stays live.</string>
     <string name="admin_confirm_fine_title">Issue a fine?</string>
@@ -365,9 +369,9 @@
     <string name="admin_confirm_ban_body">The station is paused, the enforcement is recorded against the host, and the host is notified.</string>
 
     <!-- Actions on a report -->
-    <string name="admin_report_action_warning">Warning</string>
+    <string name="admin_report_action_warning">Warn</string>
     <string name="admin_report_action_suspend">Suspend</string>
-    <string name="admin_report_action_ban">Ban</string>
+    <string name="admin_report_action_ban">Ban permanently</string>
     <string name="admin_suspend_account_title">Suspend this account</string>
     <string name="admin_suspend_account_body">Choose how long the suspension lasts. The suggested length follows the account\u2019s enforcement history.</string>
     <string name="admin_suspend_option_1d">1 day</string>

@@ -119,10 +119,17 @@ public class AccountFragment extends Fragment {
                 if (chip == null || chip.getTag() == null) {
                     return;
                 }
+                String role = String.valueOf(chip.getTag());
+                if (role.equals(AuthManager.getInstance().getCurrentRole())) {
+                    // The group re-checks the chip of the role that is already acting whenever it
+                    // is rebound. That is not a capacity switch, and rebuilding the shell for it
+                    // only made the page flicker.
+                    return;
+                }
                 if (getActivity() instanceof MainActivity) {
-                    ((MainActivity) getActivity()).switchRole(String.valueOf(chip.getTag()));
+                    ((MainActivity) getActivity()).switchRole(role);
                 } else {
-                    AuthManager.getInstance().setRole(String.valueOf(chip.getTag()));
+                    AuthManager.getInstance().setRole(role);
                 }
             });
         }

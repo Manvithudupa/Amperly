@@ -25,12 +25,15 @@
             android:text="@string/admin_intro"
             android:textAppearance="@style/TextAppearance.Amperly.BodySmall" />
 
+        <!-- The platform totals: the desk's one line of numbers, in the theme accent so it reads
+             as the summary it is rather than as a note under the title. -->
         <TextView
             android:id="@+id/platformAnalyticsText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/amp_space_m"
-            android:textAppearance="@style/TextAppearance.Amperly.BodySmall" />
+            android:textAppearance="@style/TextAppearance.Amperly.Body"
+            android:textColor="@color/amp_primary" />
 
         <!-- Queue: listings waiting for approval. -->
         <TextView
@@ -53,16 +56,69 @@
             android:textAppearance="@style/TextAppearance.Amperly.BodySmall"
             android:visibility="gone" />
 
-        <!-- Reports: the disputes users raised, then the reports they filed. -->
+        <!-- Reports: a driver's reports about a host or a station, then a host's reports about a
+             driver. They are two audiences and two sets of decisions, so they are two lists; the
+             disputes they can turn into sit below both. -->
         <TextView
             android:id="@+id/adminReportsSection"
             style="@style/Widget.Amperly.SectionTitle"
             android:text="@string/nav_admin_reports" />
 
         <TextView
+            android:id="@+id/adminConsumerReportsHeading"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/admin_reports_from_consumers"
+            android:textAppearance="@style/TextAppearance.Amperly.TitleSmall"
+            android:accessibilityHeading="true" />
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/consumerReportsRecyclerView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/amp_space_s"
+            android:nestedScrollingEnabled="false" />
+
+        <TextView
+            android:id="@+id/adminConsumerReportsEmptyText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/amp_space_s"
+            android:text="@string/admin_reports_consumers_empty"
+            android:textAppearance="@style/TextAppearance.Amperly.BodySmall"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/adminHostReportsHeading"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/amp_space_l"
+            android:text="@string/admin_reports_from_hosts"
+            android:textAppearance="@style/TextAppearance.Amperly.TitleSmall"
+            android:accessibilityHeading="true" />
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/hostReportsRecyclerView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/amp_space_s"
+            android:nestedScrollingEnabled="false" />
+
+        <TextView
+            android:id="@+id/adminHostReportsEmptyText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/amp_space_s"
+            android:text="@string/admin_reports_hosts_empty"
+            android:textAppearance="@style/TextAppearance.Amperly.BodySmall"
+            android:visibility="gone" />
+
+        <!-- Disputes: the evidence-backed cases, below the two report lists. -->
+        <TextView
             android:id="@+id/adminDisputesSection"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/amp_space_l"
             android:text="@string/admin_disputes"
             android:textAppearance="@style/TextAppearance.Amperly.TitleSmall"
             android:accessibilityHeading="true" />
@@ -71,6 +127,7 @@
             android:id="@+id/disputesRecyclerView"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/amp_space_s"
             android:nestedScrollingEnabled="false" />
 
         <TextView
@@ -79,30 +136,6 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/amp_space_s"
             android:text="@string/admin_disputes_empty"
-            android:textAppearance="@style/TextAppearance.Amperly.BodySmall"
-            android:visibility="gone" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/amp_space_l"
-            android:text="@string/admin_reports_from_users"
-            android:textAppearance="@style/TextAppearance.Amperly.TitleSmall"
-            android:accessibilityHeading="true" />
-
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/reportsRecyclerView"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/amp_space_s"
-            android:nestedScrollingEnabled="false" />
-
-        <TextView
-            android:id="@+id/adminReportsEmptyText"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/amp_space_s"
-            android:text="@string/admin_reports_empty"
             android:textAppearance="@style/TextAppearance.Amperly.BodySmall"
             android:visibility="gone" />
     </LinearLayout>
