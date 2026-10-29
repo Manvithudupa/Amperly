@@ -14,19 +14,29 @@ import androidx.car.app.model.Row;
 import androidx.car.app.model.Template;
 import androidx.car.app.navigation.model.MapController;
 import androidx.car.app.navigation.model.MapWithContentTemplate;
+import androidx.lifecycle.DefaultLifecycleObserver;
+import androidx.lifecycle.LifecycleOwner;
 
 import com.amperly.app.R;
 import com.amperly.app.car.CarBridge;
+import com.amperly.app.data.local.entity.ChargerStation;
+import com.amperly.app.data.local.entity.RoutePlan;
 import com.amperly.app.data.repository.AmperlyRepository;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
- * The main car screen: the map takes the display and a narrow content pane down the side carries
- * the trip summary plus the links to the other car pages.
+ * The main car screen: a real map on the display with a left-hand content pane carrying the trip
+ * summary and every car action.
  *
  * <p>{@link MapWithContentTemplate} is the only template in the car app library that draws content
- * next to a map, and the host decides the split - a wide map with a side pane on a car display.
- * It needs car API level 7, so on older hosts this screen falls back to the plain list it used
- * before instead of handing the host a template it cannot draw.
+ * next to a map, and the host puts that content pane on the left of a wide display. The map itself
+ * is painted by {@link CarMap} into the host's surface; without that the template reserves the map
+ * area but leaves it black.
+ *
+ * <p>The template needs car API level 7, so on older hosts this screen falls back to the plain
+ * list it used before instead of handing the host a template it cannot draw.
  */
 public class RouteOverviewCarScreen extends Screen {
 
@@ -34,20 +44,31 @@ public class RouteOverviewCarScreen extends Screen {
     private static final int CAR_API_LEVEL_MAP_WITH_CONTENT = 7;
 
     private final AmperlyRepository repo;
+    private final CarMap carMap;
     private CarBridge.Snapshot snapshot;
 
     public RouteOverviewCarScreen(@NonNull CarContext carContext) {
         super(carContext);
         this.repo = AmperlyRepository.getInstance(carContext);
+        this.carMap = new CarMap(carContext);
+        getLifecycle().addObserver(new DefaultLifecycleObserver() {
+            @Override
+            public void onDestroy(@NonNull LifecycleOwner owner) {
+                carMap.stop();
+            }
+        });
     }
 
     @NonNull
     @Override
     @OptIn(markerClass = ExperimentalCarApi.class)
     public Template onGetTemplate() {
+        carMap.start();
+
         if (snapshot == null) {
             CarBridge.load(repo, value -> {
                 snapshot = value;
+                updateMap();
                 invalidate();
             });
         }
@@ -59,15 +80,54 @@ public class RouteOverviewCarScreen extends Screen {
             return sidebar;
         }
 
-        MapController mapController = new MapController.Builder()
-                .setMapActionStrip(buildMapActionStrip())
-                .build();
+        MapController mapController = new MapController.Builder().build();
 
         return new MapWithContentTemplate.Builder()
                 .setContentTemplate(sidebar)
                 .setMapController(mapController)
                 .setActionStrip(buildActionStrip())
                 .build();
+    }
+
+    /** Centres the painted map on the trip (or the recommended charger) and marks the chargers. */
+    private void updateMap() {
+        if (snapshot == null) {
+            return;
+        }
+        RoutePlan plan = snapshot.getPlan();
+        List<CarMap.Pin> pins = new ArrayList<>();
+        double latitude = 20.5937;
+        double longitude = 78.9629;
+        int zoom = 4;
+
+        if (plan != null) {
+            latitude = plan.getOriginLat();
+            longitude = plan.getOriginLng();
+            zoom = 11;
+            pins.add(CarMap.destination(plan.getDestinationLat(), plan.getDestinationLng()));
+        }
+
+        ChargerStation recommended = snapshot.getRecommendedStation();
+        if (recommended != null) {
+            if (plan == null) {
+                latitude = recommended.getLatitude();
+                longitude = recommended.getLongitude();
+                zoom = 14;
+            }
+            pins.add(CarMap.station(recommended.getLatitude(), recommended.getLongitude()));
+        }
+
+        for (ChargerStation station : snapshot.getReachableStations()) {
+            if (pins.size() >= 6) {
+                break;
+            }
+            if (recommended != null && station.getId().equals(recommended.getId())) {
+                continue;
+            }
+            pins.add(CarMap.station(station.getLatitude(), station.getLongitude()));
+        }
+
+        carMap.show(latitude, longitude, zoom, pins);
     }
 
     /**
@@ -80,6 +140,11 @@ public class RouteOverviewCarScreen extends Screen {
             list.addItem(new Row.Builder()
                     .setTitle("Loading your trip")
                     .addText("Amperly is reading the plan you set up on your phone.")
+                    .build());
+        } else if (snapshot.getPlan() == null) {
+            list.addItem(new Row.Builder()
+                    .setTitle("No active trip")
+                    .addText("Plan a trip on your phone, then reconnect.")
                     .build());
         } else {
             list.addItem(new Row.Builder()
@@ -108,40 +173,40 @@ public class RouteOverviewCarScreen extends Screen {
                         .addText("Your battery covers this trip down to the arrival reserve.")
                         .build());
             }
+        }
 
+        list.addItem(new Row.Builder()
+                .setTitle("Start navigation")
+                .addText("Driver-safe navigation to the recommended stop and destination")
+                .setOnClickListener(() -> getScreenManager().push(
+                        new NavigationCarScreen(getCarContext())))
+                .build());
+
+        list.addItem(new Row.Builder()
+                .setTitle("Chargers along the route ("
+                        + snapshotReachableCount() + ")")
+                .addText("Safely reachable at your current battery level")
+                .setOnClickListener(() -> getScreenManager().push(
+                        new ChargerListCarScreen(getCarContext())))
+                .build());
+
+        list.addItem(new Row.Builder()
+                .setTitle("Update actual battery")
+                .addText("Enter the dashboard value with two taps - no typing while driving")
+                .setOnClickListener(() -> getScreenManager().push(
+                        new SoCUpdateCarScreen(getCarContext())))
+                .build());
+
+        if (snapshot != null && snapshot.getReservation() != null) {
             list.addItem(new Row.Builder()
-                    .setTitle("Start navigation")
-                    .addText("Driver-safe navigation to the recommended stop and destination")
+                    .setTitle("Reservation " + snapshot.getReservation().getBookingCode())
+                    .addText((snapshot.getReservation().getStationName() == null ? ""
+                            : snapshot.getReservation().getStationName())
+                            + " - " + com.amperly.app.core.common.Formatters
+                            .bookingStatus(snapshot.getReservation().getStatus()))
                     .setOnClickListener(() -> getScreenManager().push(
-                            new NavigationCarScreen(getCarContext())))
+                            new ReservationStatusCarScreen(getCarContext())))
                     .build());
-
-            list.addItem(new Row.Builder()
-                    .setTitle("Chargers along the route ("
-                            + snapshot.getReachableStations().size() + ")")
-                    .addText("Safely reachable at your current battery level")
-                    .setOnClickListener(() -> getScreenManager().push(
-                            new ChargerListCarScreen(getCarContext())))
-                    .build());
-
-            list.addItem(new Row.Builder()
-                    .setTitle("Update actual battery")
-                    .addText("Enter the dashboard value with two taps - no typing while driving")
-                    .setOnClickListener(() -> getScreenManager().push(
-                            new SoCUpdateCarScreen(getCarContext())))
-                    .build());
-
-            if (snapshot.getReservation() != null) {
-                list.addItem(new Row.Builder()
-                        .setTitle("Reservation " + snapshot.getReservation().getBookingCode())
-                        .addText((snapshot.getReservation().getStationName() == null ? ""
-                                : snapshot.getReservation().getStationName())
-                                + " - " + com.amperly.app.core.common.Formatters
-                                .bookingStatus(snapshot.getReservation().getStatus()))
-                        .setOnClickListener(() -> getScreenManager().push(
-                                new ReservationStatusCarScreen(getCarContext())))
-                        .build());
-            }
         }
 
         list.addItem(new Row.Builder()
@@ -171,9 +236,14 @@ public class RouteOverviewCarScreen extends Screen {
 
         return new ListTemplate.Builder()
                 .setTitle("Amperly")
+                .setHeaderAction(Action.APP_ICON)
                 .setSingleList(list.build())
                 .setActionStrip(buildActionStrip())
                 .build();
+    }
+
+    private int snapshotReachableCount() {
+        return snapshot == null ? 0 : snapshot.getReachableStations().size();
     }
 
     /** The strip along the bottom of the whole screen. */
@@ -187,27 +257,6 @@ public class RouteOverviewCarScreen extends Screen {
                                     CarToast.LENGTH_LONG).show();
                             getScreenManager().push(new ReservationStatusCarScreen(getCarContext()));
                         })
-                        .build())
-                .build();
-    }
-
-    /** The strip that sits over the map, where the glanceable actions belong. */
-    private ActionStrip buildMapActionStrip() {
-        return new ActionStrip.Builder()
-                .addAction(new Action.Builder()
-                        .setTitle("Battery")
-                        .setOnClickListener(() -> getScreenManager().push(
-                                new SoCUpdateCarScreen(getCarContext())))
-                        .build())
-                .addAction(new Action.Builder()
-                        .setTitle("Chargers")
-                        .setOnClickListener(() -> getScreenManager().push(
-                                new ChargerListCarScreen(getCarContext())))
-                        .build())
-                .addAction(new Action.Builder()
-                        .setTitle("Navigate")
-                        .setOnClickListener(() -> getScreenManager().push(
-                                new NavigationCarScreen(getCarContext())))
                         .build())
                 .build();
     }

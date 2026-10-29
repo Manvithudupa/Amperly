@@ -8,6 +8,18 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!--
+      Car App Library template access. The projected experience uses MapWithContentTemplate
+      (RouteOverviewCarScreen) and NavigationTemplate (NavigationCarScreen); the host rejects
+      those templates unless the matching declaration is present. NAVIGATION_TEMPLATES covers
+      the navigation category, MAP_TEMPLATES covers the same templates reached through the
+      POI (EV charging) category.
+    -->
+    <uses-permission android:name="androidx.car.app.NAVIGATION_TEMPLATES" />
+    <uses-permission android:name="androidx.car.app.MAP_TEMPLATES" />
+    <!-- Required to receive the map Surface that CarMap paints into. -->
+    <uses-permission android:name="androidx.car.app.ACCESS_SURFACE" />
+
     <!-- Handing navigation off to an installed maps application -->
     <queries>
         <intent>
@@ -85,7 +97,12 @@
             tools:ignore="ExportedService">
             <intent-filter>
                 <action android:name="androidx.car.app.CarAppService" />
-                <category android:name="androidx.car.app.category.CHARGING" />
+                <!--
+                  POI is the current category for EV charging: CHARGING is deprecated since
+                  Car App Library 1.3, so a host that only understands POI would otherwise
+                  never list this app.
+                -->
+                <category android:name="androidx.car.app.category.POI" />
                 <category android:name="androidx.car.app.category.NAVIGATION" />
             </intent-filter>
         </service>
