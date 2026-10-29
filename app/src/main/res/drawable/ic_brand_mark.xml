@@ -2,28 +2,81 @@
 <!--
   The Amperly mark, for in-app use.
 
-  The same artwork as the launcher icon — the letter A crossbarred by a lightning bolt — drawn
-  onto a 24dp grid so it lines up with the rest of the icon set. The paths are the launcher
-  foreground's own coordinates inside a group, so the two can never drift apart; the group
-  scales the 108dp artwork down and centres its 40x50 bounding box in the icon.
+  Same artwork as the launcher icon — the gradient A with the lane-dashed road across it and
+  the plug on its cable — drawn on a 24dp grid so it lines up with the rest of the icon set.
+  The group scales the 108dp artwork down and centres the mark (x 25.5-84, y 28.5-85.5) in the
+  24dp box, so the two can never drift apart.
 
-  A single fill colour keeps it tintable: the toolbar paints it white over the brand green.
+  It keeps its own gradient rather than being tinted: the green-to-blue sweep is the logo.
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
     android:width="24dp"
     android:height="24dp"
     android:viewportWidth="24"
     android:viewportHeight="24">
     <group
-        android:scaleX="0.34"
-        android:scaleY="0.34"
-        android:translateX="-6.36"
-        android:translateY="-5.34">
-        <path
-            android:fillColor="#FFFFFFFF"
-            android:pathData="M46,26 L62,26 L74,76 L63,76 L54,44 L45,76 L34,76 Z" />
-        <path
-            android:fillColor="#FFFFFFFF"
-            android:pathData="M50,74.9 L48.4,74.9 L50,65.8 L44.1,65.8 L54,51.1 L55.6,51.1 L54,60.2 L59.9,60.2 Z" />
+        android:scaleX="0.4"
+        android:scaleY="0.4"
+        android:translateX="-9.9"
+        android:translateY="-0.8">
+
+        <path android:pathData="M34,68 L54,34" android:strokeWidth="11"
+            android:strokeLineCap="round" android:fillColor="#00000000">
+            <aapt:attr name="android:strokeColor">
+                <gradient
+                    android:startX="30" android:startY="30"
+                    android:endX="78" android:endY="76"
+                    android:type="linear">
+                    <item android:color="#FF4FE3A6" android:offset="0.0" />
+                    <item android:color="#FF3AC9CE" android:offset="0.5" />
+                    <item android:color="#FF2B7CF6" android:offset="1.0" />
+                </gradient>
+            </aapt:attr>
+        </path>
+        <path android:pathData="M54,34 L74,68" android:strokeWidth="11"
+            android:strokeLineCap="round" android:fillColor="#00000000">
+            <aapt:attr name="android:strokeColor">
+                <gradient
+                    android:startX="30" android:startY="30"
+                    android:endX="78" android:endY="76"
+                    android:type="linear">
+                    <item android:color="#FF4FE3A6" android:offset="0.0" />
+                    <item android:color="#FF3AC9CE" android:offset="0.5" />
+                    <item android:color="#FF2B7CF6" android:offset="1.0" />
+                </gradient>
+            </aapt:attr>
+        </path>
+
+        <path android:pathData="M32,79 Q44,70 63,62" android:strokeWidth="13"
+            android:strokeLineCap="round" android:fillColor="#00000000"
+            android:strokeColor="#FF0B0D11" />
+        <path android:pathData="M35.5,76.3 L38.6,74.8" android:strokeWidth="2.8"
+            android:strokeLineCap="round" android:strokeColor="#FFF3F7F6" />
+        <path android:pathData="M43.2,72.4 L46.4,70.7" android:strokeWidth="2.8"
+            android:strokeLineCap="round" android:strokeColor="#FFF3F7F6" />
+        <path android:pathData="M50.9,68.2 L54.2,66.3" android:strokeWidth="2.8"
+            android:strokeLineCap="round" android:strokeColor="#FFF3F7F6" />
+        <path android:pathData="M58.3,63.9 L61.4,61.9" android:strokeWidth="2.8"
+            android:strokeLineCap="round" android:strokeColor="#FFF3F7F6" />
+
+        <path android:pathData="M73,48 Q68,55 60.5,61" android:strokeWidth="4"
+            android:strokeLineCap="round" android:fillColor="#00000000"
+            android:strokeColor="#FF4FE3A6" />
+        <path android:pathData="M72.5,43.4 L77.5,42.2 A4.2,4.2 0 0 1 82.3,46 L82.3,49 A4.2,4.2 0 0 1 77,52.4 L72.6,50.6 A4.2,4.2 0 0 1 70.4,47 A4.2,4.2 0 0 1 72.5,43.4 Z">
+            <aapt:attr name="android:fillColor">
+                <gradient
+                    android:startX="70" android:startY="42"
+                    android:endX="84" android:endY="53"
+                    android:type="linear">
+                    <item android:color="#FF5AE8AE" android:offset="0.0" />
+                    <item android:color="#FF35D3A0" android:offset="1.0" />
+                </gradient>
+            </aapt:attr>
+        </path>
+        <path android:pathData="M76,42.6 L79.4,36.9" android:strokeWidth="2.6"
+            android:strokeLineCap="round" android:strokeColor="#FF4FE3A6" />
+        <path android:pathData="M80.6,44.6 L84,38.9" android:strokeWidth="2.6"
+            android:strokeLineCap="round" android:strokeColor="#FF4FE3A6" />
     </group>
 </vector>

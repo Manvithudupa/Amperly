@@ -83,12 +83,6 @@
         <item name="android:fontFeatureSettings">tnum</item>
     </style>
 
-    <style name="TextAppearance.Amperly.Mono" parent="TextAppearance.Amperly.Title">
-        <item name="android:fontFamily">monospace</item>
-        <item name="android:textSize">20sp</item>
-        <item name="android:letterSpacing">0.14</item>
-        <item name="android:textColor">@color/amp_ink</item>
-    </style>
 
     <style name="TextAppearance.Amperly.Button" parent="TextAppearance.Material3.LabelLarge">
         <item name="android:fontFamily">@font/pjs_bold</item>
@@ -210,7 +204,6 @@
     </style>
 
     <!-- Legacy alias kept for any screen still referencing the old name. -->
-    <style name="Widget.Amperly.Button.Dark" parent="Widget.Amperly.Button" />
 
     <!-- =============================================================== Cards -->
 
@@ -242,10 +235,8 @@
         <item name="cardBackgroundColor">@color/amp_surface_variant</item>
     </style>
 
-    <style name="Widget.Amperly.Card.Side" parent="Widget.Amperly.Card" />
 
     <!-- Kept so an old reference cannot break the build; no gradient, no dark hero. -->
-    <style name="Widget.Amperly.Card.Hero" parent="Widget.Amperly.Card.Filled" />
 
     <!-- =============================================================== Chips -->
 
@@ -284,15 +275,7 @@
         <item name="android:textColor">@color/amp_available</item>
     </style>
 
-    <style name="Widget.Amperly.Badge.Warning">
-        <item name="android:background">@drawable/bg_badge_warning</item>
-        <item name="android:textColor">@color/amp_busy_ink</item>
-    </style>
 
-    <style name="Widget.Amperly.Badge.Error">
-        <item name="android:background">@drawable/bg_badge_error</item>
-        <item name="android:textColor">@color/amp_error</item>
-    </style>
 
     <style name="Widget.Amperly.Badge.Info">
         <item name="android:background">@drawable/bg_badge_info</item>
@@ -304,18 +287,8 @@
         <item name="android:textColor">@color/amp_ink_secondary</item>
     </style>
 
-    <style name="Widget.Amperly.Badge.Energy">
-        <item name="android:background">@drawable/bg_badge_energy</item>
-        <item name="android:textColor">@color/amp_busy_ink</item>
-    </style>
 
     <!-- Legacy name, same neutral treatment. -->
-    <style name="Widget.Amperly.Badge.Eyebrow">
-        <item name="android:background">@android:color/transparent</item>
-        <item name="android:textColor">@color/amp_ink_secondary</item>
-        <item name="android:paddingStart">0dp</item>
-        <item name="android:paddingEnd">0dp</item>
-    </style>
 
     <!-- ============================================================= Notices -->
 
@@ -342,14 +315,7 @@
         <item name="android:textColor">@color/amp_error</item>
     </style>
 
-    <style name="Widget.Amperly.Notice.Primary">
-        <item name="android:background">@drawable/bg_notice_primary</item>
-        <item name="android:textColor">@color/amp_on_primary_tint</item>
-    </style>
 
-    <style name="Widget.Amperly.Notice.Mono">
-        <item name="android:textAppearance">@style/TextAppearance.Amperly.Mono</item>
-    </style>
 
     <!-- ============================================================== Inputs -->
 
@@ -384,12 +350,6 @@
         <item name="android:background">@drawable/bg_sheet_handle</item>
     </style>
 
-    <style name="Widget.Amperly.Icon" parent="">
-        <item name="android:layout_width">24dp</item>
-        <item name="android:layout_height">24dp</item>
-        <item name="android:contentDescription">@null</item>
-        <item name="tint">@color/amp_ink_secondary</item>
-    </style>
 
     <!-- Left-hand label of an itemised row; the value sits in a right column. -->
     <style name="Widget.Amperly.RowLabel" parent="">
@@ -409,12 +369,6 @@
         <item name="android:textColor">@color/amp_ink</item>
     </style>
 
-    <style name="Widget.Amperly.FieldLabel" parent="">
-        <item name="android:layout_width">match_parent</item>
-        <item name="android:layout_height">wrap_content</item>
-        <item name="android:layout_marginBottom">@dimen/amp_space_xs</item>
-        <item name="android:textAppearance">@style/TextAppearance.Amperly.LabelStrong</item>
-    </style>
 
     <!-- A sticky action bar at the bottom of a screen: surface, hairline, real padding. -->
     <style name="Widget.Amperly.StickyActionBar" parent="">
@@ -481,7 +435,6 @@
     </style>
 
     <!-- Legacy header container, now just a plain block. -->
-    <style name="Widget.Amperly.ScreenHeader" parent="Widget.Amperly.Card.Plain" />
 
     <!-- Legacy role chip, kept for the account page's capacity switcher. -->
     <style name="Widget.Amperly.RoleChip" parent="Widget.Amperly.Chip" />
@@ -515,17 +468,9 @@
     <!-- Old layout names, pointed at the new scale. Removed once every screen
          has been rebuilt against the current style names. -->
 
-    <style name="TextAppearance.Amperly.ScreenTitle" parent="TextAppearance.Amperly.Display" />
 
-    <style name="TextAppearance.Amperly.Eyebrow" parent="TextAppearance.Amperly.Label" />
 
     <style name="TextAppearance.Amperly.SectionTitle" parent="TextAppearance.Amperly.TitleSmall" />
 
-    <style name="TextAppearance.Amperly.Price" parent="TextAppearance.Amperly.Metric" />
 
-    <style name="Widget.Amperly.StatTile" parent="Widget.Amperly.Card">
-        <item name="android:layout_width">0dp</item>
-        <item name="android:layout_height">@dimen/amp_stat_tile_height</item>
-        <item name="android:layout_weight">1</item>
-    </style>
 </resources>

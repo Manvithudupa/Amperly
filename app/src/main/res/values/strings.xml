@@ -282,7 +282,6 @@
     <string name="host_port_dc">DC fast charger</string>
     <string name="host_submit_station">Submit station</string>
     <string name="host_station_saved">Station submitted for verification.</string>
-    <string name="host_tab_reservations">Reservations</string>
     <string name="host_tab_sessions">Sessions</string>
     <string name="host_tab_analytics">Analytics</string>
     <string name="host_pause_station">Pause station</string>
@@ -330,7 +329,6 @@
     <!-- Host analytics -->
     <string name="analytics_sessions_short">Sessions</string>
     <string name="analytics_energy_short">kWh delivered</string>
-    <string name="analytics_revenue_short">Revenue</string>
     <string name="analytics_income_short">Income</string>
     <string name="analytics_disputes_short">Disputes</string>
     <string name="analytics_reservations_short">Reservations</string>
@@ -342,21 +340,17 @@
     <string name="admin_queue">Station verification queue</string>
     <string name="admin_disputes">Disputes and evidence</string>
     <string name="admin_approve">Approve listing</string>
-    <string name="admin_reject">Reject listing</string>
+    <string name="admin_decline">Decline listing</string>
     <string name="admin_freeze_payout">Freeze payout</string>
     <string name="admin_refund">Issue refund</string>
     <string name="admin_warning">Issue warning</string>
     <string name="admin_fine">Issue fine</string>
     <string name="admin_suspend">Suspend station</string>
     <string name="admin_ban">Ban station</string>
-    <string name="admin_policy_note">Every action here is recorded against the evidence above.</string>
     <string name="admin_queue_empty">No listings are waiting for review.</string>
     <string name="admin_disputes_empty">No disputes are open.</string>
     <string name="admin_reports_empty">No reports are waiting.</string>
-    <string name="admin_reports_by_consumers">Reports by consumers</string>
-    <string name="admin_reports_by_hosts">Reports by hosts</string>
-    <string name="admin_consumer_reports_empty">No reports from consumers.</string>
-    <string name="admin_host_reports_empty">No reports from hosts.</string>
+    <string name="admin_reports_from_users">Reports from users</string>
     <string name="admin_report_reporter">Reporter: %1$s</string>
     <string name="admin_report_target">Reported: %1$s</string>
     <string name="admin_report_no_target_short">No account named</string>
@@ -583,7 +577,6 @@
     <string name="location_type_charger">Charger</string>
 
     <!-- Reservation, session and receipt rows -->
-    <string name="reservation_code_line">Booking %1$s</string>
     <string name="reservation_show_code">Show booking code %1$s</string>
     <string name="reservation_authorized_line">%1$s/kWh · %2$s service · %3$s gateway</string>
     <string name="reservation_no_billing">No payment is collected in this build.</string>
@@ -661,7 +654,6 @@
     <string name="host_error_address_required">Enter the station address.</string>
     <string name="host_location_required">Set the charger location on the map first.</string>
     <string name="host_saved_body">%1$s You can track it from your host dashboard.</string>
-    <string name="host_station_meta">%1$s · %2$s · %3$d kW · %4$d ports · %5$s/kWh</string>
     <string name="host_station_status">%1$s · updated %2$s</string>
     <string name="host_station_paused_state">%1$s · paused</string>
     <string name="host_station_paused">Station paused.</string>
@@ -677,14 +669,12 @@
     <string name="host_analytics_ports">Ports</string>
     <string name="host_meter_evidence_saved">Meter evidence saved: %1$s.</string>
     <string name="meter_evidence_header">%1$s\nDemo meter reading: %2$s\nSimulated or hand-entered.</string>
-    <string name="host_booking_verified">Booking %1$s verified at %2$s for %3$s.</string>
-    <string name="host_session_started">Session started at %1$s.</string>
     <string name="host_session_dispute_note">Session closed. A dispute can be raised from the receipt.</string>
     <string name="host_receipt_toast">%1$s · %2$s · %3$s</string>
 
     <!-- Admin desk -->
     <string name="admin_approved">Listing approved: %1$s</string>
-    <string name="admin_rejected">Listing rejected: %1$s</string>
+    <string name="admin_declined">Listing declined: %1$s</string>
     <string name="admin_payout_held">Payout frozen for this host.</string>
     <string name="admin_refunded">Refunded %1$s.</string>
     <string name="admin_enforcement_recorded">Recorded enforcement: %1$s.</string>
@@ -707,7 +697,6 @@
     <string name="dispute_photo_suffix"> · photo: %1$s</string>
     <string name="dispute_enforcement_line">Enforcement: %1$s</string>
     <string name="dispute_refund_suffix"> · refund %1$s</string>
-    <string name="dispute_policy_note">Decisions are recorded against the evidence.</string>
 
     <!-- Safety -->
     <string name="safety_add_contact_first">Add a trusted contact first.</string>

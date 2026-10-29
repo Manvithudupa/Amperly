@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The tile the in-app mark sits on: the launcher icon's dark green plate, in miniature.
-     A gradient rather than a flat fill so the 28dp badge keeps some depth beside the
-     letter it holds. -->
+<!-- The tile the in-app mark sits on: the launcher icon's near-black plate, in miniature.
+     A gradient rather than a flat fill so the small badge keeps the same depth as the icon,
+     and dark enough that the mark's green-to-blue sweep stays legible on it. -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="rectangle">
     <gradient
-        android:startColor="#FF15493C"
-        android:centerColor="#FF0F3A30"
-        android:endColor="#FF08201A"
+        android:startColor="#FF1B1E24"
+        android:centerColor="#FF121419"
+        android:endColor="#FF08090C"
         android:angle="315"
         android:type="linear" />
     <corners android:radius="9dp" />

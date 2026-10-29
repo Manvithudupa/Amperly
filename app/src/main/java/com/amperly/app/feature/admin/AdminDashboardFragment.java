@@ -53,8 +53,7 @@ public class AdminDashboardFragment extends Fragment {
     private AmperlyRepository repo;
     private PendingStationAdapter pendingAdapter;
     private DisputeAdapter disputeAdapter;
-    private ReportAdapter consumerReportAdapter;
-    private ReportAdapter hostReportAdapter;
+    private ReportAdapter reportAdapter;
     private TextView analyticsText;
 
     @Nullable
@@ -129,7 +128,6 @@ public class AdminDashboardFragment extends Fragment {
         });
         disputes.setAdapter(disputeAdapter);
 
-        // Reports are split by who filed them, so each list has its own adapter.
         ReportAdapter.Listener reportActions = new ReportAdapter.Listener() {
             @Override
             public void onWarning(Report report) {
@@ -146,21 +144,16 @@ public class AdminDashboardFragment extends Fragment {
                 confirmReportBan(report);
             }
         };
-        consumerReportAdapter = new ReportAdapter(reportActions);
-        RecyclerView consumerReports = view.findViewById(R.id.consumerReportsRecyclerView);
-        consumerReports.setLayoutManager(new LinearLayoutManager(requireContext()));
-        consumerReports.setNestedScrollingEnabled(false);
-        consumerReports.setAdapter(consumerReportAdapter);
-
-        hostReportAdapter = new ReportAdapter(reportActions);
-        RecyclerView hostReports = view.findViewById(R.id.hostReportsRecyclerView);
-        hostReports.setLayoutManager(new LinearLayoutManager(requireContext()));
-        hostReports.setNestedScrollingEnabled(false);
-        hostReports.setAdapter(hostReportAdapter);
+        reportAdapter = new ReportAdapter(reportActions);
+        RecyclerView reports = view.findViewById(R.id.reportsRecyclerView);
+        reports.setLayoutManager(new LinearLayoutManager(requireContext()));
+        reports.setNestedScrollingEnabled(false);
+        reports.setAdapter(reportAdapter);
 
         load();
 
-        // The two bottom-navigation destinations are one desk; each opens at its own queue.
+        // The two bottom-navigation destinations are one desk: Queue opens at the queue,
+        // Reports opens at the disputes above the reports list.
         String section = getArguments() == null ? null : getArguments().getString(ARG_SECTION);
         if (section != null) {
             view.postDelayed(() -> scrollToSection(section), 250);
@@ -172,7 +165,7 @@ public class AdminDashboardFragment extends Fragment {
         if (root == null) {
             return;
         }
-        int targetId = SECTION_REPORTS.equals(section) ? R.id.adminReportsSection
+        int targetId = SECTION_REPORTS.equals(section) ? R.id.adminDisputesSection
                 : R.id.adminQueueSection;
         View scroll = root.findViewById(R.id.adminScrollView);
         View target = root.findViewById(targetId);
@@ -194,25 +187,20 @@ public class AdminDashboardFragment extends Fragment {
                         : repo.getMeterReadingsSync(dispute.getSessionId());
                 disputeRows.add(new DisputeAdapter.DisputeRow(dispute, evidence));
             }
-            // Who filed a report decides which list it belongs to, and the names on the card come
-            // from the entities the report only references by id.
-            List<ReportAdapter.Item> consumerReports = new ArrayList<>();
-            List<ReportAdapter.Item> hostReports = new ArrayList<>();
+            // The names on the card come from the entities the report only references by id.
+            List<ReportAdapter.Item> reportRows = new ArrayList<>();
             for (Report report : reports) {
-                ReportAdapter.Item item = new ReportAdapter.Item(report,
-                        reporterName(report), reportedName(report));
-                (repo.isHostReporterSync(report) ? hostReports : consumerReports).add(item);
+                reportRows.add(new ReportAdapter.Item(report,
+                        reporterName(report), reportedName(report)));
             }
-            return new AdminData(pendingStations, disputeRows, consumerReports, hostReports,
-                    analytics, repo.getInvoicesForHostSync(""));
+            return new AdminData(pendingStations, disputeRows, reportRows, analytics);
         }, data -> {
             if (data == null || !isAdded()) {
                 return;
             }
             pendingAdapter.submit(data.pending);
             disputeAdapter.submit(data.disputes);
-            consumerReportAdapter.submit(data.consumerReports);
-            hostReportAdapter.submit(data.hostReports);
+            reportAdapter.submit(data.reports);
             // An empty section says so instead of looking like a screen that failed to load.
             View root = getView();
             if (root != null) {
@@ -220,14 +208,12 @@ public class AdminDashboardFragment extends Fragment {
                         data.pending.isEmpty() ? View.VISIBLE : View.GONE);
                 root.findViewById(R.id.adminDisputesEmptyText).setVisibility(
                         data.disputes.isEmpty() ? View.VISIBLE : View.GONE);
-                root.findViewById(R.id.adminConsumerReportsEmptyText).setVisibility(
-                        data.consumerReports.isEmpty() ? View.VISIBLE : View.GONE);
-                root.findViewById(R.id.adminHostReportsEmptyText).setVisibility(
-                        data.hostReports.isEmpty() ? View.VISIBLE : View.GONE);
+                root.findViewById(R.id.adminReportsEmptyText).setVisibility(
+                        data.reports.isEmpty() ? View.VISIBLE : View.GONE);
             }
             analyticsText.setText(getString(R.string.admin_platform_summary,
                     data.pending.size(), data.disputes.size(),
-                    data.consumerReports.size() + data.hostReports.size(),
+                    data.reports.size(),
                     data.analytics.getSessionsCompleted(),
                     String.format(Locale.US, "%.1f kWh", data.analytics.getEnergyDeliveredKwh()),
                     Formatters.money(data.analytics.getRevenue()),
@@ -265,7 +251,7 @@ public class AdminDashboardFragment extends Fragment {
         }, name -> {
             if (name != null) {
                 Ux.success(this, getString(approve
-                        ? R.string.admin_approved : R.string.admin_rejected, name));
+                        ? R.string.admin_approved : R.string.admin_declined, name));
                 load();
             }
         });
@@ -543,20 +529,16 @@ public class AdminDashboardFragment extends Fragment {
     private static class AdminData {
         private final List<ChargerStation> pending;
         private final List<DisputeAdapter.DisputeRow> disputes;
-        private final List<ReportAdapter.Item> consumerReports;
-        private final List<ReportAdapter.Item> hostReports;
+        private final List<ReportAdapter.Item> reports;
         private final HostAnalyticsEngine.HostAnalytics analytics;
-        private final List<Invoice> invoices;
 
         AdminData(List<ChargerStation> pending, List<DisputeAdapter.DisputeRow> disputes,
-                  List<ReportAdapter.Item> consumerReports, List<ReportAdapter.Item> hostReports,
-                  HostAnalyticsEngine.HostAnalytics analytics, List<Invoice> invoices) {
+                  List<ReportAdapter.Item> reports,
+                  HostAnalyticsEngine.HostAnalytics analytics) {
             this.pending = pending;
             this.disputes = disputes;
-            this.consumerReports = consumerReports;
-            this.hostReports = hostReports;
+            this.reports = reports;
             this.analytics = analytics;
-            this.invoices = invoices;
         }
     }
 }

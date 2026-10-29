@@ -64,7 +64,7 @@
                 android:layout_marginStart="@dimen/amp_space_s"
                 android:layout_weight="1"
                 android:minWidth="0dp"
-                android:text="@string/admin_reject" />
+                android:text="@string/admin_decline" />
         </LinearLayout>
     </LinearLayout>
 </com.google.android.material.card.MaterialCardView>

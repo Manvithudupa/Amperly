@@ -1395,24 +1395,6 @@ public class AmperlyRepository {
         return null;
     }
 
-    /**
-     * True when the person who filed the report was acting as a host.
-     *
-     * <p>Accounts are dual-role, so the synced role column alone is not the answer: anyone who
-     * owns a charger acts as a host when they report. Ownership is the same test the station
-     * policies use.
-     */
-    public boolean isHostReporterSync(@Nullable Report report) {
-        if (report == null || report.getReporterId() == null) {
-            return false;
-        }
-        User reporter = db.userDao().getUserByIdSync(report.getReporterId());
-        if (reporter != null && AppConstants.ROLE_HOST.equalsIgnoreCase(reporter.getRole())) {
-            return true;
-        }
-        return !db.chargerStationDao().getStationsByHostSync(report.getReporterId()).isEmpty();
-    }
-
     // ----------------------------------------------------------- enforcement
 
     public void saveEnforcementAction(HostEnforcementAction action) {
