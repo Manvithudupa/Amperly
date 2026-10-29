@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The host's stations, modelled on the vehicle garage: saved chargers are cards, and adding one
+  happens on its own screen so the list stays scannable. The Add station action sits below the
+  list, where the new card will appear.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/amp_background"
+    android:orientation="vertical"
+    android:paddingStart="@dimen/amp_screen_padding"
+    android:paddingEnd="@dimen/amp_screen_padding"
+    android:paddingBottom="@dimen/amp_space_m">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/amp_space_l"
+        android:text="@string/host_stations_title"
+        android:textAppearance="@style/TextAppearance.Amperly.Display"
+        android:accessibilityHeading="true" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/amp_space_xs"
+        android:text="@string/host_stations_intro"
+        android:textAppearance="@style/TextAppearance.Amperly.BodySmall" />
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_marginTop="@dimen/amp_space_m"
+        android:layout_weight="1">
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/hostStationsList"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:clipToPadding="false"
+            android:paddingBottom="@dimen/amp_space_s"
+            android:scrollbars="vertical" />
+
+        <LinearLayout
+            android:id="@+id/hostStationsEmptyState"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:padding="@dimen/amp_space_xl"
+            android:visibility="gone">
+
+            <ImageView
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:contentDescription="@null"
+                android:importantForAccessibility="no"
+                android:src="@drawable/ic_pin"
+                app:tint="@color/amp_ink_secondary" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/amp_space_s"
+                android:gravity="center"
+                android:text="@string/host_stations_empty_title"
+                android:textAppearance="@style/TextAppearance.Amperly.TitleSmall" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/amp_space_xs"
+                android:gravity="center"
+                android:text="@string/host_stations_empty_body"
+                android:textAppearance="@style/TextAppearance.Amperly.BodySmall" />
+        </LinearLayout>
+    </FrameLayout>
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/addStationButton"
+        style="@style/Widget.Amperly.Button"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/amp_space_m"
+        android:text="@string/host_add_station"
+        app:icon="@drawable/ic_add"
+        app:iconGravity="textStart" />
+</LinearLayout>

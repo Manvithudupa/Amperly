@@ -1,5 +1,7 @@
 package com.amperly.app.communication;
 
+import androidx.annotation.Nullable;
+
 import com.amperly.app.data.local.entity.ChatMessage;
 import com.amperly.app.data.local.entity.CommunicationThread;
 import com.amperly.app.data.local.entity.Reservation;
@@ -10,11 +12,16 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Reservation-scoped communication.
+ * Phone-only communication between a consumer and a host.
  *
- * Personal phone numbers are masked, chats are tied to a reservation, the conversation expires
- * automatically after the reservation/dispute window, and off-platform payment requests are flagged.
- * Free-text chat is a phone-only feature — it is never offered on the car display.
+ * <p>There is one conversation per pair of people, not one per booking: a second visit to the
+ * same host continues the same chat, so the history is still there and the two of them do not
+ * accumulate a new chat box for every reservation. The reservation on a thread is only the
+ * latest booking it belongs to, kept for context and audit.
+ *
+ * <p>Personal phone numbers are masked, the conversation expires automatically after the
+ * reservation/dispute window, and off-platform payment requests are flagged. Free-text chat is
+ * never offered on the car display.
  */
 public class ChatManager {
 
@@ -70,9 +77,20 @@ public class ChatManager {
                 || lower.contains("upi to my") || lower.contains("outside the app");
     }
 
+    /**
+     * When a conversation opened for this booking should close.
+     *
+     * <p>A week after the slot ends. Starting from the end rather than from the booking time means
+     * a slot booked next month still has a usable chat window when the driver arrives.
+     */
+    public static long expiryFor(@Nullable Reservation reservation, long nowMs) {
+        long slotEnd = reservation != null ? reservation.getEndTimeMs() : nowMs;
+        return Math.max(nowMs, slotEnd) + THREAD_LIFETIME_AFTER_SLOT_MS;
+    }
+
     public static CommunicationThread createThread(Reservation reservation, User consumer, User host) {
         long now = System.currentTimeMillis();
-        long expiry = (reservation != null ? reservation.getEndTimeMs() : now) + THREAD_LIFETIME_AFTER_SLOT_MS;
+        long expiry = expiryFor(reservation, now);
         return new CommunicationThread(UUID.randomUUID().toString(),
                 reservation == null ? null : reservation.getId(),
                 consumer == null ? null : consumer.getId(),
@@ -82,6 +100,39 @@ public class ChatManager {
                 maskPhoneNumber(consumer == null ? null : consumer.getPhone()),
                 maskPhoneNumber(host == null ? null : host.getPhone()),
                 false, false, true, now, expiry);
+    }
+
+    /**
+     * Folds a new booking into the conversation these two people already have.
+     *
+     * <p>The thread id is deliberately kept: it is what keeps the messages that are already in the
+     * thread together, and it is the key the server syncs on. What changes is the reservation the
+     * thread now refers to — the latest booking between the two — plus a fresh expiry, so a new
+     * visit reopens the window. Moderation state (reported, blocked) is left alone: one bad
+     * thread is not cleared by booking again.
+     */
+    @Nullable
+    public static CommunicationThread reuseForReservation(@Nullable CommunicationThread thread,
+                                                          @Nullable Reservation reservation,
+                                                          @Nullable User consumer,
+                                                          @Nullable User host) {
+        if (thread == null) {
+            return null;
+        }
+        long now = System.currentTimeMillis();
+        if (reservation != null) {
+            thread.setReservationId(reservation.getId());
+        }
+        if (consumer != null) {
+            thread.setConsumerName(consumer.getName());
+            thread.setMaskedConsumerNumber(maskPhoneNumber(consumer.getPhone()));
+        }
+        if (host != null) {
+            thread.setHostName(host.getName());
+            thread.setMaskedHostNumber(maskPhoneNumber(host.getPhone()));
+        }
+        thread.setExpiresAtMs(Math.max(thread.getExpiresAtMs(), expiryFor(reservation, now)));
+        return thread;
     }
 
     public static ChatMessage createMessage(String threadId, String reservationId, String senderId,

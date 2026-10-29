@@ -103,6 +103,9 @@
         <item name="shapeAppearanceOverlay">@style/ShapeAppearance.Amperly.Sheet</item>
         <item name="colorSurface">@color/amp_surface</item>
         <item name="android:windowBackground">@android:color/transparent</item>
+        <!-- A dialog is its own window: it has to resize for the keyboard itself, or the field
+             being typed in ends up behind the IME with the buttons pushed off screen. -->
+        <item name="android:windowSoftInputMode">adjustResize</item>
     </style>
 
     <style name="ThemeOverlay.Amperly.BottomSheet" parent="ThemeOverlay.Material3.BottomSheetDialog">

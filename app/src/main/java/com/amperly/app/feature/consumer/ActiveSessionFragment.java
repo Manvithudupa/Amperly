@@ -29,6 +29,7 @@ import com.amperly.app.data.repository.AmperlyRepository;
 import com.amperly.app.engine.billing.BillingEngine;
 import com.amperly.app.engine.meter.MeterSimulator;
 import com.amperly.app.ui.Ux;
+import com.google.android.material.textfield.TextInputLayout;
 
 import java.util.Locale;
 import java.util.UUID;
@@ -46,6 +47,7 @@ public class ActiveSessionFragment extends Fragment {
     private Context appContext;
     private EditText startMeterEdit;
     private EditText endMeterEdit;
+    private TextInputLayout startMeterField;
     private TextView stateText;
     private TextView infoText;
     private TextView stepsText;
@@ -72,6 +74,8 @@ public class ActiveSessionFragment extends Fragment {
         super.onViewCreated(view, savedInstanceState);
         repo = AmperlyRepository.getInstance(requireContext());
         appContext = requireContext().getApplicationContext();
+        // The two meter readings lift themselves above the keyboard when focused.
+        Ux.keepFieldsVisible(view);
 
         stateText = view.findViewById(R.id.sessionStateText);
         infoText = view.findViewById(R.id.sessionInfoText);
@@ -80,6 +84,7 @@ public class ActiveSessionFragment extends Fragment {
         summaryText = view.findViewById(R.id.sessionSummaryText);
         startMeterEdit = view.findViewById(R.id.startMeterEdit);
         endMeterEdit = view.findViewById(R.id.endMeterEdit);
+        startMeterField = view.findViewById(R.id.startMeterField);
         liveKwhText = view.findViewById(R.id.liveKwhText);
         liveTimeText = view.findViewById(R.id.liveTimeText);
         liveCostText = view.findViewById(R.id.liveCostText);
@@ -174,10 +179,21 @@ public class ActiveSessionFragment extends Fragment {
             summaryText.setText(getString(R.string.session_summary_line, session.getStatus(),
                     Formatters.kwh(session.getVerifiedKwhConsumed()),
                     Formatters.money(session.getTotalPaid())));
+            // The meter now exists, so the "current reading" guidance has done its job.
+            if (startMeterField != null) {
+                startMeterField.setHelperText(null);
+            }
         } else {
-            startMeterEdit.setHint(getString(R.string.session_start_hint,
-                    String.format(Locale.US, "%.2f",
-                            MeterSimulator.currentReading(reservation.getStationId()))));
+            // The simulated current reading is guidance, not a second label. Setting it as the
+            // EditText's hint made TextInputLayout draw it under its own floating label, which
+            // is why the two lines used to overlap; as helper text it has a line of its own and
+            // the box keeps exactly one label: "Starting meter reading (kWh)".
+            if (startMeterField != null) {
+                startMeterField.setHelperText(getString(R.string.session_start_hint,
+                        String.format(Locale.US, "%.2f",
+                                MeterSimulator.currentReading(reservation.getStationId()))));
+            }
+            startMeterEdit.setHint(null);
         }
     }
 

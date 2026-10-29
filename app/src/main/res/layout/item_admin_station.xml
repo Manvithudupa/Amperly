@@ -1,57 +1,70 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<!-- One listing waiting for review, in its own tinted card. -->
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    style="@style/Widget.Amperly.Card"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="vertical"
-    android:paddingTop="@dimen/amp_space_m">
-
-    <TextView
-        android:id="@+id/pendingNameText"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:textAppearance="@style/TextAppearance.Amperly.TitleSmall" />
-
-    <TextView
-        android:id="@+id/pendingHostText"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="2dp"
-        android:textAppearance="@style/TextAppearance.Amperly.Label" />
-
-    <TextView
-        android:id="@+id/pendingMetaText"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
-        android:textAppearance="@style/TextAppearance.Amperly.BodySmall" />
+    android:layout_marginBottom="@dimen/amp_space_s"
+    app:cardBackgroundColor="@color/amp_surface_variant">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="@dimen/amp_space_xs"
-        android:orientation="horizontal">
+        android:orientation="vertical"
+        android:padding="@dimen/amp_space_m">
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/approveButton"
-            style="@style/Widget.Amperly.Button"
-            android:layout_width="0dp"
+        <TextView
+            android:id="@+id/pendingNameText"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:minWidth="0dp"
-            android:text="@string/admin_approve" />
+            android:textAppearance="@style/TextAppearance.Amperly.TitleSmall" />
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/rejectButton"
-            style="@style/Widget.Amperly.Button.Outlined"
-            android:layout_width="0dp"
+        <TextView
+            android:id="@+id/pendingHostText"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginStart="@dimen/amp_space_s"
-            android:layout_weight="1"
-            android:minWidth="0dp"
-            android:text="@string/admin_reject" />
+            android:layout_marginTop="2dp"
+            android:textAppearance="@style/TextAppearance.Amperly.Label" />
+
+        <TextView
+            android:id="@+id/pendingSubmittedText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:textAppearance="@style/TextAppearance.Amperly.Label" />
+
+        <TextView
+            android:id="@+id/pendingMetaText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:textAppearance="@style/TextAppearance.Amperly.BodySmall" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/amp_space_s"
+            android:orientation="horizontal">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/approveButton"
+                style="@style/Widget.Amperly.Button"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:minWidth="0dp"
+                android:text="@string/admin_approve" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/rejectButton"
+                style="@style/Widget.Amperly.Button.Outlined"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="@dimen/amp_space_s"
+                android:layout_weight="1"
+                android:minWidth="0dp"
+                android:text="@string/admin_reject" />
+        </LinearLayout>
     </LinearLayout>
-
-    <View
-        style="@style/Widget.Amperly.Divider"
-        android:layout_marginTop="@dimen/amp_space_s" />
-</LinearLayout>
+</com.google.android.material.card.MaterialCardView>

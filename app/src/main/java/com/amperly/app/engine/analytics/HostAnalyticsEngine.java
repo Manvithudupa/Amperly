@@ -32,13 +32,15 @@ public final class HostAnalyticsEngine {
         private final int disputes;
         private final int openDisputes;
         private final int activeReservations;
+        private final int reservations;
         private final int ports;
         private final String utilizationNote;
 
         public HostAnalytics(int sessionsCompleted, double energyDeliveredKwh, double utilizationPercent,
                              double revenue, double refundsAndAdjustments, int repeatConsumers,
                              double cancellationRatePercent, double averageSessionKwh, int disputes,
-                             int openDisputes, int activeReservations, int ports, String utilizationNote) {
+                             int openDisputes, int activeReservations, int reservations, int ports,
+                             String utilizationNote) {
             this.sessionsCompleted = sessionsCompleted;
             this.energyDeliveredKwh = energyDeliveredKwh;
             this.utilizationPercent = utilizationPercent;
@@ -50,6 +52,7 @@ public final class HostAnalyticsEngine {
             this.disputes = disputes;
             this.openDisputes = openDisputes;
             this.activeReservations = activeReservations;
+            this.reservations = reservations;
             this.ports = ports;
             this.utilizationNote = utilizationNote;
         }
@@ -65,6 +68,8 @@ public final class HostAnalyticsEngine {
         public int getDisputes() { return disputes; }
         public int getOpenDisputes() { return openDisputes; }
         public int getActiveReservations() { return activeReservations; }
+        /** Every booking the host's chargers have received, whatever its state. */
+        public int getReservations() { return reservations; }
         public int getPorts() { return ports; }
         public String getUtilizationNote() { return utilizationNote; }
     }
@@ -150,7 +155,8 @@ public final class HostAnalyticsEngine {
 
         return new HostAnalytics(sessionsCompleted, round2(energy), round2(utilization),
                 round2(revenue), round2(adjustments), repeatConsumers, round2(cancellationRate),
-                round2(averageSession), disputeCount, openDisputes, activeReservations, portCount, note);
+                round2(averageSession), disputeCount, openDisputes, activeReservations,
+                allReservations.size(), portCount, note);
     }
 
     public static String describe(HostAnalytics analytics) {

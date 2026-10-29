@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Host dashboard. Three numbers at the top, then the chargers, next bookings and sessions —
-  all as divided rows rather than a grid of cards.
+  Host dashboard. The numbers at the top, then the analytics, the chargers and their sessions.
+  Bookings have their own tab, and the destructive action sits last, alone, away from the
+  daily controls.
 -->
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
@@ -44,7 +45,7 @@
                 android:orientation="vertical">
 
                 <TextView
-                    android:id="@+id/statsSessionsText"
+                    android:id="@+id/statsIncomeText"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:fontFeatureSettings="tnum"
@@ -53,7 +54,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="@string/analytics_sessions_short"
+                    android:text="@string/analytics_income_short"
                     android:textAppearance="@style/TextAppearance.Amperly.Label" />
             </LinearLayout>
 
@@ -64,7 +65,7 @@
                 android:orientation="vertical">
 
                 <TextView
-                    android:id="@+id/statsEnergyText"
+                    android:id="@+id/statsDisputesText"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:fontFeatureSettings="tnum"
@@ -73,7 +74,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="@string/analytics_energy_short"
+                    android:text="@string/analytics_disputes_short"
                     android:textAppearance="@style/TextAppearance.Amperly.Label" />
             </LinearLayout>
 
@@ -84,7 +85,7 @@
                 android:orientation="vertical">
 
                 <TextView
-                    android:id="@+id/statsRevenueText"
+                    android:id="@+id/statsReservationsText"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:fontFeatureSettings="tnum"
@@ -93,7 +94,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="@string/analytics_revenue_short"
+                    android:text="@string/analytics_reservations_short"
                     android:textAppearance="@style/TextAppearance.Amperly.Label" />
             </LinearLayout>
         </LinearLayout>
@@ -106,58 +107,17 @@
             android:fontFeatureSettings="tnum"
             android:textAppearance="@style/TextAppearance.Amperly.BodySmall" />
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/registerNewStationButton"
-            style="@style/Widget.Amperly.Button.Tonal"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/amp_space_m"
-            android:text="@string/host_register_title" />
-
+        <!-- Red, because a host with nothing listed has nothing to earn from yet. -->
         <TextView
             android:id="@+id/hostEmptyText"
-            style="@style/Widget.Amperly.Notice"
+            style="@style/Widget.Amperly.Notice.Error"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/amp_space_m"
+            android:layout_marginTop="@dimen/amp_space_s"
             android:text="@string/host_no_stations"
             android:visibility="gone" />
 
-        <!-- Chargers -->
-        <TextView
-            style="@style/Widget.Amperly.SectionTitle"
-            android:text="@string/details_ports" />
-
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/stationsRecyclerView"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:nestedScrollingEnabled="false" />
-
-        <!-- Bookings -->
-        <TextView
-            android:id="@+id/hostBookingsSection"
-            style="@style/Widget.Amperly.SectionTitle"
-            android:text="@string/host_tab_reservations" />
-
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/reservationsRecyclerView"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:nestedScrollingEnabled="false" />
-
-        <!-- Sessions -->
-        <TextView
-            style="@style/Widget.Amperly.SectionTitle"
-            android:text="@string/host_tab_sessions" />
-
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/sessionsRecyclerView"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:nestedScrollingEnabled="false" />
-
-        <!-- Analytics -->
+        <!-- Analytics: the numbers are the page; the station cards live on the Stations tab. -->
         <TextView
             style="@style/Widget.Amperly.SectionTitle"
             android:text="@string/host_tab_analytics" />
@@ -174,5 +134,25 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/amp_space_s"
             android:textAppearance="@style/TextAppearance.Amperly.Label" />
+
+        <!-- Sessions -->
+        <TextView
+            style="@style/Widget.Amperly.SectionTitle"
+            android:text="@string/host_tab_sessions" />
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/sessionsRecyclerView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:nestedScrollingEnabled="false" />
+
+        <!-- Destructive, so it stands alone at the bottom of the page. -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/deleteStationButton"
+            style="@style/Widget.Amperly.Button.Danger"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/amp_space_xl"
+            android:text="@string/host_delete_station" />
     </LinearLayout>
 </ScrollView>

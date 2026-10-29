@@ -37,6 +37,10 @@ public interface AvailabilityScheduleDao {
     @Query("DELETE FROM availability_schedules WHERE portId = :portId")
     void deleteForPort(String portId);
 
+    /** Removes every opening window of a station, for a station the host is deleting. */
+    @Query("DELETE FROM availability_schedules WHERE stationId = :stationId")
+    void deleteForStation(String stationId);
+
     @Query("UPDATE availability_schedules SET isBlocked = :blocked, blockReason = :reason, updatedAtMs = :nowMs WHERE stationId = :stationId")
     void setStationBlocked(String stationId, boolean blocked, String reason, long nowMs);
 

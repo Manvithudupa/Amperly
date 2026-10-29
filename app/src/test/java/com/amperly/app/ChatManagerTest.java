@@ -22,6 +22,15 @@ public class ChatManagerTest {
                 AppConstants.STATUS_RESERVED, 18.0, 5.0, 4.0, 0.0, true, "pay_1", 0, 0, now);
     }
 
+    /** A later booking with the same host, used to check that the thread is reused. */
+    private Reservation secondReservation() {
+        long now = System.currentTimeMillis();
+        long start = now + 86_400_000L;
+        return new Reservation("res_2", "cons_1", "st_1", "Campus Charger", "port_1",
+                "Port 1 · CCS_2_DC", "AMP-5678", start, start + 5_400_000L,
+                AppConstants.STATUS_RESERVED, 18.0, 5.0, 4.0, 0.0, true, "pay_2", 0, 0, now);
+    }
+
     private User consumer() {
         return new User("cons_1", "Aarav", "aarav@example.com", "+919876543211",
                 AppConstants.ROLE_CONSUMER, null, "VERIFIED", false);
@@ -85,6 +94,44 @@ public class ChatManagerTest {
     public void quickQuestionsCoverTheCommonVisitQuestions() {
         assertTrue(ChatManager.QUICK_QUESTIONS.size() >= 4);
         assertTrue(ChatManager.QUICK_QUESTIONS.get(0).toLowerCase().contains("entrance"));
+    }
+
+    @Test
+    public void aSecondBookingContinuesTheSameConversation() {
+        CommunicationThread thread = ChatManager.createThread(reservation(), consumer(), host());
+        String threadId = thread.getId();
+
+        CommunicationThread reused = ChatManager.reuseForReservation(thread, secondReservation(),
+                consumer(), host());
+
+        // The id is what the messages and the server sync hang off, so it must not change.
+        assertEquals(threadId, reused.getId());
+        assertEquals("cons_1", reused.getConsumerId());
+        assertEquals("host_1", reused.getHostId());
+        // The reservation is only the latest booking the thread covers.
+        assertEquals("res_2", reused.getReservationId());
+    }
+
+    @Test
+    public void aNewBookingReopensTheConversationWindow() {
+        CommunicationThread thread = ChatManager.createThread(reservation(), consumer(), host());
+        long firstExpiry = thread.getExpiresAtMs();
+
+        ChatManager.reuseForReservation(thread, secondReservation(), consumer(), host());
+
+        assertTrue(thread.getExpiresAtMs() > firstExpiry);
+        assertTrue(ChatManager.isThreadOpen(thread, System.currentTimeMillis()));
+    }
+
+    @Test
+    public void reusingAThreadKeepsItsModerationState() {
+        CommunicationThread thread = ChatManager.createThread(reservation(), consumer(), host());
+        thread.setBlocked(true);
+
+        ChatManager.reuseForReservation(thread, secondReservation(), consumer(), host());
+
+        assertTrue(thread.isBlocked());
+        assertFalse(ChatManager.isThreadOpen(thread, System.currentTimeMillis()));
     }
 
     @Test

@@ -15,7 +15,6 @@
     <item name="nav_host_add_station" type="id" />
     <item name="nav_host_bookings" type="id" />
     <item name="nav_admin_queue" type="id" />
-    <item name="nav_admin_disputes" type="id" />
     <item name="nav_admin_reports" type="id" />
     <item name="nav_profile" type="id" />
 </resources>

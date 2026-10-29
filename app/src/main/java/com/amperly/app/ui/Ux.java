@@ -2,11 +2,18 @@ package com.amperly.app.ui;
 
 import android.app.Activity;
 import android.content.Context;
+import android.graphics.Rect;
+import android.util.TypedValue;
 import android.view.View;
+import android.view.ViewGroup;
+import android.view.ViewParent;
+import android.widget.EditText;
+import android.widget.ScrollView;
 import android.widget.Toast;
 
 import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
+import androidx.core.widget.NestedScrollView;
 import androidx.fragment.app.Fragment;
 
 import com.amperly.app.R;
@@ -142,5 +149,141 @@ public final class Ux {
 
     public static String formatMoney(double amount) {
         return com.amperly.app.core.common.Formatters.money(amount);
+    }
+
+    // ------------------------------------------------------------------ keyboard
+
+    /**
+     * Keeps the keyboard from covering the field being typed in.
+     *
+     * <p>Every editable field under {@code root} scrolls itself into view when it takes focus, so a
+     * field tapped near the bottom of a long form is never left behind the keyboard. Screens call
+     * this once with their inflated root instead of wiring each field by hand.
+     */
+    public static void keepFieldsVisible(@Nullable View root) {
+        if (root == null) {
+            return;
+        }
+        if (root instanceof EditText) {
+            keepVisibleOnFocus(root);
+            return;
+        }
+        if (!(root instanceof ViewGroup)) {
+            return;
+        }
+        ViewGroup group = (ViewGroup) root;
+        for (int i = 0; i < group.getChildCount(); i++) {
+            keepFieldsVisible(group.getChildAt(i));
+        }
+    }
+
+    /** Makes one field scroll into view when it takes focus. */
+    public static void keepVisibleOnFocus(@Nullable View field) {
+        keepVisibleOnFocus(field, null);
+    }
+
+    /**
+     * The same, for a field that already has its own focus handling: {@code also} is called first,
+     * so a screen keeps the behaviour it had and only gains the scroll.
+     */
+    public static void keepVisibleOnFocus(@Nullable View field,
+                                          @Nullable View.OnFocusChangeListener also) {
+        if (field == null) {
+            return;
+        }
+        field.setOnFocusChangeListener((view, hasFocus) -> {
+            if (also != null) {
+                also.onFocusChange(view, hasFocus);
+            }
+            if (hasFocus) {
+                scrollIntoView(view);
+            }
+        });
+    }
+
+    /**
+     * Makes a dialog's window shrink for the keyboard, so the fields inside it are never buried.
+     * A dialog is its own window and does not inherit the shell's inset handling.
+     */
+    public static void resizeForKeyboard(@Nullable android.app.Dialog dialog) {
+        if (dialog == null || dialog.getWindow() == null) {
+            return;
+        }
+        dialog.getWindow().setSoftInputMode(
+                android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
+    }
+
+    /**
+     * Scrolls the nearest scrolling ancestor just far enough that {@code field} — plus a little
+     * breathing room and the space its error/helper text needs — sits above the keyboard.
+     *
+     * <p>Deferred by one frame so the field has been laid out and the keyboard inset has already
+     * shrunk the scroll view; scrolling earlier would leave the field where it was.
+     */
+    public static void scrollIntoView(@Nullable View field) {
+        if (field == null) {
+            return;
+        }
+        final View target = field;
+        target.post(() -> scrollIntoViewNow(target));
+    }
+
+    private static void scrollIntoViewNow(View field) {
+        if (!field.isShown() || field.getHeight() == 0) {
+            return;
+        }
+        int extra = dp(field.getContext(), 20);
+        ViewGroup scroller = scrollingAncestor(field);
+        if (scroller == null) {
+            // No scroll container: ask the hierarchy directly, which is all that can be done.
+            field.requestRectangleOnScreen(
+                    new Rect(0, 0, field.getWidth(), field.getHeight() + extra), true);
+            return;
+        }
+
+        Rect rect = new Rect(0, 0, field.getWidth(), field.getHeight());
+        scroller.offsetDescendantRectToMyCoords(field, rect);
+
+        int top = scroller.getPaddingTop();
+        int bottom = scroller.getHeight() - scroller.getPaddingBottom();
+        if (rect.bottom + extra > bottom) {
+            smoothScrollBy(scroller, rect.bottom + extra - bottom);
+        } else if (rect.top - extra < top) {
+            smoothScrollBy(scroller, rect.top - extra - top);
+        }
+    }
+
+    private static void smoothScrollBy(View scroller, int dy) {
+        if (dy == 0) {
+            return;
+        }
+        if (scroller instanceof ScrollView) {
+            ((ScrollView) scroller).smoothScrollBy(0, dy);
+        } else if (scroller instanceof NestedScrollView) {
+            ((NestedScrollView) scroller).smoothScrollBy(0, dy);
+        } else {
+            scroller.scrollBy(0, dy);
+        }
+    }
+
+    /** The first {@link ScrollView} / {@link NestedScrollView} above a view, if there is one. */
+    @Nullable
+    private static ViewGroup scrollingAncestor(View view) {
+        ViewParent parent = view.getParent();
+        while (parent instanceof View) {
+            if (parent instanceof ScrollView || parent instanceof NestedScrollView) {
+                return (ViewGroup) parent;
+            }
+            parent = parent.getParent();
+        }
+        return null;
+    }
+
+    private static int dp(@Nullable Context context, int value) {
+        if (context == null) {
+            return value;
+        }
+        return Math.round(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, value,
+                context.getResources().getDisplayMetrics()));
     }
 }

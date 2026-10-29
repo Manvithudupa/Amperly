@@ -1,9 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Adaptive icon background: the brand deep green with a soft light source at the top left.
+  Adaptive icon background: near-black green, lit from the top left.
 
-  A gradient rather than a flat fill, so the icon has depth at large sizes without a shadow
-  that the launcher mask would crop away.
+  The dark ground is what makes the lime mark in front of it read at a glance, and it is the
+  same family as the app's deep green primary rather than a neutral black. The lime glow is
+  the palette's energy role at low alpha, so the plate looks lit rather than flat without
+  competing with the letter on top of it.
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:aapt="http://schemas.android.com/aapt"
@@ -17,12 +19,12 @@
             <gradient
                 android:startX="0"
                 android:startY="0"
-                android:endX="38"
+                android:endX="44"
                 android:endY="108"
                 android:type="linear">
-                <item android:color="#FF14705D" android:offset="0.0" />
-                <item android:color="#FF0F5C4D" android:offset="0.55" />
-                <item android:color="#FF0A3F34" android:offset="1.0" />
+                <item android:color="#FF15493C" android:offset="0.0" />
+                <item android:color="#FF0B2C25" android:offset="0.55" />
+                <item android:color="#FF05120E" android:offset="1.0" />
             </gradient>
         </aapt:attr>
     </path>
@@ -30,13 +32,13 @@
     <path android:pathData="M0,0h108v108h-108z">
         <aapt:attr name="android:fillColor">
             <gradient
-                android:centerX="30"
-                android:centerY="13"
-                android:gradientRadius="97"
+                android:centerX="26"
+                android:centerY="14"
+                android:gradientRadius="98"
                 android:type="radial">
-                <item android:color="#992F7A67" android:offset="0.0" />
-                <item android:color="#142F7A67" android:offset="0.62" />
-                <item android:color="#002F7A67" android:offset="1.0" />
+                <item android:color="#40F2A516" android:offset="0.0" />
+                <item android:color="#12F2A516" android:offset="0.55" />
+                <item android:color="#00F2A516" android:offset="1.0" />
             </gradient>
         </aapt:attr>
     </path>

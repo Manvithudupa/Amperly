@@ -38,6 +38,15 @@ public interface ChatMessageDao {
     @Query("UPDATE chat_messages SET isReported = 1 WHERE id = :messageId")
     void markReported(String messageId);
 
+    /**
+     * Moves the messages of one thread into another.
+     *
+     * <p>Used once, when threads created per reservation are folded into the single thread a
+     * consumer and host share, so the history stays readable and in order.
+     */
+    @Query("UPDATE chat_messages SET threadId = :threadId WHERE threadId = :oldThreadId")
+    void reassignThread(String oldThreadId, String threadId);
+
     @Query("DELETE FROM chat_messages WHERE expiresAtMs > 0 AND expiresAtMs < :nowMs")
     int purgeExpired(long nowMs);
 }

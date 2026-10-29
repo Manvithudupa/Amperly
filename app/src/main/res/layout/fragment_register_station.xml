@@ -4,6 +4,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/amp_background"
+    android:clipToPadding="false"
     android:fillViewport="true">
 
     <LinearLayout
@@ -91,12 +92,16 @@
                 android:layout_weight="1"
                 android:hint="@string/host_latitude">
 
+                <!-- Filled by the location fix or by a chosen place; never typed. -->
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/latitudeEdit"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:clickable="false"
+                    android:cursorVisible="false"
+                    android:focusable="false"
                     android:fontFeatureSettings="tnum"
-                    android:inputType="numberDecimal" />
+                    android:inputType="none" />
             </com.google.android.material.textfield.TextInputLayout>
 
             <com.google.android.material.textfield.TextInputLayout
@@ -111,10 +116,20 @@
                     android:id="@+id/longitudeEdit"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:clickable="false"
+                    android:cursorVisible="false"
+                    android:focusable="false"
                     android:fontFeatureSettings="tnum"
-                    android:inputType="numberDecimal" />
+                    android:inputType="none" />
             </com.google.android.material.textfield.TextInputLayout>
         </LinearLayout>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/amp_space_xs"
+            android:text="@string/host_location_auto_note"
+            android:textAppearance="@style/TextAppearance.Amperly.Label" />
 
         <TextView
             android:layout_width="match_parent"
@@ -135,13 +150,32 @@
                 android:layout_height="match_parent" />
         </com.google.android.material.card.MaterialCardView>
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/useGpsButton"
-            style="@style/Widget.Amperly.Button.Outlined"
-            android:layout_width="wrap_content"
+        <!-- The retry, and the fallback when there is no fix to retry. -->
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/amp_space_s"
-            android:text="@string/map_pick_use_gps" />
+            android:orientation="horizontal">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/useGpsButton"
+                style="@style/Widget.Amperly.Button.Outlined"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:minWidth="0dp"
+                android:text="@string/map_pick_use_gps" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/choosePlaceButton"
+                style="@style/Widget.Amperly.Button.Outlined"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="@dimen/amp_space_s"
+                android:layout_weight="1"
+                android:minWidth="0dp"
+                android:text="@string/host_choose_place" />
+        </LinearLayout>
 
         <TextView
             android:layout_width="match_parent"

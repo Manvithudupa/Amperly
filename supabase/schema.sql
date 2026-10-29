@@ -463,8 +463,13 @@ create table if not exists public.host_enforcements (
     reason          text,
     "fineAmount"    double precision,
     "createdAtMs"   bigint,
+    "expiresAtMs"   bigint not null default 0,  -- end of a suspension; 0 when it does not expire
     "serverUpdatedAt" timestamptz not null default now()
 );
+
+-- Existing projects predate the suspension end date; add it without touching their rows.
+alter table public.host_enforcements
+    add column if not exists "expiresAtMs" bigint not null default 0;
 
 -- notifications -------------------------------------------------------
 create table if not exists public.notifications (

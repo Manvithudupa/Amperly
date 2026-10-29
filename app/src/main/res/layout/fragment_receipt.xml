@@ -50,6 +50,16 @@
             android:layout_marginTop="@dimen/amp_space_xs"
             android:textAppearance="@style/TextAppearance.Amperly.BodySmall" />
 
+        <!-- Shown when the session has not produced meter readings yet. -->
+        <TextView
+            android:id="@+id/receiptPendingText"
+            style="@style/Widget.Amperly.Notice.Warning"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/amp_space_m"
+            android:text="@string/receipt_readings_pending"
+            android:visibility="gone" />
+
         <com.google.android.material.card.MaterialCardView
             style="@style/Widget.Amperly.Card"
             android:layout_width="match_parent"

@@ -8,6 +8,7 @@ import android.widget.ArrayAdapter;
 import androidx.fragment.app.Fragment;
 
 import com.amperly.app.R;
+import com.amperly.app.ui.Ux;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.textfield.MaterialAutoCompleteTextView;
 import com.google.android.material.textfield.TextInputEditText;
@@ -90,18 +91,23 @@ public final class ReportDialog {
 
         TextInputEditText details = content.findViewById(R.id.reportDetailsEdit);
 
-        new MaterialAlertDialogBuilder(context)
+        // The details are typed in: the dialog scrolls and resizes so the keyboard never covers
+        // the field being filled in.
+        Ux.keepFieldsVisible(content);
+        androidx.appcompat.app.AlertDialog dialog = new MaterialAlertDialogBuilder(context)
                 .setTitle(title == null ? context.getString(R.string.report_title) : title)
                 .setView(content)
                 .setNegativeButton(R.string.action_cancel, null)
-                .setPositiveButton(R.string.report_submit, (dialog, which) -> {
+                .setPositiveButton(R.string.report_submit, (shown, which) -> {
                     if (onSubmit != null) {
                         String text = details.getText() == null
                                 ? "" : details.getText().toString().trim();
                         onSubmit.onSubmit(REPORT_TYPES[selectedIndex[0]], text);
                     }
                 })
-                .show();
+                .create();
+        Ux.resizeForKeyboard(dialog);
+        dialog.show();
     }
 
     private static String[] typeLabels(Context context) {

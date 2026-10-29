@@ -30,6 +30,14 @@ public interface HostEnforcementActionDao {
     @Query("SELECT COUNT(*) FROM host_enforcements WHERE hostId = :hostId AND actionType IN ('WARNING','FINE')")
     int countWarningsAndFines(String hostId);
 
+    /**
+     * The end of the longest suspension still running for this account, or null when none is.
+     * Null rather than 0 because an aggregate over no rows is NULL, not a date.
+     */
+    @Query("SELECT MAX(expiresAtMs) FROM host_enforcements WHERE hostId = :hostId "
+            + "AND actionType = 'SUSPENSION' AND expiresAtMs > :nowMs")
+    Long activeSuspensionEndsAtMs(String hostId, long nowMs);
+
     @Query("SELECT COUNT(*) FROM host_enforcements WHERE stationId = :stationId AND actionType = 'BAN'")
     int countBans(String stationId);
 }

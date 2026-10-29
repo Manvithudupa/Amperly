@@ -12,6 +12,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/amp_background"
+    android:clipToPadding="false"
     android:fillViewport="true">
 
     <LinearLayout
@@ -263,13 +264,24 @@
                 android:text="@string/action_reserve" />
         </LinearLayout>
 
+        <!--
+          A plain line of body text, not a badge. This view reports what happened to the
+          booking ("Choose a charger first.", all ports busy, the recorded total), so it reads
+          as part of the page rather than as a highlighted callout that competes with the
+          Reserve button above it.
+
+          It is hidden until there is something to say. Drawn empty it was a blank rounded box
+          under the Reserve button, which read as a disabled control rather than as a message
+          area.
+        -->
         <TextView
             android:id="@+id/reserveStatusText"
-            style="@style/Widget.Amperly.Notice"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/amp_space_l"
-            android:accessibilityLiveRegion="polite" />
+            android:accessibilityLiveRegion="polite"
+            android:textAppearance="@style/TextAppearance.Amperly.Body"
+            android:visibility="gone" />
 
         <TextView
             style="@style/Widget.Amperly.SectionTitle"

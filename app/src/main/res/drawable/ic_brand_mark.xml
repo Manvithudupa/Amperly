@@ -2,17 +2,28 @@
 <!--
   The Amperly mark, for in-app use.
 
-  The same bolt as the launcher icon, scaled onto a 24dp grid so it lines up with the rest
-  of the icon set and can be tinted to whatever surface it lands on. Kept as a separate
-  file from ic_launcher_foreground on purpose: the launcher version is tuned for a mask
-  that crops its edges, this one is tuned to sit inside a toolbar or a badge.
+  The same artwork as the launcher icon — the letter A crossbarred by a lightning bolt — drawn
+  onto a 24dp grid so it lines up with the rest of the icon set. The paths are the launcher
+  foreground's own coordinates inside a group, so the two can never drift apart; the group
+  scales the 108dp artwork down and centres its 40x50 bounding box in the icon.
+
+  A single fill colour keeps it tintable: the toolbar paints it white over the brand green.
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
     android:viewportWidth="24"
     android:viewportHeight="24">
-    <path
-        android:fillColor="#FFFFFFFF"
-        android:pathData="M10.7,19.7 L9.7,19.7 L10.7,13.8 L6.9,13.8 L13.3,4.3 L14.3,4.3 L13.3,10.2 L17.1,10.2 Z" />
+    <group
+        android:scaleX="0.34"
+        android:scaleY="0.34"
+        android:translateX="-6.36"
+        android:translateY="-5.34">
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M46,26 L62,26 L74,76 L63,76 L54,44 L45,76 L34,76 Z" />
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M50,74.9 L48.4,74.9 L50,65.8 L44.1,65.8 L54,51.1 L55.6,51.1 L54,60.2 L59.9,60.2 Z" />
+    </group>
 </vector>

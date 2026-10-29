@@ -1,11 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  One notification in its own rounded green card. The 8dp bottom margin is the gap to the next
+  card; the list is clipped to its padding so the last gap is not doubled.
+-->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
+    android:layout_marginBottom="@dimen/amp_space_s"
+    android:background="@drawable/bg_notification_card"
     android:minHeight="@dimen/amp_touch_target"
     android:orientation="horizontal"
-    android:paddingTop="@dimen/amp_space_m"
-    android:paddingBottom="@dimen/amp_space_m">
+    android:padding="@dimen/amp_space_m">
 
     <View
         android:id="@+id/notificationUnreadDot"

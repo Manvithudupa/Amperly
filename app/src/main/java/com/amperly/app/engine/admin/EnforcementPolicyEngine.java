@@ -16,6 +16,12 @@ public final class EnforcementPolicyEngine {
 
     public static final double DEFAULT_FINE_INR = 500.0;
 
+    /** A day, for the suspension lengths an administrator picks from. */
+    public static final long DAY_MS = 24L * 60L * 60L * 1000L;
+
+    /** The three suspension lengths offered on a report: one day, one week, one month. */
+    public static final int[] SUSPENSION_DAYS = {1, 7, 30};
+
     public static class EnforcementDecision {
         private final String action;
         private final String reason;
@@ -107,6 +113,25 @@ public final class EnforcementPolicyEngine {
         return new EnforcementDecision(AppConstants.ENFORCEMENT_BAN,
                 "Repeated proven incidents.", DEFAULT_FINE_INR, true, true, true, steps,
                 "Your station has been banned from the platform.");
+    }
+
+    /**
+     * The suspension length suggested by an account's escalation level.
+     *
+     * <p>A first proven incident is low severity and gets one day, a second is medium and gets a
+     * week, a third or later is high and gets a month. The administrator is never held to the
+     * suggestion: all three lengths stay available.
+     *
+     * @param provenIncidentsIncludingThis the account's incidents once this report is upheld
+     */
+    public static int suggestedSuspensionDays(int provenIncidentsIncludingThis) {
+        if (provenIncidentsIncludingThis <= 1) {
+            return SUSPENSION_DAYS[0];
+        }
+        if (provenIncidentsIncludingThis == 2) {
+            return SUSPENSION_DAYS[1];
+        }
+        return SUSPENSION_DAYS[2];
     }
 
     private static List<String> baseSteps() {

@@ -14,8 +14,11 @@ import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 
 import com.amperly.app.R;
+import com.amperly.app.core.common.AppConstants;
 import com.amperly.app.core.common.Formatters;
 import com.amperly.app.core.nav.Navigator;
+import com.amperly.app.core.security.AuthManager;
+import com.amperly.app.feature.host.HostBookingsFragment;
 import com.amperly.app.core.state.AppStateStore;
 import com.amperly.app.data.local.entity.Reservation;
 import com.amperly.app.data.repository.AmperlyRepository;
@@ -78,7 +81,12 @@ public class BookingQrFragment extends Fragment {
             qrImage.setImageBitmap(renderQr(ReservationEngine.bookingQrPayload(reservation)));
         });
 
-        view.findViewById(R.id.goToSessionButton).setOnClickListener(v -> {
+        // The host opens this same screen to check a code, and checking it is not the host's own
+        // session: starting one from here would open a driver's session under the host.
+        boolean hostMode = AppConstants.ROLE_HOST.equals(AuthManager.getInstance().getCurrentRole());
+        View goToSession = view.findViewById(R.id.goToSessionButton);
+        goToSession.setVisibility(hostMode ? View.GONE : View.VISIBLE);
+        goToSession.setOnClickListener(v -> {
             AppStateStore.get().setActiveReservationId(reservationId);
             ActiveSessionFragment fragment = new ActiveSessionFragment();
             Bundle args = new Bundle();
@@ -88,7 +96,12 @@ public class BookingQrFragment extends Fragment {
         });
 
         view.findViewById(R.id.closeButton).setOnClickListener(v -> {
-            if (!Navigator.pop(this)) {
+            if (Navigator.pop(this)) {
+                return;
+            }
+            if (hostMode) {
+                Navigator.openRoot(requireActivity(), new HostBookingsFragment(), "host_bookings");
+            } else {
                 Navigator.openRoot(requireActivity(), new ChargerDiscoveryFragment(), "discover");
             }
         });

@@ -1,25 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Themed (monochrome) launcher layer: the same plug with the bolt cut out.
+  Themed (monochrome) launcher layer: the same A and bolt as one flat silhouette.
 
-  The launcher tints this layer with one colour, so the amber bolt would disappear into
-  the white body. The bolt is therefore a real hole (even-odd fill), which keeps the mark
-  readable when Android applies its themed icon treatment.
+  The launcher tints this layer with a single system colour, so the letter and the bolt share
+  one fill. The geometry is identical to ic_launcher_foreground, which means a themed icon is
+  the same mark in a different colour rather than a second, approximate design.
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <group
-        android:scaleX="0.2109375"
-        android:scaleY="0.2109375">
-        <path
-            android:fillColor="#FFFFFFFF"
-            android:pathData="M224.00,136.00 h2.00 a26.00,26.00 0 0 1 26.00,26.00 v38.00 a26.00,26.00 0 0 1 -26.00,26.00 h-2.00 a26.00,26.00 0 0 1 -26.00,-26.00 v-38.00 a26.00,26.00 0 0 1 26.00,-26.00 Z M286.00,136.00 h2.00 a26.00,26.00 0 0 1 26.00,26.00 v38.00 a26.00,26.00 0 0 1 -26.00,26.00 h-2.00 a26.00,26.00 0 0 1 -26.00,-26.00 v-38.00 a26.00,26.00 0 0 1 26.00,-26.00 Z" />
-        <path
-            android:fillColor="#FFFFFFFF"
-            android:fillType="evenOdd"
-            android:pathData="M204.00,206.00 h104.00 a58.00,58.00 0 0 1 58.00,58.00 v32.00 a58.00,58.00 0 0 1 -58.00,58.00 h-104.00 a58.00,58.00 0 0 1 -58.00,-58.00 v-32.00 a58.00,58.00 0 0 1 58.00,-58.00 Z M278 226 L204 300 L246 300 L232 342 L314 258 L268 258 Z" />
-    </group>
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M46,26 L62,26 L74,76 L63,76 L54,44 L45,76 L34,76 Z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M50,74.9 L48.4,74.9 L50,65.8 L44.1,65.8 L54,51.1 L55.6,51.1 L54,60.2 L59.9,60.2 Z" />
 </vector>

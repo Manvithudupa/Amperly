@@ -1,5 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
-    <solid android:color="@color/amp_primary" />
+<!-- The tile the in-app mark sits on: the launcher icon's dark green plate, in miniature.
+     A gradient rather than a flat fill so the 28dp badge keeps some depth beside the
+     letter it holds. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <gradient
+        android:startColor="#FF15493C"
+        android:centerColor="#FF0F3A30"
+        android:endColor="#FF08201A"
+        android:angle="315"
+        android:type="linear" />
     <corners android:radius="9dp" />
 </shape>

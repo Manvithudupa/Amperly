@@ -74,24 +74,57 @@
             android:textAppearance="@style/TextAppearance.Amperly.BodySmall"
             android:visibility="gone" />
 
-        <!-- Reports -->
+        <!-- Reports, split by who filed them -->
         <TextView
             android:id="@+id/adminReportsSection"
             style="@style/Widget.Amperly.SectionTitle"
             android:text="@string/nav_admin_reports" />
 
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/reportsRecyclerView"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:nestedScrollingEnabled="false" />
-
         <TextView
-            android:id="@+id/adminReportsEmptyText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/amp_space_s"
-            android:text="@string/admin_reports_empty"
+            android:text="@string/admin_reports_by_consumers"
+            android:textAppearance="@style/TextAppearance.Amperly.TitleSmall"
+            android:accessibilityHeading="true" />
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/consumerReportsRecyclerView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/amp_space_s"
+            android:nestedScrollingEnabled="false" />
+
+        <TextView
+            android:id="@+id/adminConsumerReportsEmptyText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/amp_space_s"
+            android:text="@string/admin_consumer_reports_empty"
+            android:textAppearance="@style/TextAppearance.Amperly.BodySmall"
+            android:visibility="gone" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/amp_space_l"
+            android:text="@string/admin_reports_by_hosts"
+            android:textAppearance="@style/TextAppearance.Amperly.TitleSmall"
+            android:accessibilityHeading="true" />
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/hostReportsRecyclerView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/amp_space_s"
+            android:nestedScrollingEnabled="false" />
+
+        <TextView
+            android:id="@+id/adminHostReportsEmptyText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/amp_space_s"
+            android:text="@string/admin_host_reports_empty"
             android:textAppearance="@style/TextAppearance.Amperly.BodySmall"
             android:visibility="gone" />
 

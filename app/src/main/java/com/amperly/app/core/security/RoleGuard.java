@@ -1,5 +1,7 @@
 package com.amperly.app.core.security;
 
+import androidx.annotation.Nullable;
+
 import com.amperly.app.core.common.AppConstants;
 import com.amperly.app.data.local.entity.User;
 
@@ -33,5 +35,19 @@ public class RoleGuard {
     /** Every signed-in account may list a charger it owns. */
     public static boolean canRegisterStation(User user) {
         return user != null && user.canActAsHost();
+    }
+
+    /**
+     * Whether an account is barred from using the app.
+     *
+     * <p>A ban is the synced {@code isBlocked} flag and never lapses; a suspension is a dated
+     * enforcement entry, so the caller passes the end of the longest one still running (0 when
+     * there is none). Sign-in asks this before opening the app.
+     */
+    public static boolean isRestricted(@Nullable User user, long suspendedUntilMs, long nowMs) {
+        if (user == null) {
+            return true;
+        }
+        return user.isBlocked() || suspendedUntilMs > nowMs;
     }
 }

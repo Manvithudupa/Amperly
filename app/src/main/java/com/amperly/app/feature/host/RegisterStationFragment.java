@@ -18,7 +18,6 @@ import android.widget.TextView;
 import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 
 import com.amperly.app.R;
@@ -38,6 +37,7 @@ import com.amperly.app.data.local.entity.User;
 import com.amperly.app.data.repository.AmperlyRepository;
 import com.amperly.app.engine.meter.MeterSimulator;
 import com.amperly.app.ui.Ux;
+import com.amperly.app.ui.dialog.PlaceSearchDialog;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.textfield.MaterialAutoCompleteTextView;
 import com.google.android.material.textfield.TextInputLayout;
@@ -80,6 +80,11 @@ public class RegisterStationFragment extends Fragment {
     private MapPanel mapPanel;
     /** Set while the map, rather than the host, is writing the coordinate fields. */
     private boolean applyingPickedLocation;
+    /**
+     * Set while the fix taken as the form opened is being applied. That fill is the untouched
+     * state of the form, not an edit, so Back must not ask about discarding it.
+     */
+    private boolean autoLocationPending;
 
     /** Field values as they were opened, so Back can tell an edit from an untouched form. */
     @Nullable
@@ -127,12 +132,30 @@ public class RegisterStationFragment extends Fragment {
                 portConnectorIndex = position);
 
         setUpLocationPicker(view);
+        // The coordinates are never typed: the form locates the charger as it opens, and the host
+        // can re-run the fix or choose the place from search.
+        autoDetectLocation();
+        View choosePlace = view.findViewById(R.id.choosePlaceButton);
+        if (choosePlace != null) {
+            choosePlace.setOnClickListener(v -> PlaceSearchDialog.show(this, selection -> {
+                if (!isAdded()) {
+                    return;
+                }
+                if (addressEdit != null) {
+                    addressEdit.setText(selection.getAddress());
+                }
+                applyPicked(selection.getLatitude(), selection.getLongitude());
+            }));
+        }
         clearErrorsWhileEditing();
 
         view.findViewById(R.id.saveStationButton).setOnClickListener(v -> save(view));
 
         baseline = snapshot(view);
         guardBackWhileEditing();
+        // Wired last, after address search has had its say on the field's focus handling, so
+        // every field on the form lifts itself above the keyboard once it takes focus.
+        Ux.keepFieldsVisible(view);
     }
 
     /**
@@ -306,10 +329,12 @@ public class RegisterStationFragment extends Fragment {
                 if (isAdded() && addressEdit != null) {
                     addressEdit.setText(formattedAddress);
                 }
+                pinAutoLocationBaseline();
             }
 
             @Override
             public void onError(@NonNull String message) {
+                pinAutoLocationBaseline();
                 if (isAdded()) {
                     Ux.error(RegisterStationFragment.this,
                             getString(R.string.map_address_lookup_failed, message));
@@ -318,9 +343,44 @@ public class RegisterStationFragment extends Fragment {
         });
     }
 
+    /** The coordinates filled as the form opened are its starting point, not an unsaved edit. */
+    private void pinAutoLocationBaseline() {
+        if (!autoLocationPending) {
+            return;
+        }
+        autoLocationPending = false;
+        View view = getView();
+        if (view != null) {
+            baseline = snapshot(view);
+        }
+    }
+
+    /**
+     * Fills the coordinates as the form opens.
+     *
+     * <p>The first visit asks for the location permission. After that the form does not ask again
+     * on its own — "Use my current location" is the retry — and a host without a fix is pointed at
+     * the place search instead of being left with two empty fields.
+     */
+    private void autoDetectLocation() {
+        if (LocationProvider.hasLocationPermission(requireContext())) {
+            autoLocationPending = true;
+            useCurrentLocation();
+            return;
+        }
+        if (!LocationProvider.hasAskedForPermission(requireContext())) {
+            autoLocationPending = true;
+            LocationProvider.markPermissionAsked(requireContext());
+            requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION}, REQUEST_LOCATION);
+            return;
+        }
+        Ux.error(this, getString(R.string.map_no_location_permission));
+    }
+
     private void useCurrentLocation() {
-        if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_FINE_LOCATION)
-                != PackageManager.PERMISSION_GRANTED) {
+        if (!LocationProvider.hasLocationPermission(requireContext())) {
+            LocationProvider.markPermissionAsked(requireContext());
             requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION,
                     Manifest.permission.ACCESS_COARSE_LOCATION}, REQUEST_LOCATION);
             return;
@@ -335,8 +395,13 @@ public class RegisterStationFragment extends Fragment {
 
                     @Override
                     public void onLocationUnavailable() {
+                        autoLocationPending = false;
+                        if (!isAdded()) {
+                            return;
+                        }
                         Ux.error(RegisterStationFragment.this,
                                 getString(R.string.map_no_location_fix));
+                        Ux.info(RegisterStationFragment.this, getString(R.string.host_choose_place_required));
                     }
                 });
     }
@@ -351,7 +416,9 @@ public class RegisterStationFragment extends Fragment {
         if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
             useCurrentLocation();
         } else {
+            autoLocationPending = false;
             Ux.error(this, getString(R.string.map_no_location_permission));
+            Ux.info(this, getString(R.string.host_choose_place_required));
         }
     }
 
@@ -456,7 +523,10 @@ public class RegisterStationFragment extends Fragment {
             ((TextView) requireView().findViewById(R.id.registerStatusText)).setText(
                     getString(R.string.host_saved_body, getString(R.string.host_station_saved)));
             Ux.success(this, getString(R.string.host_station_saved));
-            Navigator.openRoot(requireActivity(), new HostDashboardFragment(), "host_dashboard");
+            // Back to the station cards, which are observed and so already show the new row.
+            if (!Navigator.pop(this)) {
+                Navigator.openRoot(requireActivity(), new HostStationsFragment(), "register");
+            }
         });
     }
 

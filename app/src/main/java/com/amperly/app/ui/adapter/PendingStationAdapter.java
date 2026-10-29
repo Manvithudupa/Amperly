@@ -59,6 +59,7 @@ public class PendingStationAdapter extends RecyclerView.Adapter<PendingStationAd
     class PendingViewHolder extends RecyclerView.ViewHolder {
         private final TextView name;
         private final TextView host;
+        private final TextView submitted;
         private final TextView meta;
         private final MaterialButton approve;
         private final MaterialButton reject;
@@ -67,6 +68,7 @@ public class PendingStationAdapter extends RecyclerView.Adapter<PendingStationAd
             super(itemView);
             name = itemView.findViewById(R.id.pendingNameText);
             host = itemView.findViewById(R.id.pendingHostText);
+            submitted = itemView.findViewById(R.id.pendingSubmittedText);
             meta = itemView.findViewById(R.id.pendingMetaText);
             approve = itemView.findViewById(R.id.approveButton);
             reject = itemView.findViewById(R.id.rejectButton);
@@ -77,6 +79,8 @@ public class PendingStationAdapter extends RecyclerView.Adapter<PendingStationAd
             name.setText(station.getName());
             host.setText(context.getString(R.string.pending_host_line,
                     station.getHostName() == null ? station.getHostId() : station.getHostName()));
+            submitted.setText(context.getString(R.string.pending_submitted,
+                    Formatters.dateTime(station.getLastUpdatedMs())));
             meta.setText(context.getString(R.string.pending_station_meta,
                     station.getAddress(), Formatters.connectorTypes(station.getConnectorTypes()),
                     (int) station.getMaxPowerKw(),
