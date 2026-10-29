@@ -12,7 +12,9 @@ import androidx.lifecycle.LiveData;
 import com.amperly.app.R;
 import com.amperly.app.communication.ChatManager;
 import com.amperly.app.core.common.AppConstants;
+import com.amperly.app.core.common.Formatters;
 import com.amperly.app.core.security.AuthManager;
+import com.amperly.app.core.security.RoleGuard;
 import com.amperly.app.data.local.AmperlyDatabase;
 import com.amperly.app.data.local.entity.AndroidAutoSession;
 import com.amperly.app.data.local.entity.AvailabilitySchedule;
@@ -627,6 +629,56 @@ public class AmperlyRepository {
         });
     }
 
+    /**
+     * Deletes one of the host's stations, together with its ports and opening windows.
+     *
+     * <p>Active and upcoming bookings block the delete: a consumer is holding a slot on a port
+     * that would otherwise disappear underneath them. Returns null when the station is gone,
+     * otherwise the reason it was left in place.
+     *
+     * <p>The server rows go first and the local copy only afterwards, so a failed remote delete
+     * never leaves a row behind for the next pull to restore. Call from a background task.
+     */
+    @Nullable
+    public String deleteStationConfirmed(ChargerStation station) {
+        if (station == null) {
+            return appContext.getString(R.string.host_delete_station_failed);
+        }
+        List<Reservation> reservations = db.reservationDao().getReservationsForStationSync(station.getId());
+        if (reservations != null) {
+            for (Reservation reservation : reservations) {
+                if (reservation.isActive()) {
+                    return appContext.getString(R.string.host_delete_station_blocked, station.getName());
+                }
+            }
+        }
+
+        List<ChargerPort> ports = db.chargerPortDao().getPortsForStationSync(station.getId());
+        List<AvailabilitySchedule> schedules =
+                db.availabilityScheduleDao().getSchedulesForStationSync(station.getId());
+
+        // Ports and windows reference the station, so they are cleared before it on both sides.
+        if (SyncEngine.isEnabled()) {
+            try {
+                for (AvailabilitySchedule schedule : schedules) {
+                    SyncEngine.delete("availability_schedules", schedule.getId());
+                }
+                for (ChargerPort port : ports) {
+                    SyncEngine.delete("charger_ports", port.getId());
+                }
+                SyncEngine.delete("charger_stations", station.getId());
+            } catch (RuntimeException e) {
+                recordWriteFailure("Could not delete charging station", e);
+                return appContext.getString(R.string.host_delete_station_failed);
+            }
+        }
+
+        db.availabilityScheduleDao().deleteForStation(station.getId());
+        db.chargerPortDao().deleteForStation(station.getId());
+        db.chargerStationDao().delete(station);
+        return null;
+    }
+
     // ---------------------------------------------------------------- ports
 
     public LiveData<List<ChargerPort>> observePorts(String stationId) {
@@ -927,8 +979,10 @@ public class AmperlyRepository {
 
         User consumer = AuthManager.getInstance().getCurrentUser();
         User host = getUserSync(station.getHostId());
-        CommunicationThread thread = ChatManager.createThread(reservation, consumer, host);
-        db.communicationThreadDao().insert(thread);
+        // The station knows who its host is even when that profile has not been pulled onto this
+        // device, and the thread is keyed on that id: without it the host would never see the
+        // conversation, and every booking would open another thread.
+        CommunicationThread thread = threadForPair(reservation, consumer, host, station.getHostId());
         pushUpsert("communication_threads", thread);
 
         com.amperly.app.data.local.entity.Notification notification =
@@ -1319,6 +1373,28 @@ public class AmperlyRepository {
         });
     }
 
+    /**
+     * The account a report is about: the host it names, or the driver behind the reported session.
+     *
+     * <p>A host reporting a driver has no consumer column on the report, so the session it points
+     * at is what identifies the other party. Null means the report names nobody the desk can act
+     * against.
+     */
+    @Nullable
+    public String reportTargetUserIdSync(@Nullable Report report) {
+        if (report == null) {
+            return null;
+        }
+        if (report.getTargetHostId() != null && !report.getTargetHostId().trim().isEmpty()) {
+            return report.getTargetHostId();
+        }
+        if (report.getSessionId() != null && !report.getSessionId().trim().isEmpty()) {
+            ChargingSession session = getSessionSync(report.getSessionId());
+            return session == null ? null : session.getConsumerId();
+        }
+        return null;
+    }
+
     // ----------------------------------------------------------- enforcement
 
     public void saveEnforcementAction(HostEnforcementAction action) {
@@ -1338,6 +1414,124 @@ public class AmperlyRepository {
 
     public List<HostEnforcementAction> getAllEnforcementSync() {
         return db.hostEnforcementActionDao().getAllActionsSync();
+    }
+
+    /** Prior warnings and fines, used to suggest a suspension length. */
+    public int countEnforcementForUserSync(String userId) {
+        return userId == null ? 0 : db.hostEnforcementActionDao().countWarningsAndFines(userId);
+    }
+
+    /** The end of the longest suspension still running for this account, or 0 when none is. */
+    public long activeSuspensionEndsAtMs(@Nullable String userId) {
+        if (userId == null) {
+            return 0L;
+        }
+        Long until = db.hostEnforcementActionDao().activeSuspensionEndsAtMs(userId,
+                System.currentTimeMillis());
+        return until == null ? 0L : until;
+    }
+
+    /**
+     * A clear reason this account may not use the app, or null when it may.
+     *
+     * <p>A ban lives on the synced user row; a suspension is a dated enforcement entry, so both
+     * are read here and the sign-in screen gets one sentence either way.
+     */
+    @Nullable
+    public String accountRestrictionMessage(@Nullable User user) {
+        if (user == null) {
+            return null;
+        }
+        long suspendedUntil = activeSuspensionEndsAtMs(user.getId());
+        if (!RoleGuard.isRestricted(user, suspendedUntil, System.currentTimeMillis())) {
+            return null;
+        }
+        if (user.isBlocked()) {
+            return appContext.getString(R.string.auth_account_banned);
+        }
+        return appContext.getString(R.string.auth_account_suspended,
+                Formatters.dateTime(suspendedUntil));
+    }
+
+    /**
+     * Applies one administrator decision to a report, records it and closes the report.
+     *
+     * <p>The enforcement row is the record: a suspension carries the moment it lapses, a warning
+     * and a ban carry none. A ban also flips the synced blocked flag, which is what the sign-in
+     * check reads. The account is notified in every case.
+     *
+     * <p>Server rows go first so a failed write cannot leave the local copy looking resolved while
+     * the account was never told. Returns null on success, or the reason nothing was changed.
+     */
+    @Nullable
+    public String applyReportAction(Report report, String action, long expiresAtMs) {
+        if (report == null || action == null) {
+            return appContext.getString(R.string.admin_report_action_failed);
+        }
+        String targetId = reportTargetUserIdSync(report);
+        if (targetId == null) {
+            return appContext.getString(R.string.admin_report_no_target);
+        }
+
+        long now = System.currentTimeMillis();
+        HostEnforcementAction record = new HostEnforcementAction(UUID.randomUUID().toString(),
+                targetId, report.getTargetStationId(), action,
+                appContext.getString(R.string.admin_report_note, action, report.getReportType()),
+                0.0, now, expiresAtMs);
+        com.amperly.app.data.local.entity.Notification notice =
+                reportNotification(action, targetId, report, expiresAtMs, now);
+        boolean ban = AppConstants.ENFORCEMENT_BAN.equals(action);
+
+        if (SyncEngine.isEnabled()) {
+            try {
+                SyncEngine.save("host_enforcements", record);
+                SyncEngine.save("notifications", notice);
+                if (ban) {
+                    Map<String, Object> blocked = new LinkedHashMap<>();
+                    blocked.put("isBlocked", true);
+                    SyncEngine.patch("users", targetId, blocked);
+                }
+                Map<String, Object> resolved = new LinkedHashMap<>();
+                resolved.put("status", "RESOLVED");
+                SyncEngine.patch("reports", report.getId(), resolved);
+            } catch (RuntimeException e) {
+                recordWriteFailure("Could not record the report decision", e);
+                return appContext.getString(R.string.admin_report_action_failed);
+            }
+        }
+
+        db.hostEnforcementActionDao().insert(record);
+        db.notificationDao().insert(notice);
+        if (ban) {
+            User target = db.userDao().getUserByIdSync(targetId);
+            if (target != null) {
+                target.setBlocked(true);
+                db.userDao().update(target);
+            }
+        }
+        report.setStatus("RESOLVED");
+        db.reportDao().update(report);
+        return null;
+    }
+
+    /** The message the reported account receives for one decision. */
+    private com.amperly.app.data.local.entity.Notification reportNotification(
+            String action, String targetId, Report report, long expiresAtMs, long now) {
+        String title;
+        String body;
+        if (AppConstants.ENFORCEMENT_SUSPENSION.equals(action)) {
+            title = appContext.getString(R.string.admin_notice_suspend_title);
+            body = appContext.getString(R.string.admin_notice_suspend_body,
+                    report.getReportType(), Formatters.dateTime(expiresAtMs));
+        } else if (AppConstants.ENFORCEMENT_BAN.equals(action)) {
+            title = appContext.getString(R.string.admin_notice_ban_title);
+            body = appContext.getString(R.string.admin_notice_ban_body, report.getReportType());
+        } else {
+            title = appContext.getString(R.string.admin_notice_warning_title);
+            body = appContext.getString(R.string.admin_notice_warning_body, report.getReportType());
+        }
+        return new com.amperly.app.data.local.entity.Notification(UUID.randomUUID().toString(),
+                targetId, title, body, false, now);
     }
 
     // --------------------------------------------------------- notifications
@@ -1376,6 +1570,61 @@ public class AmperlyRepository {
 
     public CommunicationThread getThreadByReservationSync(String reservationId) {
         return db.communicationThreadDao().getThreadByReservationSync(reservationId);
+    }
+
+    /**
+     * The one conversation a consumer has with a host, opened for this booking if needed.
+     *
+     * <p>Chat used to be reservation-scoped: every booking inserted a new thread, so the same two
+     * people accumulated a separate chat box per visit and the history was split across them. The
+     * pair of people is the key now. The reservation on the thread is only the latest booking it
+     * covers, and the thread's id — which the messages and the server sync hang off — never
+     * changes.
+     *
+     * <p>Threads created the old way are folded into the oldest one for the pair: their messages
+     * are moved across (keeping their timestamps, so they still read in order) and the leftover
+     * boxes are removed. Must be called off the main thread (Room).
+     */
+    private CommunicationThread threadForPair(Reservation reservation, @Nullable User consumer,
+                                              @Nullable User host, @Nullable String hostIdFallback) {
+        String consumerId = consumer == null ? null : consumer.getId();
+        String hostId = host != null ? host.getId() : hostIdFallback;
+        boolean keyed = consumerId != null && hostId != null && !hostId.isEmpty();
+        List<CommunicationThread> existing = keyed
+                ? db.communicationThreadDao().getThreadsForConsumerAndHostSync(consumerId, hostId)
+                : Collections.<CommunicationThread>emptyList();
+
+        if (existing.isEmpty()) {
+            CommunicationThread created = ChatManager.createThread(reservation, consumer, host);
+            if (created.getHostId() == null) {
+                // The station still names its owner, so the thread is filed under that id.
+                created.setHostId(hostId);
+            }
+            db.communicationThreadDao().insert(created);
+            return created;
+        }
+
+        CommunicationThread canonical = existing.get(0);
+        for (int i = 1; i < existing.size(); i++) {
+            foldThreadInto(existing.get(i), canonical.getId());
+        }
+        ChatManager.reuseForReservation(canonical, reservation, consumer, host);
+        db.communicationThreadDao().insert(canonical);
+        return canonical;
+    }
+
+    /** Moves one reservation's messages into the pair's thread, then drops the empty duplicate. */
+    private void foldThreadInto(CommunicationThread duplicate, String canonicalId) {
+        List<ChatMessage> moved = db.chatMessageDao().getMessagesForThreadSync(duplicate.getId());
+        db.chatMessageDao().reassignThread(duplicate.getId(), canonicalId);
+        // The moved rows are pushed with their new thread id before the old thread is deleted, so
+        // the server never holds a message pointing at a thread that is gone.
+        for (ChatMessage message : moved) {
+            message.setThreadId(canonicalId);
+            pushUpsert("chat_messages", message);
+        }
+        db.communicationThreadDao().deleteById(duplicate.getId());
+        pushDelete("communication_threads", duplicate.getId());
     }
 
     public List<CommunicationThread> getAllThreadsSync() {

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Launcher icon for API 24-25, where adaptive icons do not exist yet.
+
+  The same two layers as the adaptive icon, composed by hand: the near-black rounded plate
+  and the foreground mark, scaled together into whatever size the launcher asks for. Vector
+  rather than a bitmap so the legacy icon is as sharp as the adaptive one and there is no
+  second copy of the artwork to keep in step.
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="#FF0B0D11" />
+            <corners android:radius="24dp" />
+        </shape>
+    </item>
+    <item android:drawable="@drawable/ic_launcher_foreground" />
+</layer-list>

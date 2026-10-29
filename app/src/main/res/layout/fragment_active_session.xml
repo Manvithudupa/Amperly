@@ -11,6 +11,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/amp_background"
+    android:clipToPadding="false"
     android:fillViewport="true">
 
     <LinearLayout
@@ -158,6 +159,7 @@
             android:textAppearance="@style/TextAppearance.Amperly.BodySmall" />
 
         <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/startMeterField"
             style="@style/Widget.Amperly.TextInput"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

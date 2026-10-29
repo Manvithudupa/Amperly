@@ -125,6 +125,8 @@ public class VehicleFormFragment extends Fragment {
         connectorDropdown.setOnItemClickListener((parent, v, position, id) -> connectorIndex = position);
         clearErrorsWhileEditing();
         guardBackWhileEditing();
+        // Every field lifts itself above the keyboard once it takes focus.
+        Ux.keepFieldsVisible(view);
         buildDerivedPreview();
 
         view.findViewById(R.id.saveVehicleButton).setOnClickListener(v -> save());
@@ -287,9 +289,11 @@ public class VehicleFormFragment extends Fragment {
                 derivedText.setText(deriveText());
             }
         };
-        capacityEdit.setOnFocusChangeListener(listener);
-        efficiencyEdit.setOnFocusChangeListener(listener);
-        healthEdit.setOnFocusChangeListener(listener);
+        // The form-wide focus handler is kept underneath, so these fields both refresh the
+        // preview and scroll themselves clear of the keyboard.
+        Ux.keepVisibleOnFocus(capacityEdit, listener);
+        Ux.keepVisibleOnFocus(efficiencyEdit, listener);
+        Ux.keepVisibleOnFocus(healthEdit, listener);
     }
 
     private String deriveText() {

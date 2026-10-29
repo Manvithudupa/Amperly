@@ -29,9 +29,29 @@ public final class Navigator {
         }
         activity.getSupportFragmentManager()
                 .beginTransaction()
+                // Required by saveBackStack: the shell files a tab's pages away as one atomic
+                // unit, and a record that was not reordering-allowed cannot be restored.
+                .setReorderingAllowed(true)
                 .replace(R.id.fragment_container, target, tag)
-                .addToBackStack(tag)
+                .addToBackStack(backStackName(activity, tag))
                 .commit();
+    }
+
+    /**
+     * The name the record is filed under: the tab it was opened from, when the shell names tabs.
+     *
+     * <p>Every page opened on top of a tab shares that tab's name, which is what makes one tab's
+     * history separable from another's. A host that does not name its tabs keeps the old
+     * behaviour, where each record is filed under the tag of the page it opens.
+     */
+    private static String backStackName(@NonNull FragmentActivity activity, String tag) {
+        if (activity instanceof TabBackStackHost) {
+            String tab = ((TabBackStackHost) activity).currentTabBackStackName();
+            if (tab != null) {
+                return tab;
+            }
+        }
+        return tag;
     }
 
     public static void openRoot(@NonNull FragmentActivity activity, @NonNull Fragment target, String tag) {

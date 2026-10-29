@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  One notification row, already read: a soft green card on the paper background.
+  Unread rows swap in bg_notification_card_unread, which is a shade stronger and outlined,
+  so the two states are told apart by more than the unread dot.
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="@color/amp_primary_tint" />
+    <corners android:radius="@dimen/amp_card_radius" />
+</shape>

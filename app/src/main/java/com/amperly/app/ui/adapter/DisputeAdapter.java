@@ -147,8 +147,7 @@ public class DisputeAdapter extends RecyclerView.Adapter<DisputeAdapter.DisputeV
                     ? context.getString(R.string.dispute_refund_suffix,
                     Formatters.money(dispute.getRefundAmount())) : "")
                     + (dispute.getResolutionNote() == null || dispute.getResolutionNote().isEmpty()
-                    ? "" : "\n" + dispute.getResolutionNote())
-                    + "\n" + context.getString(R.string.dispute_policy_note));
+                    ? "" : "\n" + dispute.getResolutionNote()));
 
             boolean open = dispute.isOpen();
             setEnabledIfOpen(refund, open);

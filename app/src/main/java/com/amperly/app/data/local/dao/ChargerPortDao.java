@@ -26,6 +26,10 @@ public interface ChargerPortDao {
     @Delete
     void delete(ChargerPort port);
 
+    /** Removes every port of a station, for a station the host is deleting. */
+    @Query("DELETE FROM charger_ports WHERE stationId = :stationId")
+    void deleteForStation(String stationId);
+
     @Query("SELECT * FROM charger_ports WHERE stationId = :stationId ORDER BY portNumber")
     LiveData<List<ChargerPort>> getPortsForStation(String stationId);
 

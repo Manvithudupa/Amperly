@@ -51,6 +51,8 @@ public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapte
         private final TextView title;
         private final TextView message;
         private final TextView time;
+        /** The card drawable currently on the row, so a rebind does not rebuild the same shape. */
+        private int cardBackground;
 
         RowViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -58,6 +60,7 @@ public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapte
             title = itemView.findViewById(R.id.notificationTitleText);
             message = itemView.findViewById(R.id.notificationMessageText);
             time = itemView.findViewById(R.id.notificationTimeText);
+            cardBackground = R.drawable.bg_notification_card;
         }
 
         void bind(Notification notification) {
@@ -65,6 +68,14 @@ public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapte
             message.setText(notification.getMessage());
             time.setText(Formatters.agoFromNow(notification.getCreatedAtMs()));
             unreadDot.setVisibility(notification.isRead() ? View.INVISIBLE : View.VISIBLE);
+            // Unread rows keep the dot and take the stronger, outlined card as well.
+            int background = notification.isRead()
+                    ? R.drawable.bg_notification_card
+                    : R.drawable.bg_notification_card_unread;
+            if (background != cardBackground) {
+                itemView.setBackgroundResource(background);
+                cardBackground = background;
+            }
         }
     }
 }

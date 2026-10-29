@@ -22,6 +22,7 @@ import com.amperly.app.data.remote.SupabaseAuth;
 import com.amperly.app.data.remote.SupabaseConfig;
 import com.amperly.app.data.remote.SupabaseRest;
 import com.amperly.app.data.repository.AmperlyRepository;
+import com.amperly.app.ui.Ux;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.progressindicator.LinearProgressIndicator;
 import com.google.android.material.textfield.TextInputLayout;
@@ -81,6 +82,8 @@ public class SignInFragment extends Fragment {
         errorText = view.findViewById(R.id.signInErrorText);
         infoText = view.findViewById(R.id.signInInfoText);
         offlineNoteText = view.findViewById(R.id.signInOfflineNoteText);
+        // Name, address and password each lift themselves above the keyboard when focused.
+        Ux.keepFieldsVisible(view);
         signInButton = view.findViewById(R.id.signInButton);
         createAccountButton = view.findViewById(R.id.createAccountButton);
         progress = view.findViewById(R.id.signInProgress);
@@ -178,6 +181,15 @@ public class SignInFragment extends Fragment {
                     createAccount ? name : null);
             if (user == null) {
                 return Outcome.failed(appContext.getString(R.string.auth_no_profile));
+            }
+            // The credentials were accepted; the account may still be barred. Say which, so a
+            // banned or suspended person is not left guessing at a password.
+            String restricted = repo.accountRestrictionMessage(user);
+            if (restricted != null) {
+                // The auth session the server just issued is ended again: a barred account gets
+                // the reason, not a token that would let it straight back in on the next launch.
+                SupabaseAuth.signOut(appContext);
+                return Outcome.failed(restricted);
             }
             return Outcome.signedIn(user);
         } catch (SupabaseAuth.Failure failure) {

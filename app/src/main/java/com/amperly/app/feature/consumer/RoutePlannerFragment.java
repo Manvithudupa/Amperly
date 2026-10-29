@@ -29,6 +29,7 @@ import com.amperly.app.core.map.MapPanel;
 import com.amperly.app.core.nav.GeoapifyNavigationProvider;
 import com.amperly.app.core.nav.NavigationProvider;
 import com.amperly.app.core.nav.Navigator;
+import com.amperly.app.core.nav.TripNavigationHost;
 import com.amperly.app.core.places.GeoapifyGeocoder;
 import com.amperly.app.core.places.PlacesAutocomplete;
 import com.amperly.app.core.routing.DirectionsRoute;
@@ -184,6 +185,9 @@ public class RoutePlannerFragment extends Fragment implements RouteStopAdapter.L
 
         attachMap();
         resolveOrigin();
+        // Wired after address search has set up the destination field, so the destination and
+        // both battery fields lift themselves above the keyboard when focused.
+        Ux.keepFieldsVisible(view);
     }
 
     /**
@@ -197,6 +201,20 @@ public class RoutePlannerFragment extends Fragment implements RouteStopAdapter.L
     public void onResume() {
         super.onResume();
         loadActiveVehicle();
+    }
+
+    /**
+     * The tab was hidden and is on show again.
+     *
+     * <p>Hiding a tab does not pause its screen, so {@link #onResume} does not run when the
+     * driver comes back; the active car is re-read here so the row cannot be stale.
+     */
+    @Override
+    public void onHiddenChanged(boolean hidden) {
+        super.onHiddenChanged(hidden);
+        if (!hidden && isAdded()) {
+            loadActiveVehicle();
+        }
     }
 
     private void loadActiveVehicle() {
@@ -752,8 +770,15 @@ public class RoutePlannerFragment extends Fragment implements RouteStopAdapter.L
         args.putString(InAppNavigationFragment.ARG_LABEL,
                 lastRoute != null && !lastRoute.getEndAddress().isEmpty() ? lastRoute.getEndAddress()
                         : destinationEdit.getText().toString().trim());
+        args.putString(InAppNavigationFragment.ARG_PLAN_ID, lastPlan == null ? null : lastPlan.getId());
+        // Navigation is what the Trips tab shows, not a page stacked on top of it: that is what
+        // keeps the trip alive when the driver looks at their bookings and comes back.
+        if (requireActivity() instanceof TripNavigationHost) {
+            ((TripNavigationHost) requireActivity()).showTripNavigation(args);
+            return;
+        }
         fragment.setArguments(args);
-        com.amperly.app.core.nav.Navigator.open(this, fragment, "in_app_nav");
+        Navigator.open(this, fragment, "in_app_nav");
     }
 
     private List<ChargerStation> stationsOf(RoutePlannerEngine.RoutePlanResult result) {

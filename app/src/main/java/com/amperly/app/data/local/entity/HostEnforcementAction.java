@@ -1,9 +1,17 @@
 package com.amperly.app.data.local.entity;
 
 import androidx.annotation.NonNull;
+import androidx.room.ColumnInfo;
 import androidx.room.Entity;
 import androidx.room.PrimaryKey;
 
+/**
+ * One recorded enforcement decision against an account.
+ *
+ * <p>{@code hostId} is the account the decision applies to — historically a host, but the same
+ * row records an action taken on a consumer through a report. {@code expiresAtMs} is the moment a
+ * suspension lapses; it is 0 for a warning, a fine and a ban, none of which are time-limited.
+ */
 @Entity(tableName = "host_enforcements")
 public class HostEnforcementAction {
     @PrimaryKey
@@ -15,9 +23,13 @@ public class HostEnforcementAction {
     private String reason;
     private double fineAmount;
     private long createdAtMs;
+    /** End of a suspension, 0 when the action does not expire. */
+    @ColumnInfo(defaultValue = "0")
+    private long expiresAtMs;
 
     public HostEnforcementAction(@NonNull String id, String hostId, String stationId,
-                                 String actionType, String reason, double fineAmount, long createdAtMs) {
+                                 String actionType, String reason, double fineAmount,
+                                 long createdAtMs, long expiresAtMs) {
         this.id = id;
         this.hostId = hostId;
         this.stationId = stationId;
@@ -25,6 +37,7 @@ public class HostEnforcementAction {
         this.reason = reason;
         this.fineAmount = fineAmount;
         this.createdAtMs = createdAtMs;
+        this.expiresAtMs = expiresAtMs;
     }
 
     @NonNull
@@ -48,4 +61,7 @@ public class HostEnforcementAction {
 
     public long getCreatedAtMs() { return createdAtMs; }
     public void setCreatedAtMs(long createdAtMs) { this.createdAtMs = createdAtMs; }
+
+    public long getExpiresAtMs() { return expiresAtMs; }
+    public void setExpiresAtMs(long expiresAtMs) { this.expiresAtMs = expiresAtMs; }
 }

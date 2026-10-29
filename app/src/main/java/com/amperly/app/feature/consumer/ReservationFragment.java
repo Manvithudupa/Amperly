@@ -84,6 +84,8 @@ public class ReservationFragment extends Fragment implements ReservationAdapter.
         super.onViewCreated(view, savedInstanceState);
         repo = AmperlyRepository.getInstance(requireContext());
         stationId = getArguments() == null ? null : getArguments().getString(ARG_STATION_ID);
+        // Every field on the booking slip lifts itself above the keyboard when focused.
+        Ux.keepFieldsVisible(view);
 
         reserveStatusText = view.findViewById(R.id.reserveStatusText);
         TextView stationText = view.findViewById(R.id.reserveStationText);
@@ -148,7 +150,7 @@ public class ReservationFragment extends Fragment implements ReservationAdapter.
             if (resolvedId == null) {
                 formContainer.setVisibility(View.GONE);
                 stationText.setText(R.string.reserve_no_station_body);
-                reserveStatusText.setText(R.string.reserve_no_station_status);
+                showStatus(getString(R.string.reserve_no_station_status));
                 return;
             }
             stationId = resolvedId;
@@ -215,6 +217,15 @@ public class ReservationFragment extends Fragment implements ReservationAdapter.
     public void onResume() {
         super.onResume();
         refreshActiveVehicle();
+    }
+
+    /** The bookings tab is on show again; a hidden tab is never paused, so it is refreshed here. */
+    @Override
+    public void onHiddenChanged(boolean hidden) {
+        super.onHiddenChanged(hidden);
+        if (!hidden && isAdded()) {
+            refreshActiveVehicle();
+        }
     }
 
     private void refreshActiveVehicle() {
@@ -373,7 +384,7 @@ public class ReservationFragment extends Fragment implements ReservationAdapter.
         AvailabilityEngine.Slot slot = slotIndex >= 0 && slotIndex < slots.size() ? slots.get(slotIndex) : null;
 
         if (port == null || slot == null) {
-            reserveStatusText.setText(getString(R.string.reserve_no_slots));
+            showStatus(getString(R.string.reserve_no_slots));
             return;
         }
 
@@ -406,7 +417,7 @@ public class ReservationFragment extends Fragment implements ReservationAdapter.
             if (outcome == null || !isAdded()) {
                 return;
             }
-            reserveStatusText.setText(outcome.message);
+            showStatus(outcome.message);
             if (!outcome.success) {
                 Ux.error(this, outcome.message);
                 if (outcome.refreshSlots) {
@@ -471,6 +482,21 @@ public class ReservationFragment extends Fragment implements ReservationAdapter.
                 .show();
     }
 
+    /**
+     * Puts a booking message on the page, and keeps the line out of the page until there is one.
+     *
+     * <p>An empty status line under the Reserve button used to draw a blank rounded box, which
+     * reads as an unclickable button rather than as an area waiting for a result.
+     */
+    private void showStatus(String message) {
+        if (reserveStatusText == null) {
+            return;
+        }
+        boolean hasMessage = message != null && !message.trim().isEmpty();
+        reserveStatusText.setText(hasMessage ? message : "");
+        reserveStatusText.setVisibility(hasMessage ? View.VISIBLE : View.GONE);
+    }
+
     private void performCancel(Reservation reservation) {
         repo.background(() -> {
             BillingEngine.CancellationResult result =
@@ -483,7 +509,7 @@ public class ReservationFragment extends Fragment implements ReservationAdapter.
             if (outcome == null) {
                 return;
             }
-            reserveStatusText.setText(outcome.message);
+            showStatus(outcome.message);
             if (outcome.success) {
                 Ux.info(this, outcome.message);
             } else {

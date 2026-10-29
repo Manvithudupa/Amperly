@@ -9,6 +9,7 @@ import androidx.fragment.app.Fragment;
 
 import com.amperly.app.R;
 import com.amperly.app.engine.meter.MeterSimulator;
+import com.amperly.app.ui.Ux;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.textfield.TextInputEditText;
 
@@ -44,18 +45,23 @@ public final class MeterEvidenceDialog {
         TextInputEditText endEdit = content.findViewById(R.id.meterEndEdit);
         TextInputEditText noteEdit = content.findViewById(R.id.meterNoteEdit);
 
-        new MaterialAlertDialogBuilder(context)
+        // The readings are typed in: the dialog scrolls and resizes so the keyboard never
+        // covers the field being filled in.
+        Ux.keepFieldsVisible(content);
+        androidx.appcompat.app.AlertDialog dialog = new MaterialAlertDialogBuilder(context)
                 .setTitle(R.string.host_record_readings)
                 .setView(content)
                 .setNegativeButton(R.string.action_cancel, null)
-                .setPositiveButton(R.string.action_save, (dialog, which) -> {
+                .setPositiveButton(R.string.action_save, (shown, which) -> {
                     double start = parse(startEdit.getText().toString(), suggestedStart);
                     double end = parse(endEdit.getText().toString(), start);
                     if (onSubmit != null) {
                         onSubmit.onSubmit(start, end, noteEdit.getText().toString().trim());
                     }
                 })
-                .show();
+                .create();
+        Ux.resizeForKeyboard(dialog);
+        dialog.show();
     }
 
     private static double parse(String value, double fallback) {

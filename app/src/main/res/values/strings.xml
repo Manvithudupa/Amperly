@@ -13,7 +13,6 @@
     <string name="nav_bookings">Bookings</string>
     <string name="nav_trips">Trips</string>
     <string name="nav_admin_queue">Queue</string>
-    <string name="nav_admin_disputes">Disputes</string>
     <string name="nav_admin_reports">Reports</string>
 
     <!-- Generic -->
@@ -39,7 +38,7 @@
     <string name="discovery_battery_value">%1$d%%</string>
     <string name="discovery_battery_unknown">Not set</string>
     <string name="discovery_battery_caption">vehicle battery \u00b7 tap to set</string>
-    <string name="discovery_battery_caption_known">vehicle battery \u00b7 tap to change</string>
+    <string name="discovery_battery_caption_known">vehicle battery</string>
     <string name="discovery_set_battery_title">Set your battery</string>
     <string name="discovery_set_battery_message">Enter the battery percentage shown on your vehicle dashboard. It is kept for 12 hours and is never guessed.</string>
     <string name="discovery_set_battery_saved">Battery set to %1$d%%</string>
@@ -132,6 +131,8 @@
     <string name="session_stop_and_bill">Stop charging and see the bill</string>
     <string name="session_mark_charging">Start charging</string>
     <string name="unit_kwh">kWh</string>
+    <string name="unit_kw">kW</string>
+    <string name="unit_km_per_kwh">km/kWh</string>
     <string name="label_estimate">Estimate</string>
     <string name="session_check_in">Check in</string>
     <string name="session_start_meter">Starting meter reading (kWh)</string>
@@ -187,7 +188,7 @@
     <string name="route_directions_note">Directions from Geoapify, on OpenStreetMap data. Stops and battery figures are estimates.</string>
     <string name="route_start_navigation">Start in-app navigation</string>
     <string name="route_current_soc">Current battery %</string>
-    <string name="route_corridor">Corridor</string>
+    <string name="route_corridor">Search radius</string>
     <string name="route_preference">Prefer</string>
     <string name="pref_fastest">Fastest</string>
     <string name="pref_cheapest">Cheapest</string>
@@ -216,7 +217,7 @@
     <!-- Vehicle -->
     <string name="vehicle_title">Vehicle profile</string>
     <string name="vehicle_intro">Used for range and charging plans only.</string>
-    <string name="vehicle_make">Make</string>
+    <string name="vehicle_make">Company name</string>
     <string name="vehicle_model">Model</string>
     <string name="vehicle_variant">Variant</string>
     <string name="vehicle_year">Year of purchase</string>
@@ -281,7 +282,6 @@
     <string name="host_port_dc">DC fast charger</string>
     <string name="host_submit_station">Submit station</string>
     <string name="host_station_saved">Station submitted for verification.</string>
-    <string name="host_tab_reservations">Reservations</string>
     <string name="host_tab_sessions">Sessions</string>
     <string name="host_tab_analytics">Analytics</string>
     <string name="host_pause_station">Pause station</string>
@@ -293,29 +293,72 @@
     <string name="host_section_pricing">Pricing</string>
     <string name="host_section_first_port">Port setup</string>
 
+    <!-- Host stations page -->
+    <string name="host_stations_title">My stations</string>
+    <string name="host_stations_intro">The chargers you have registered. New listings are reviewed before they appear on the map.</string>
+    <string name="host_stations_empty_title">No stations yet</string>
+    <string name="host_stations_empty_body">Register a charger and it will appear here.</string>
+    <string name="host_add_station">Add station</string>
+    <string name="host_station_card_meta">%1$s · %2$d kW · %3$d ports · %4$s/kWh</string>
+
+    <!-- Choosing the station location -->
+    <string name="host_choose_place">Choose place</string>
+    <string name="host_place_search_title">Choose a place</string>
+    <string name="host_place_search_hint">Search for an address or landmark</string>
+    <string name="host_location_auto_note">Coordinates are filled automatically and cannot be edited.</string>
+    <string name="host_choose_place_required">No location yet. Search for the place or tap the map.</string>
+
+    <!-- Host bookings -->
+    <string name="host_bookings_intro">Every slot drivers have booked at your chargers.</string>
+    <string name="host_bookings_empty">No bookings yet.</string>
+    <string name="host_booking_driver">Driver: %1$s</string>
+    <string name="host_booking_driver_unknown">Driver</string>
+    <string name="host_booking_chat">Chat</string>
+    <string name="host_booking_receipt">View receipt</string>
+
+    <!-- Deleting a station -->
+    <string name="host_delete_station">Delete registered charging station</string>
+    <string name="host_delete_station_title">Delete a charging station</string>
+    <string name="host_delete_station_confirm">Delete %1$s? This cannot be undone.</string>
+    <string name="host_delete_station_blocked">%1$s still has active or upcoming bookings. Release them before deleting the station.</string>
+    <string name="host_delete_station_none">No chargers registered yet, so there is nothing to delete.</string>
+    <string name="host_delete_station_failed">The station could not be deleted. Nothing was removed.</string>
+    <string name="host_delete_station_done">%1$s deleted.</string>
+    <string name="host_station_picker">%1$s — %2$s</string>
+
     <!-- Host analytics -->
     <string name="analytics_sessions_short">Sessions</string>
     <string name="analytics_energy_short">kWh delivered</string>
-    <string name="analytics_revenue_short">Revenue</string>
+    <string name="analytics_income_short">Income</string>
+    <string name="analytics_disputes_short">Disputes</string>
+    <string name="analytics_reservations_short">Reservations</string>
     <string name="analytics_utilization_short">Utilization %1$s of bookable hours, last 30 days</string>
 
     <!-- Admin -->
     <string name="admin_title">Administrator desk</string>
     <string name="admin_intro">Verify listings, review evidence, settle disputes.</string>
-    <string name="admin_queue">Station verification queue</string>
+    <string name="admin_queue">Pending list of charger station approval requests</string>
     <string name="admin_disputes">Disputes and evidence</string>
     <string name="admin_approve">Approve listing</string>
-    <string name="admin_reject">Reject listing</string>
+    <string name="admin_decline">Decline listing</string>
     <string name="admin_freeze_payout">Freeze payout</string>
     <string name="admin_refund">Issue refund</string>
     <string name="admin_warning">Issue warning</string>
     <string name="admin_fine">Issue fine</string>
     <string name="admin_suspend">Suspend station</string>
     <string name="admin_ban">Ban station</string>
-    <string name="admin_policy_note">Every action here is recorded against the evidence above.</string>
-    <string name="admin_queue_empty">No listings are waiting for review.</string>
+    <string name="admin_queue_empty">No pending approval requests</string>
     <string name="admin_disputes_empty">No disputes are open.</string>
-    <string name="admin_reports_empty">No reports are waiting.</string>
+    <string name="admin_reports_from_consumers">Reports from consumers</string>
+    <string name="admin_reports_from_hosts">Reports from hosts</string>
+    <string name="admin_reports_consumers_empty">No reports from consumers.</string>
+    <string name="admin_reports_hosts_empty">No reports from hosts.</string>
+    <string name="admin_report_reporter">Reporter: %1$s</string>
+    <string name="admin_report_target">Reported: %1$s</string>
+    <string name="admin_report_no_target_short">No account named</string>
+    <string name="admin_report_date">Reported %1$s</string>
+    <string name="admin_report_card_description">%1$s, status %2$s. Filed by %3$s about %4$s. %5$s</string>
+    <string name="admin_report_show_actions">Double-tap to show the actions.</string>
     <string name="admin_confirm_warning_title">Issue a warning?</string>
     <string name="admin_confirm_warning_body">Recorded on the host’s history. The station stays live.</string>
     <string name="admin_confirm_fine_title">Issue a fine?</string>
@@ -324,6 +367,31 @@
     <string name="admin_confirm_suspend_body">The station is paused now and disappears from discovery until it is reopened.</string>
     <string name="admin_confirm_ban_title">Ban this station?</string>
     <string name="admin_confirm_ban_body">The station is paused, the enforcement is recorded against the host, and the host is notified.</string>
+
+    <!-- Actions on a report -->
+    <string name="admin_report_action_warning">Warn</string>
+    <string name="admin_report_action_suspend">Suspend</string>
+    <string name="admin_report_action_ban">Ban permanently</string>
+    <string name="admin_suspend_account_title">Suspend this account</string>
+    <string name="admin_suspend_account_body">Choose how long the suspension lasts. The suggested length follows the account\u2019s enforcement history.</string>
+    <string name="admin_suspend_option_1d">1 day</string>
+    <string name="admin_suspend_option_7d">7 days</string>
+    <string name="admin_suspend_option_30d">30 days</string>
+    <string name="admin_suspend_suggested">Suggested for this account: %1$s.</string>
+    <string name="admin_confirm_account_ban_title">Ban this account?</string>
+    <string name="admin_confirm_account_ban_body">The account is blocked from signing in and this report is closed. This cannot be undone.</string>
+    <string name="admin_action_recorded">%1$s recorded. The report is closed.</string>
+    <string name="admin_report_no_target">This report does not name an account, so there is nothing to act on.</string>
+    <string name="admin_report_action_failed">The decision could not be recorded. Nothing was changed.</string>
+    <string name="admin_report_note">Administrator action on a report: %1$s (%2$s).</string>
+    <string name="admin_notice_warning_title">Warning from Amperly</string>
+    <string name="admin_notice_warning_body">A moderator reviewed a report about %1$s and issued a formal warning on your account.</string>
+    <string name="admin_notice_suspend_title">Account suspended</string>
+    <string name="admin_notice_suspend_body">A moderator upheld a report about %1$s. Your account is suspended until %2$s.</string>
+    <string name="admin_notice_ban_title">Account banned</string>
+    <string name="admin_notice_ban_body">A moderator upheld a report about %1$s. Your account has been banned.</string>
+    <string name="auth_account_banned">This account has been banned. Contact Amperly support if you think this is a mistake.</string>
+    <string name="auth_account_suspended">This account is suspended until %1$s.</string>
     <string name="admin_confirm_refund_title">Refund this invoice?</string>
     <string name="admin_confirm_refund_body">The energy charge goes back to the consumer and the dispute is closed. This cannot be undone.</string>
 
@@ -513,7 +581,7 @@
     <string name="location_type_charger">Charger</string>
 
     <!-- Reservation, session and receipt rows -->
-    <string name="reservation_code_line">Booking %1$s</string>
+    <string name="reservation_show_code">Show booking code %1$s</string>
     <string name="reservation_authorized_line">%1$s/kWh · %2$s service · %3$s gateway</string>
     <string name="reservation_no_billing">No payment is collected in this build.</string>
     <string name="reservation_cancel_free">Free cancellation still available.</string>
@@ -556,6 +624,11 @@
     <string name="receipt_demo_meter_note">Demo meter: these readings were simulated or entered by hand, not read from live hardware.</string>
     <string name="receipt_verified_note">Billed on verified meter readings only.</string>
     <string name="receipt_final_amount">Total %1$s</string>
+    <string name="receipt_consumer">Consumer</string>
+    <string name="receipt_port">Port</string>
+    <string name="receipt_slot">Slot</string>
+    <string name="receipt_tariff">Tariff</string>
+    <string name="receipt_readings_pending">Meter readings pending</string>
 
     <!-- Booking code -->
     <string name="qr_no_reservation_title">No booking yet</string>
@@ -585,7 +658,6 @@
     <string name="host_error_address_required">Enter the station address.</string>
     <string name="host_location_required">Set the charger location on the map first.</string>
     <string name="host_saved_body">%1$s You can track it from your host dashboard.</string>
-    <string name="host_station_meta">%1$s · %2$s · %3$d kW · %4$d ports · %5$s/kWh</string>
     <string name="host_station_status">%1$s · updated %2$s</string>
     <string name="host_station_paused_state">%1$s · paused</string>
     <string name="host_station_paused">Station paused.</string>
@@ -601,14 +673,12 @@
     <string name="host_analytics_ports">Ports</string>
     <string name="host_meter_evidence_saved">Meter evidence saved: %1$s.</string>
     <string name="meter_evidence_header">%1$s\nDemo meter reading: %2$s\nSimulated or hand-entered.</string>
-    <string name="host_booking_verified">Booking %1$s verified at %2$s for %3$s.</string>
-    <string name="host_session_started">Session started at %1$s.</string>
     <string name="host_session_dispute_note">Session closed. A dispute can be raised from the receipt.</string>
     <string name="host_receipt_toast">%1$s · %2$s · %3$s</string>
 
     <!-- Admin desk -->
     <string name="admin_approved">Listing approved: %1$s</string>
-    <string name="admin_rejected">Listing rejected: %1$s</string>
+    <string name="admin_declined">Listing declined: %1$s</string>
     <string name="admin_payout_held">Payout frozen for this host.</string>
     <string name="admin_refunded">Refunded %1$s.</string>
     <string name="admin_enforcement_recorded">Recorded enforcement: %1$s.</string>
@@ -616,6 +686,7 @@
 
     <!-- Pending station queue and disputes -->
     <string name="pending_host_line">Host: %1$s</string>
+    <string name="pending_submitted">Submitted %1$s</string>
     <string name="pending_station_meta">%1$s · %2$s · %3$d kW · %4$d ports\n%5$s · %6$s · updated %7$s · %8$s</string>
     <string name="pending_access_none">No access rules given.</string>
     <string name="dispute_meta">%1$s · %2$s · %3$s</string>
@@ -630,7 +701,6 @@
     <string name="dispute_photo_suffix"> · photo: %1$s</string>
     <string name="dispute_enforcement_line">Enforcement: %1$s</string>
     <string name="dispute_refund_suffix"> · refund %1$s</string>
-    <string name="dispute_policy_note">Decisions are recorded against the evidence.</string>
 
     <!-- Safety -->
     <string name="safety_add_contact_first">Add a trusted contact first.</string>
@@ -684,7 +754,7 @@
 
     <!-- Vehicle -->
     <string name="vehicle_new_hint">Fill in the new vehicle, then save to add it to your garage.</string>
-    <string name="vehicle_error_make_model">Enter the make and model.</string>
+    <string name="vehicle_error_make_model">Enter the company name and model.</string>
     <string name="vehicle_planning_default">Range estimates use default figures until you add capacity and efficiency.</string>
     <string name="vehicle_planning_from_inputs">Planning about %1$.1f kWh · %2$.0f km of range</string>
     <string name="vehicle_planning_line">%1$.1f kWh · %2$.2f km/kWh · %3$.0f km</string>

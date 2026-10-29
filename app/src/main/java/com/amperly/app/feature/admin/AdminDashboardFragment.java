@@ -1,6 +1,7 @@
 package com.amperly.app.feature.admin;
 
 import android.os.Bundle;
+import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -18,12 +19,14 @@ import com.amperly.app.core.common.Formatters;
 import com.amperly.app.core.security.AuthManager;
 import com.amperly.app.core.security.RoleGuard;
 import com.amperly.app.data.local.entity.ChargerStation;
+import com.amperly.app.data.local.entity.ChargingSession;
 import com.amperly.app.data.local.entity.Dispute;
 import com.amperly.app.data.local.entity.HostEnforcementAction;
 import com.amperly.app.data.local.entity.Invoice;
 import com.amperly.app.data.local.entity.MeterReading;
 import com.amperly.app.data.local.entity.Notification;
 import com.amperly.app.data.local.entity.Report;
+import com.amperly.app.data.local.entity.User;
 import com.amperly.app.data.repository.AmperlyRepository;
 import com.amperly.app.engine.admin.EnforcementPolicyEngine;
 import com.amperly.app.engine.analytics.HostAnalyticsEngine;
@@ -47,14 +50,19 @@ public class AdminDashboardFragment extends Fragment {
     /** Which queue the bottom navigation opened. */
     public static final String ARG_SECTION = "section";
     public static final String SECTION_QUEUE = "queue";
-    public static final String SECTION_DISPUTES = "disputes";
     public static final String SECTION_REPORTS = "reports";
 
     private AmperlyRepository repo;
     private PendingStationAdapter pendingAdapter;
     private DisputeAdapter disputeAdapter;
-    private ReportAdapter reportAdapter;
+    /** The two report lists share one listener: the same three decisions, two audiences. */
+    private ReportAdapter consumerReportAdapter;
+    private ReportAdapter hostReportAdapter;
     private TextView analyticsText;
+
+    /** The section this desk was opened on; the queue when no section was asked for. */
+    @NonNull
+    private String section = SECTION_QUEUE;
 
     @Nullable
     @Override
@@ -128,33 +136,82 @@ public class AdminDashboardFragment extends Fragment {
         });
         disputes.setAdapter(disputeAdapter);
 
-        RecyclerView reports = view.findViewById(R.id.reportsRecyclerView);
-        reports.setLayoutManager(new LinearLayoutManager(requireContext()));
-        reports.setNestedScrollingEnabled(false);
-        reportAdapter = new ReportAdapter();
-        reports.setAdapter(reportAdapter);
+        ReportAdapter.Listener reportActions = new ReportAdapter.Listener() {
+            @Override
+            public void onWarning(Report report) {
+                applyReportAction(report, AppConstants.ENFORCEMENT_WARNING, 0L);
+            }
+
+            @Override
+            public void onSuspend(Report report) {
+                chooseSuspension(report);
+            }
+
+            @Override
+            public void onBan(Report report) {
+                confirmReportBan(report);
+            }
+        };
+        consumerReportAdapter = new ReportAdapter(reportActions);
+        hostReportAdapter = new ReportAdapter(reportActions);
+        RecyclerView consumerReports = view.findViewById(R.id.consumerReportsRecyclerView);
+        consumerReports.setLayoutManager(new LinearLayoutManager(requireContext()));
+        consumerReports.setNestedScrollingEnabled(false);
+        consumerReports.setAdapter(consumerReportAdapter);
+        RecyclerView hostReports = view.findViewById(R.id.hostReportsRecyclerView);
+        hostReports.setLayoutManager(new LinearLayoutManager(requireContext()));
+        hostReports.setNestedScrollingEnabled(false);
+        hostReports.setAdapter(hostReportAdapter);
+
+        // Each bottom-navigation destination is one section of the desk, so the section that was
+        // not opened is not drawn at all instead of sitting further down a shared scroll.
+        String requested = getArguments() == null ? null : getArguments().getString(ARG_SECTION);
+        section = requested == null ? SECTION_QUEUE : requested;
+        applySection(section);
 
         load();
+    }
 
-        // The three bottom-navigation destinations are one desk; each opens at its own queue.
-        String section = getArguments() == null ? null : getArguments().getString(ARG_SECTION);
-        if (section != null) {
-            view.postDelayed(() -> scrollToSection(section), 250);
+    /** True when this desk was opened on the approval queue. */
+    private boolean isQueueSection() {
+        return !SECTION_REPORTS.equals(section);
+    }
+
+    /**
+     * Shows only the section this desk was opened on.
+     *
+     * <p>Queue is the approval work; Reports is the disputes and the reports users filed. The
+     * other section is hidden with its headings and its empty state, and the list on show keeps
+     * whichever of the list or the empty line {@link #load()} decided for it.
+     */
+    private void applySection(@NonNull String section) {
+        boolean queue = !SECTION_REPORTS.equals(section);
+        show(R.id.adminQueueSection, queue);
+        show(R.id.adminReportsSection, !queue);
+        show(R.id.adminConsumerReportsHeading, !queue);
+        show(R.id.adminHostReportsHeading, !queue);
+        show(R.id.adminDisputesSection, !queue);
+        if (queue) {
+            // The reports and disputes belong to the other tab, so their lists start hidden and
+            // only that tab's own load brings them back.
+            show(R.id.consumerReportsRecyclerView, false);
+            show(R.id.adminConsumerReportsEmptyText, false);
+            show(R.id.hostReportsRecyclerView, false);
+            show(R.id.adminHostReportsEmptyText, false);
+            show(R.id.disputesRecyclerView, false);
+            show(R.id.adminDisputesEmptyText, false);
+        } else {
+            show(R.id.pendingStationsRecyclerView, false);
+            show(R.id.adminQueueEmptyText, false);
         }
     }
 
-    private void scrollToSection(String section) {
+    /** Shows or hides one view of the page, tolerating a view the page has already dropped. */
+    private void show(int viewId, boolean visible) {
         View root = getView();
-        if (root == null) {
-            return;
-        }
-        int targetId = SECTION_DISPUTES.equals(section) ? R.id.adminDisputesSection
-                : SECTION_REPORTS.equals(section) ? R.id.adminReportsSection
-                : R.id.adminQueueSection;
-        View scroll = root.findViewById(R.id.adminScrollView);
-        View target = root.findViewById(targetId);
-        if (scroll instanceof android.widget.ScrollView && target != null) {
-            ((android.widget.ScrollView) scroll).smoothScrollTo(0, target.getTop());
+        View view = root == null ? null : root.findViewById(viewId);
+        if (view != null) {
+            view.setVisibility(visible ? View.VISIBLE : View.GONE);
         }
     }
 
@@ -171,27 +228,44 @@ public class AdminDashboardFragment extends Fragment {
                         : repo.getMeterReadingsSync(dispute.getSessionId());
                 disputeRows.add(new DisputeAdapter.DisputeRow(dispute, evidence));
             }
-            return new AdminData(pendingStations, disputeRows, reports, analytics,
-                    repo.getInvoicesForHostSync(""));
+            // The names on the card come from the entities the report only references by id, and
+            // which list a report belongs in is decided here rather than in bind: both need reads,
+            // and this is the thread allowed to make them.
+            List<ReportAdapter.Item> consumerReports = new ArrayList<>();
+            List<ReportAdapter.Item> hostReports = new ArrayList<>();
+            for (Report report : reports) {
+                ReportAdapter.Item row = new ReportAdapter.Item(report,
+                        reporterName(report), reportedName(report));
+                if (isHostReport(report)) {
+                    hostReports.add(row);
+                } else {
+                    consumerReports.add(row);
+                }
+            }
+            return new AdminData(pendingStations, disputeRows, consumerReports, hostReports,
+                    analytics);
         }, data -> {
             if (data == null || !isAdded()) {
                 return;
             }
             pendingAdapter.submit(data.pending);
             disputeAdapter.submit(data.disputes);
-            reportAdapter.submit(data.reports);
-            // An empty section says so instead of looking like a screen that failed to load.
-            View root = getView();
-            if (root != null) {
-                root.findViewById(R.id.adminQueueEmptyText).setVisibility(
-                        data.pending.isEmpty() ? View.VISIBLE : View.GONE);
-                root.findViewById(R.id.adminDisputesEmptyText).setVisibility(
-                        data.disputes.isEmpty() ? View.VISIBLE : View.GONE);
-                root.findViewById(R.id.adminReportsEmptyText).setVisibility(
-                        data.reports.isEmpty() ? View.VISIBLE : View.GONE);
-            }
+            consumerReportAdapter.submit(data.consumerReports);
+            hostReportAdapter.submit(data.hostReports);
+            // An empty section says so instead of looking like a screen that failed to load. Only
+            // the section on show is filled in: the other tab's lists stay hidden with it.
+            boolean queue = isQueueSection();
+            show(R.id.pendingStationsRecyclerView, queue && !data.pending.isEmpty());
+            show(R.id.adminQueueEmptyText, queue && data.pending.isEmpty());
+            show(R.id.consumerReportsRecyclerView, !queue && !data.consumerReports.isEmpty());
+            show(R.id.adminConsumerReportsEmptyText, !queue && data.consumerReports.isEmpty());
+            show(R.id.hostReportsRecyclerView, !queue && !data.hostReports.isEmpty());
+            show(R.id.adminHostReportsEmptyText, !queue && data.hostReports.isEmpty());
+            show(R.id.disputesRecyclerView, !queue && !data.disputes.isEmpty());
+            show(R.id.adminDisputesEmptyText, !queue && data.disputes.isEmpty());
             analyticsText.setText(getString(R.string.admin_platform_summary,
-                    data.pending.size(), data.disputes.size(), data.reports.size(),
+                    data.pending.size(), data.disputes.size(),
+                    data.consumerReports.size() + data.hostReports.size(),
                     data.analytics.getSessionsCompleted(),
                     String.format(Locale.US, "%.1f kWh", data.analytics.getEnergyDeliveredKwh()),
                     Formatters.money(data.analytics.getRevenue()),
@@ -229,7 +303,7 @@ public class AdminDashboardFragment extends Fragment {
         }, name -> {
             if (name != null) {
                 Ux.success(this, getString(approve
-                        ? R.string.admin_approved : R.string.admin_rejected, name));
+                        ? R.string.admin_approved : R.string.admin_declined, name));
                 load();
             }
         });
@@ -363,21 +437,193 @@ public class AdminDashboardFragment extends Fragment {
         });
     }
 
+    // ------------------------------------------------------------- reports
+
+    /**
+     * True when a report belongs under "Reports from hosts".
+     *
+     * <p>A report is filed by the side of the incident the reporter was on, so the session it
+     * names is what decides: the account that owns the session is its host, and the reporter is
+     * either that host or the driver. A report with no session names the host or the station it
+     * is about when a driver filed it, which is what a consumer's report does. Anything left is
+     * settled by the reporter's own standing, and a customer is the default because that is who
+     * most reports come from.
+     *
+     * <p>Reads the database, so it runs on the loading thread with the rows it classifies.
+     */
+    private boolean isHostReport(@NonNull Report report) {
+        String reporterId = report.getReporterId();
+        String sessionId = report.getSessionId();
+        if (!TextUtils.isEmpty(sessionId)) {
+            ChargingSession session = repo.getSessionSync(sessionId);
+            if (session != null) {
+                return reporterId != null && reporterId.equals(session.getHostId());
+            }
+        }
+        if (!TextUtils.isEmpty(report.getTargetHostId())
+                || !TextUtils.isEmpty(report.getTargetStationId())) {
+            // Naming a host or a station is what a driver's report does.
+            return false;
+        }
+        User reporter = TextUtils.isEmpty(reporterId) ? null : repo.getUserSync(reporterId);
+        return reporter != null && AppConstants.ROLE_HOST.equalsIgnoreCase(reporter.getRole());
+    }
+
+    /** The display name of the person who filed the report. */
+    @Nullable
+    private String reporterName(Report report) {
+        if (report.getReporterName() != null && !report.getReporterName().trim().isEmpty()) {
+            return report.getReporterName();
+        }
+        return displayName(report.getReporterId());
+    }
+
+    /** The account the report is about, or the station when no account can be resolved. */
+    @Nullable
+    private String reportedName(Report report) {
+        String name = displayName(repo.reportTargetUserIdSync(report));
+        if (name != null) {
+            return name;
+        }
+        if (report.getTargetStationId() != null) {
+            ChargerStation station = repo.getStationSync(report.getTargetStationId());
+            if (station != null) {
+                return station.getName();
+            }
+        }
+        return null;
+    }
+
+    @Nullable
+    private String displayName(@Nullable String userId) {
+        if (userId == null) {
+            return null;
+        }
+        User user = repo.getUserSync(userId);
+        return user == null ? null : user.getName();
+    }
+
+    /**
+     * Asks how long a suspension should last, with the length this account's history suggests
+     * already selected. The administrator can always pick another of the three.
+     */
+    private void chooseSuspension(Report report) {
+        if (!canActAsAdmin()) {
+            return;
+        }
+        repo.background(() -> repo.countEnforcementForUserSync(repo.reportTargetUserIdSync(report)),
+                (Integer prior) -> {
+                    if (!isAdded()) {
+                        return;
+                    }
+                    int incidents = (prior == null ? 0 : prior) + 1;
+                    int suggested = EnforcementPolicyEngine.suggestedSuspensionDays(incidents);
+                    final String[] options = new String[EnforcementPolicyEngine.SUSPENSION_DAYS.length];
+                    int checked = 0;
+                    for (int i = 0; i < options.length; i++) {
+                        options[i] = suspensionLabel(EnforcementPolicyEngine.SUSPENSION_DAYS[i]);
+                        if (EnforcementPolicyEngine.SUSPENSION_DAYS[i] == suggested) {
+                            checked = i;
+                        }
+                    }
+                    final int[] choice = {checked};
+                    new com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
+                            .setTitle(R.string.admin_suspend_account_title)
+                            .setMessage(getString(R.string.admin_suspend_account_body) + "\n\n"
+                                    + getString(R.string.admin_suspend_suggested, options[checked]))
+                            .setSingleChoiceItems(options, checked,
+                                    (dialog, which) -> choice[0] = which)
+                            .setNegativeButton(R.string.action_cancel, null)
+                            .setPositiveButton(R.string.admin_report_action_suspend,
+                                    (dialog, which) -> applyReportAction(report,
+                                            AppConstants.ENFORCEMENT_SUSPENSION,
+                                            EnforcementPolicyEngine.SUSPENSION_DAYS[choice[0]]
+                                                    * EnforcementPolicyEngine.DAY_MS))
+                            .show();
+                });
+    }
+
+    private String suspensionLabel(int days) {
+        if (days == 1) {
+            return getString(R.string.admin_suspend_option_1d);
+        }
+        if (days == 7) {
+            return getString(R.string.admin_suspend_option_7d);
+        }
+        return getString(R.string.admin_suspend_option_30d);
+    }
+
+    /** A ban is permanent, so it is the one action that always asks first. */
+    private void confirmReportBan(Report report) {
+        if (!canActAsAdmin()) {
+            return;
+        }
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
+                .setTitle(R.string.admin_confirm_account_ban_title)
+                .setMessage(R.string.admin_confirm_account_ban_body)
+                .setNegativeButton(R.string.action_cancel, null)
+                .setPositiveButton(R.string.admin_report_action_ban,
+                        (dialog, which) -> applyReportAction(report,
+                                AppConstants.ENFORCEMENT_BAN, 0L))
+                .show();
+    }
+
+    /**
+     * Records one decision against the reported account, notifies them and closes the report.
+     *
+     * <p>A thrown write becomes a message rather than a silent success: {@code background} reports
+     * null both for "done" and for "threw", and this action must not claim it recorded anything
+     * it did not.
+     */
+    private void applyReportAction(Report report, String action, long expiresAtMs) {
+        if (!canActAsAdmin()) {
+            return;
+        }
+        repo.background(() -> {
+            try {
+                return repo.applyReportAction(report, action, expiresAtMs);
+            } catch (RuntimeException e) {
+                return getString(R.string.admin_report_action_failed);
+            }
+        }, (String error) -> {
+            if (!isAdded()) {
+                return;
+            }
+            if (error != null) {
+                Ux.error(this, error);
+                return;
+            }
+            Ux.success(this, getString(R.string.admin_action_recorded, actionLabel(action)));
+            load();
+        });
+    }
+
+    private String actionLabel(String action) {
+        if (AppConstants.ENFORCEMENT_SUSPENSION.equals(action)) {
+            return getString(R.string.admin_report_action_suspend);
+        }
+        if (AppConstants.ENFORCEMENT_BAN.equals(action)) {
+            return getString(R.string.admin_report_action_ban);
+        }
+        return getString(R.string.admin_report_action_warning);
+    }
+
     private static class AdminData {
         private final List<ChargerStation> pending;
         private final List<DisputeAdapter.DisputeRow> disputes;
-        private final List<Report> reports;
+        private final List<ReportAdapter.Item> consumerReports;
+        private final List<ReportAdapter.Item> hostReports;
         private final HostAnalyticsEngine.HostAnalytics analytics;
-        private final List<Invoice> invoices;
 
         AdminData(List<ChargerStation> pending, List<DisputeAdapter.DisputeRow> disputes,
-                  List<Report> reports, HostAnalyticsEngine.HostAnalytics analytics,
-                  List<Invoice> invoices) {
+                  List<ReportAdapter.Item> consumerReports,
+                  List<ReportAdapter.Item> hostReports,
+                  HostAnalyticsEngine.HostAnalytics analytics) {
             this.pending = pending;
             this.disputes = disputes;
-            this.reports = reports;
+            this.consumerReports = consumerReports;
+            this.hostReports = hostReports;
             this.analytics = analytics;
-            this.invoices = invoices;
         }
     }
 }

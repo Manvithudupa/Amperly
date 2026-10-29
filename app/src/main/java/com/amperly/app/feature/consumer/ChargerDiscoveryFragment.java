@@ -183,6 +183,20 @@ public class ChargerDiscoveryFragment extends Fragment implements StationAdapter
         loadStations();
     }
 
+    /**
+     * The tab is on show again.
+     *
+     * <p>Tabs are hidden rather than rebuilt, and a hidden fragment is never paused, so the
+     * battery or the vehicle changed on another tab only reaches this list through here.
+     */
+    @Override
+    public void onHiddenChanged(boolean hidden) {
+        super.onHiddenChanged(hidden);
+        if (!hidden && isAdded()) {
+            loadStations();
+        }
+    }
+
     private void loadStations() {
         String userId = AuthManager.getInstance().getCurrentUserId();
         Context appContext = requireContext().getApplicationContext();
@@ -432,6 +446,9 @@ public class ChargerDiscoveryFragment extends Fragment implements StationAdapter
                     dialog.dismiss();
                     saveBattery(soc);
                 }));
+        // Keeps the field above the keyboard in a dialog, which is its own window.
+        Ux.keepFieldsVisible(content);
+        Ux.resizeForKeyboard(dialog);
         dialog.show();
         input.requestFocus();
     }

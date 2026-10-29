@@ -2,9 +2,12 @@ package com.amperly.app.data.local;
 
 import android.content.Context;
 
+import androidx.annotation.NonNull;
 import androidx.room.Database;
 import androidx.room.Room;
 import androidx.room.RoomDatabase;
+import androidx.room.migration.Migration;
+import androidx.sqlite.db.SupportSQLiteDatabase;
 
 import com.amperly.app.data.local.dao.AndroidAutoSessionDao;
 import com.amperly.app.data.local.dao.AvailabilityScheduleDao;
@@ -60,7 +63,7 @@ import com.amperly.app.data.local.entity.Vehicle;
         TrustedContact.class, BatteryUpdate.class, HostEnforcementAction.class,
         Notification.class, ChatMessage.class, CommunicationThread.class, RoutePlan.class,
         RouteStop.class, TripEstimate.class, AndroidAutoSession.class
-}, version = 5, exportSchema = false)
+}, version = 6, exportSchema = false)
 public abstract class AmperlyDatabase extends RoomDatabase {
 
     private static volatile AmperlyDatabase INSTANCE;
@@ -89,12 +92,26 @@ public abstract class AmperlyDatabase extends RoomDatabase {
     public abstract TripEstimateDao tripEstimateDao();
     public abstract AndroidAutoSessionDao androidAutoSessionDao();
 
+    /**
+     * v6 adds the suspension end date to the enforcement history.
+     *
+     * <p>An existing install keeps its enforcement rows; 0 means the entry does not expire, which
+     * is exactly what every action recorded before this column existed was.
+     */
+    static final Migration MIGRATION_5_6 = new Migration(5, 6) {
+        @Override
+        public void migrate(@NonNull SupportSQLiteDatabase db) {
+            db.execSQL("ALTER TABLE host_enforcements ADD COLUMN expiresAtMs INTEGER NOT NULL DEFAULT 0");
+        }
+    };
+
     public static AmperlyDatabase getInstance(Context context) {
         if (INSTANCE == null) {
             synchronized (AmperlyDatabase.class) {
                 if (INSTANCE == null) {
                     INSTANCE = Room.databaseBuilder(context.getApplicationContext(),
                                     AmperlyDatabase.class, "amperly_db")
+                            .addMigrations(MIGRATION_5_6)
                             .fallbackToDestructiveMigration()
                             .build();
                 }

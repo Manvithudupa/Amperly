@@ -10,18 +10,13 @@
 
     <dimen name="amp_screen_padding">20dp</dimen>
     <dimen name="amp_card_radius">16dp</dimen>
-    <dimen name="amp_sheet_radius">16dp</dimen>
     <dimen name="amp_field_radius">12dp</dimen>
     <dimen name="amp_chip_radius">50dp</dimen>
-    <dimen name="amp_card_elevation">0dp</dimen>
     <dimen name="amp_touch_target">48dp</dimen>
 
     <dimen name="amp_section_gap">24dp</dimen>
-    <dimen name="amp_content_max_width">640dp</dimen>
-    <dimen name="amp_stat_tile_height">84dp</dimen>
     <dimen name="amp_map_panel_height">220dp</dimen>
     <dimen name="amp_details_map_height">180dp</dimen>
-    <dimen name="amp_hero_height">150dp</dimen>
     <dimen name="amp_sheet_handle_width">36dp</dimen>
     <dimen name="amp_sheet_handle_height">4dp</dimen>
     <dimen name="amp_timeline_height">28dp</dimen>

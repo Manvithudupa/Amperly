@@ -31,6 +31,19 @@ public interface CommunicationThreadDao {
     @Query("SELECT * FROM communication_threads WHERE reservationId = :reservationId LIMIT 1")
     CommunicationThread getThreadByReservationSync(String reservationId);
 
+    /**
+     * The conversation one consumer has with one host, oldest first.
+     *
+     * <p>Chat is per pair of people, not per booking: the first row is the thread that is kept
+     * and any later rows are leftovers from the reservation-scoped version of this table.
+     */
+    @Query("SELECT * FROM communication_threads WHERE consumerId = :consumerId AND hostId = :hostId "
+            + "ORDER BY createdAtMs ASC")
+    List<CommunicationThread> getThreadsForConsumerAndHostSync(String consumerId, String hostId);
+
+    @Query("DELETE FROM communication_threads WHERE id = :threadId")
+    void deleteById(String threadId);
+
     @Query("SELECT * FROM communication_threads ORDER BY createdAtMs DESC")
     List<CommunicationThread> getAllThreadsSync();
 

@@ -63,7 +63,7 @@ public class ReservationAdapter extends RecyclerView.Adapter<ReservationAdapter.
         private final TextView station;
         private final TextView status;
         private final TextView slot;
-        private final TextView code;
+        private final MaterialButton code;
         private final TextView amount;
         private final MaterialButton openQr;
         private final MaterialButton checkIn;
@@ -75,7 +75,7 @@ public class ReservationAdapter extends RecyclerView.Adapter<ReservationAdapter.
             station = itemView.findViewById(R.id.reservationStationText);
             status = itemView.findViewById(R.id.reservationStatusText);
             slot = itemView.findViewById(R.id.reservationSlotText);
-            code = itemView.findViewById(R.id.reservationCodeText);
+            code = itemView.findViewById(R.id.reservationCodeButton);
             amount = itemView.findViewById(R.id.reservationAmountText);
             openQr = itemView.findViewById(R.id.openQrButton);
             checkIn = itemView.findViewById(R.id.checkInButton);
@@ -90,8 +90,14 @@ public class ReservationAdapter extends RecyclerView.Adapter<ReservationAdapter.
             slot.setText(Formatters.dayAndSlot(reservation.getStartTimeMs(), reservation.getEndTimeMs())
                     + (reservation.getPortLabel() == null ? "" : " · " + reservation.getPortLabel()));
             Context context = itemView.getContext();
-            code.setText(context.getString(R.string.reservation_code_line,
+            // The chip is the booking code itself, and it opens the QR for this reservation at any
+            // time — not only on the screen shown straight after booking.
+            code.setText(reservation.getBookingCode());
+            code.setContentDescription(context.getString(R.string.reservation_show_code,
                     reservation.getBookingCode()));
+            code.setOnClickListener(v -> {
+                if (listener != null) listener.onOpenQr(reservation);
+            });
             String paymentLine = reservation.isPaid()
                     ? context.getString(R.string.reservation_authorized_line,
                     Formatters.money(reservation.getPricePerKwh()),

@@ -78,6 +78,9 @@ public class AccountFragment extends Fragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
         repo = AmperlyRepository.getInstance(requireContext());
+        // The page carries no field of its own, but the rename dialog is opened from here and
+        // the helper is idempotent: wiring the page keeps future fields covered too.
+        Ux.keepFieldsVisible(view);
 
         detailContainer = view.findViewById(R.id.accountDetailContainer);
         avatarBadge = view.findViewById(R.id.accountAvatarBadge);
@@ -116,10 +119,17 @@ public class AccountFragment extends Fragment {
                 if (chip == null || chip.getTag() == null) {
                     return;
                 }
+                String role = String.valueOf(chip.getTag());
+                if (role.equals(AuthManager.getInstance().getCurrentRole())) {
+                    // The group re-checks the chip of the role that is already acting whenever it
+                    // is rebound. That is not a capacity switch, and rebuilding the shell for it
+                    // only made the page flicker.
+                    return;
+                }
                 if (getActivity() instanceof MainActivity) {
-                    ((MainActivity) getActivity()).switchRole(String.valueOf(chip.getTag()));
+                    ((MainActivity) getActivity()).switchRole(role);
                 } else {
-                    AuthManager.getInstance().setRole(String.valueOf(chip.getTag()));
+                    AuthManager.getInstance().setRole(role);
                 }
             });
         }
@@ -136,6 +146,19 @@ public class AccountFragment extends Fragment {
     @Override
     public void onResume() {
         super.onResume();
+        refreshAccount();
+    }
+
+    /** The Profile tab is on show again; a hidden tab is never paused, so it is refreshed here. */
+    @Override
+    public void onHiddenChanged(boolean hidden) {
+        super.onHiddenChanged(hidden);
+        if (!hidden && isAdded()) {
+            refreshAccount();
+        }
+    }
+
+    private void refreshAccount() {
         render(AuthManager.getInstance().getCurrentUser(), SupabaseAuth.isSignedIn());
         renderRoleChips();
         loadSyncStatus();
@@ -315,6 +338,9 @@ public class AccountFragment extends Fragment {
                     dialog.dismiss();
                     saveName(name);
                 }));
+        // The keyboard must not bury the field the rename is typed into.
+        Ux.keepFieldsVisible(content);
+        Ux.resizeForKeyboard(dialog);
         dialog.show();
         input.requestFocus();
     }

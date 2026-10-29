@@ -10,6 +10,7 @@ import android.widget.FrameLayout;
 import android.widget.TextView;
 
 import androidx.activity.OnBackPressedCallback;
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.PopupMenu;
@@ -20,12 +21,16 @@ import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentManager;
+import androidx.fragment.app.FragmentTransaction;
 
 import com.amperly.app.core.common.AppConstants;
 import com.amperly.app.core.nav.Navigator;
+import com.amperly.app.core.nav.TabBackStackHost;
+import com.amperly.app.core.nav.TripNavigationHost;
 import com.amperly.app.core.security.AuthManager;
 import com.amperly.app.core.state.AppStateStore;
 import com.amperly.app.core.state.SocStore;
+import com.amperly.app.core.state.TripSessionStore;
 import com.amperly.app.data.local.entity.User;
 import com.amperly.app.data.local.entity.Vehicle;
 import com.amperly.app.data.remote.SupabaseAuth;
@@ -39,21 +44,39 @@ import com.amperly.app.feature.common.NotificationsFragment;
 import com.amperly.app.feature.consumer.ActiveSessionFragment;
 import com.amperly.app.feature.consumer.ChargerDiscoveryFragment;
 import com.amperly.app.feature.consumer.HostChatFragment;
+import com.amperly.app.feature.consumer.InAppNavigationFragment;
 import com.amperly.app.feature.consumer.ReservationFragment;
 import com.amperly.app.feature.consumer.RoutePlannerFragment;
 import com.amperly.app.feature.consumer.SafetySOSFragment;
 import com.amperly.app.feature.consumer.VehicleProfileFragment;
+import com.amperly.app.feature.host.HostBookingsFragment;
 import com.amperly.app.feature.host.HostDashboardFragment;
-import com.amperly.app.feature.host.RegisterStationFragment;
+import com.amperly.app.feature.host.HostStationsFragment;
 import com.amperly.app.ui.Ux;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
+
 /**
  * The application shell: app bar, mode strip, one fragment container and the bottom
  * navigation.
+ *
+ * <p>Each tab keeps its own screen. Switching tabs hides the screen that was showing and reveals
+ * the one that was already built for the tab being selected, instead of replacing the container.
+ * A replaced fragment loses everything it was holding — a planned route, a running navigation, a
+ * half-typed booking — which is exactly what a driver switching tabs never asked to lose.
+ *
+ * <p>The pages opened on top of a tab belong to that tab. A booking's QR code, a station's
+ * reservation slip, a receipt, a chat: leaving the tab keeps them under the tab's own name and
+ * entering the tab again puts them back, so going to Discover and returning to Bookings no longer
+ * throws away the page the driver had open.
  */
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity
+        implements TripNavigationHost, TabBackStackHost {
 
     private static final String TAG = "Amperly";
 
@@ -61,7 +84,55 @@ public class MainActivity extends AppCompatActivity {
     private static final String PREFS = "amperly_session";
     private static final String KEY_LAST_USER = "last_user_id";
 
+    /** Which tab screen is on show, and the tabs kept in the container, across a rotation. */
+    private static final String STATE_CURRENT_TAB = "current_tab";
+    private static final String STATE_TAB_TAGS = "tab_tags";
+    /** The tabs whose pages are filed away rather than on show, so they survive a rotation too. */
+    private static final String STATE_SAVED_TAB_STACKS = "saved_tab_stacks";
+
+    /**
+     * "No tab preference": the rebuild picks the landing tab its role normally opens on.
+     *
+     * <p>Tab ids are resource ids, which are never zero, so this can never name a real tab.
+     */
+    private static final int NO_TAB = Menu.NONE;
+
+    /** One tag per tab, so each tab's screen can be found again instead of being rebuilt. */
+    private static final String TAB_DISCOVER = "discover";
+    /** The Trips tab: the planner, or the navigation screen while a trip is running. */
+    private static final String TAB_TRIPS = "route";
+    private static final String TAB_BOOKINGS = "reserve";
+    private static final String TAB_ACCOUNT = "account";
+    private static final String TAB_HOST_HOME = "host_home";
+    private static final String TAB_HOST_BOOKINGS = "host_bookings";
+    private static final String TAB_HOST_STATIONS = "register";
+    private static final String TAB_ADMIN_QUEUE = "admin_queue";
+    private static final String TAB_ADMIN_REPORTS = "admin_reports";
+
     private BottomNavigationView bottomNavigationView;
+
+    /** The tag of the tab screen currently on show, null before the first one is built. */
+    @Nullable
+    private String currentTabTag;
+
+    /**
+     * Set while a rebuild lands on its first tab, so that tab is attached in the same frame the
+     * previous ones were removed instead of leaving the container empty for one.
+     */
+    private boolean commitLandingNow;
+
+    /** The tab screens living in the container, so a role change can clear the previous ones. */
+    private final Set<String> tabTags = new LinkedHashSet<>();
+
+    /**
+     * The tabs whose pages are filed away instead of on show — one entry per tab the driver has
+     * left with a page open.
+     *
+     * <p>The Fragment Manager holds the pages themselves; this only records the names they were
+     * saved under, which is what tells a tab it can be reopened on its page rather than its first
+     * screen. A name in here is always one that {@code clearBackStack} can be called for.
+     */
+    private final Set<String> savedTabStacks = new LinkedHashSet<>();
 
     /** The profile trigger in the top bar, kept so its name and role can be re-rendered. */
     private View profileBadgeView;
@@ -73,6 +144,18 @@ public class MainActivity extends AppCompatActivity {
 
     private AmperlyRepository repo;
 
+    /**
+     * Whether the shell wants the bottom bar at all.
+     *
+     * <p>The bar steps out of the way while the keyboard is up, so its visibility is decided from
+     * this flag rather than read back off the view: a bar that is hidden because of the keyboard
+     * must not read as "there is no navigation" to the back handling.
+     */
+    private boolean navWanted;
+
+    /** True while the IME is covering the bottom of the window. */
+    private boolean keyboardOpen;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -80,6 +163,8 @@ public class MainActivity extends AppCompatActivity {
             WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
             setContentView(R.layout.activity_main);
             applyWindowInsets();
+            applyKeyboardInsets();
+            restoreTabs(savedInstanceState);
 
             repo = AmperlyRepository.getInstance(this);
 
@@ -104,6 +189,9 @@ public class MainActivity extends AppCompatActivity {
             makeToolbarHome(toolbar);
 
             bottomNavigationView = findViewById(R.id.bottomNavigationView);
+            // Tapping the tab that is already on show is the standard "back to the top of this
+            // tab" gesture: it closes whatever this tab has open and leaves its first screen.
+            bottomNavigationView.setOnItemReselectedListener(item -> popCurrentTabPages());
             appBarLayout = findViewById(R.id.appBarLayout);
             appBarDivider = findViewById(R.id.appBarDivider);
             fragmentContainer = findViewById(R.id.fragment_container);
@@ -117,6 +205,35 @@ public class MainActivity extends AppCompatActivity {
                 // explain that the account is what the data is authorised against.
                 showSignIn();
             } catch (Exception ignored) {}
+        }
+    }
+
+    /**
+     * Remembers which tab is showing, so a rotation does not end up with two tabs on show.
+     *
+     * <p>Fragment Manager restores the tab fragments themselves; the tags are the shell's own
+     * bookkeeping and have to be written down here.
+     */
+    @Override
+    protected void onSaveInstanceState(@NonNull Bundle outState) {
+        super.onSaveInstanceState(outState);
+        outState.putString(STATE_CURRENT_TAB, currentTabTag);
+        outState.putStringArrayList(STATE_TAB_TAGS, new ArrayList<>(tabTags));
+        outState.putStringArrayList(STATE_SAVED_TAB_STACKS, new ArrayList<>(savedTabStacks));
+    }
+
+    private void restoreTabs(@Nullable Bundle savedInstanceState) {
+        if (savedInstanceState == null) {
+            return;
+        }
+        currentTabTag = savedInstanceState.getString(STATE_CURRENT_TAB);
+        List<String> restored = savedInstanceState.getStringArrayList(STATE_TAB_TAGS);
+        if (restored != null) {
+            tabTags.addAll(restored);
+        }
+        List<String> filed = savedInstanceState.getStringArrayList(STATE_SAVED_TAB_STACKS);
+        if (filed != null) {
+            savedTabStacks.addAll(filed);
         }
     }
 
@@ -135,8 +252,7 @@ public class MainActivity extends AppCompatActivity {
             manager.popBackStack();
             return;
         }
-        if (isAtHomeScreen() || bottomNavigationView == null
-                || bottomNavigationView.getVisibility() != View.VISIBLE) {
+        if (isAtHomeScreen() || !isNavShowing()) {
             // Home is the top of the in-app stack: leaving it leaves the app, as expected.
             finish();
             return;
@@ -146,8 +262,13 @@ public class MainActivity extends AppCompatActivity {
 
     /** True when the container already shows the current role's home screen (or sign-in). */
     private boolean isAtHomeScreen() {
-        Fragment current = getSupportFragmentManager()
-                .findFragmentById(R.id.fragment_container);
+        // Several tabs live in the container at once, so the tab on show is asked for by tag:
+        // findFragmentById would answer with whichever tab happened to be added first.
+        Fragment current = currentTabTag == null ? null
+                : getSupportFragmentManager().findFragmentByTag(currentTabTag);
+        if (current == null || !current.isAdded()) {
+            current = getSupportFragmentManager().findFragmentById(R.id.fragment_container);
+        }
         if (current == null) {
             return true;
         }
@@ -156,7 +277,9 @@ public class MainActivity extends AppCompatActivity {
         }
         String role = AuthManager.getInstance().getCurrentRole();
         if (AppConstants.ROLE_HOST.equals(role)) {
-            return current instanceof HostDashboardFragment;
+            // Every host tab is a home screen: back from a detail page returns to any of them.
+            return current instanceof HostDashboardFragment || current instanceof HostBookingsFragment
+                    || current instanceof HostStationsFragment;
         }
         if (AppConstants.ROLE_ADMIN.equals(role)) {
             return current instanceof AdminDashboardFragment;
@@ -235,6 +358,64 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * Gives the keyboard the bottom of the screen.
+     *
+     * <p>With edge-to-edge drawing the window is never resized for the IME, so {@code adjustResize}
+     * alone does nothing: the keyboard would simply paint over the field being typed in. The IME
+     * inset is therefore reserved as bottom padding on the shell, which shortens the content area
+     * to exactly the space above the keyboard. The bottom bar is taken out of that space instead of
+     * riding on top of the keyboard, so no empty strip is left behind, and it comes back when the
+     * keyboard closes.
+     */
+    private void applyKeyboardInsets() {
+        View root = findViewById(R.id.main);
+        if (root == null) {
+            return;
+        }
+        final int start = root.getPaddingStart();
+        final int top = root.getPaddingTop();
+        final int end = root.getPaddingEnd();
+        final int baseBottom = root.getPaddingBottom();
+        ViewCompat.setOnApplyWindowInsetsListener(root, (view, windowInsets) -> {
+            Insets bars = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars());
+            Insets ime = windowInsets.getInsets(WindowInsetsCompat.Type.ime());
+            // The keyboard already covers the navigation bar, so its own height is the whole
+            // reservation; adding the bar inset as well would leave a gap under the field.
+            boolean open = ime.bottom > bars.bottom;
+            view.setPadding(start, top, end, baseBottom + (open ? ime.bottom : 0));
+            if (open != keyboardOpen) {
+                keyboardOpen = open;
+                applyNavVisibility();
+                if (open) {
+                    // The padding above only takes effect after this pass, so a field that was
+                    // already focused is scrolled again once the keyboard's space is reserved.
+                    Ux.scrollIntoView(view.findFocus());
+                }
+            }
+            return windowInsets;
+        });
+    }
+
+    /** Records whether the shell is allowed a bottom bar, and shows it if the keyboard is down. */
+    private void setNavWanted(boolean wanted) {
+        navWanted = wanted;
+        applyNavVisibility();
+    }
+
+    private void applyNavVisibility() {
+        if (bottomNavigationView == null) {
+            return;
+        }
+        bottomNavigationView.setVisibility(
+                navWanted && !keyboardOpen ? View.VISIBLE : View.GONE);
+    }
+
+    /** True when the shell has a bottom bar, ignoring the keyboard hiding it for the moment. */
+    private boolean isNavShowing() {
+        return navWanted;
+    }
+
     private void startBackend() {
         try {
             if (!SupabaseConfig.isConfigured() || SupabaseConfig.looksLikeSecretKey()) {
@@ -249,7 +430,7 @@ public class MainActivity extends AppCompatActivity {
                 return;
             }
             if (SupabaseAuth.hasStoredSession(this)) {
-                if (bottomNavigationView != null) bottomNavigationView.setVisibility(View.GONE);
+                setNavWanted(false);
                 restoreSession();
             } else {
                 showSignIn();
@@ -261,10 +442,10 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void showSignIn() {
-        if (bottomNavigationView != null) bottomNavigationView.setVisibility(View.GONE);
+        setNavWanted(false);
         setChromeVisible(false);
-        getSupportFragmentManager()
-                .popBackStack(null, FragmentManager.POP_BACK_STACK_INCLUSIVE);
+        // The tabs belong to the account that signed in, so they go with it.
+        resetTabs();
         getSupportFragmentManager()
                 .beginTransaction()
                 .replace(R.id.fragment_container, new SignInFragment(), "sign_in")
@@ -287,7 +468,7 @@ public class MainActivity extends AppCompatActivity {
                     SocStore.load(this, user.getId(), vehicle.getId()));
         });
         // Capacity is switched on the Profile page, so the shell itself stays identical.
-        if (bottomNavigationView != null) bottomNavigationView.setVisibility(View.VISIBLE);
+        setNavWanted(true);
         setChromeVisible(true);
         // An administrator signs in to work the verification queue, not to browse chargers;
         // landing them in Consumer hid the only screens their account exists for.
@@ -305,6 +486,8 @@ public class MainActivity extends AppCompatActivity {
     public void onSignedOut() {
         AuthManager.getInstance().clearCurrentUser();
         AppStateStore.get().reset();
+        // A trip belongs to the account driving it, never to the next person on the device.
+        TripSessionStore.end(this);
         showSignIn();
     }
 
@@ -322,7 +505,23 @@ public class MainActivity extends AppCompatActivity {
                             showSignIn();
                             return;
                         }
-                        onSignedIn(user);
+                        // A bar applied while this device still held a session ends the session
+                        // rather than letting the account back in on the stored token. Both
+                        // reads are database work, so they stay off the main thread.
+                        repo.background(() -> {
+                            String restricted = repo.accountRestrictionMessage(user);
+                            if (restricted != null) {
+                                SupabaseAuth.signOut(this);
+                            }
+                            return restricted;
+                        }, restricted -> {
+                            if (restricted != null) {
+                                Ux.error(this, restricted);
+                                showSignIn();
+                                return;
+                            }
+                            onSignedIn(user);
+                        });
                     });
         });
     }
@@ -355,9 +554,12 @@ public class MainActivity extends AppCompatActivity {
                 Log.i(TAG, "Signed-in sync: " + result.summary());
                 // The screens were built against an empty cache; rebuild so the pulled rows
                 // appear without the user having to leave and come back.
-                if (bottomNavigationView != null
-                        && bottomNavigationView.getVisibility() == View.VISIBLE) {
-                    buildNavigation(AuthManager.getInstance().getCurrentRole());
+                if (isNavShowing()) {
+                    // Rebuild under the tab that is showing rather than jumping back home: the
+                    // pulled rows belong to the screen the person is already looking at.
+                    int selected = bottomNavigationView == null
+                            ? NO_TAB : bottomNavigationView.getSelectedItemId();
+                    buildNavigation(AuthManager.getInstance().getCurrentRole(), selected);
                 }
             }
         });
@@ -439,7 +641,9 @@ public class MainActivity extends AppCompatActivity {
         popup.setOnMenuItemClickListener(item -> {
             int id = item.getItemId();
             if (id == R.id.profile_action_account) {
-                Navigator.openRoot(this, new AccountFragment(), "account");
+                // Not the Profile tab's tag: this page is opened over the tabs, and reusing the
+                // tab's tag would make the shell find two pages claiming to be that tab.
+                Navigator.openRoot(this, new AccountFragment(), "account_page");
                 return true;
             }
             if (id == R.id.profile_action_vehicle) {
@@ -462,7 +666,7 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     public boolean onPrepareOptionsMenu(Menu menu) {
-        boolean inApp = bottomNavigationView != null && bottomNavigationView.getVisibility() == View.VISIBLE;
+        boolean inApp = isNavShowing();
         for (int i = 0; i < menu.size(); i++) {
             menu.getItem(i).setVisible(inApp);
         }
@@ -514,13 +718,29 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    /** Opens the default page for the role the account is currently acting as. */
+    /**
+     * Opens the default page for the role the account is currently acting as.
+     *
+     * <p>This selects the home tab rather than rebuilding the navigation: the other tabs keep what
+     * they were showing, so a trip left on the Trips tab is still there when the driver goes back
+     * to it.
+     */
     public void goHome() {
-        if (bottomNavigationView == null
-                || bottomNavigationView.getVisibility() != View.VISIBLE) {
+        if (!isNavShowing()) {
             return;
         }
-        buildNavigation(AuthManager.getInstance().getCurrentRole());
+        selectNavigationItem(homeItemId(AuthManager.getInstance().getCurrentRole()));
+    }
+
+    /** The tab a role lands on. */
+    private int homeItemId(String role) {
+        if (AppConstants.ROLE_HOST.equals(role)) {
+            return R.id.nav_host_dashboard;
+        }
+        if (AppConstants.ROLE_ADMIN.equals(role)) {
+            return R.id.nav_admin_queue;
+        }
+        return R.id.nav_discover;
     }
 
     /** Up to two initials from a display name, matching the account page's monogram. */
@@ -573,18 +793,30 @@ public class MainActivity extends AppCompatActivity {
      * Switches capacity from the Profile page. The account never changes, only what it is
      * currently acting as, so a Consumer booking a slot and a Host listing a charger are the
      * same signed-in person.
+     *
+     * <p>The rebuild lands straight on the Profile page. Asking for it after the rebuild — the
+     * old way — built the role's home screen first, which flashed behind the page that was being
+     * reopened. Admin has no Profile tab, so {@link #buildNavigation} falls back to its queue.
      */
     public void switchRole(String role) {
-        applyRole(role);
-        // Stay on the Profile page while the capacity changes: rebuilding the navigation
-        // selects the role's home, so ask for Profile again. Admin has no Profile tab.
-        if (bottomNavigationView != null
-                && !AppConstants.ROLE_ADMIN.equals(AuthManager.getInstance().getCurrentRole())) {
-            bottomNavigationView.setSelectedItemId(R.id.nav_profile);
+        if (role == null || role.equals(AuthManager.getInstance().getCurrentRole())) {
+            // Tapping the capacity that is already active is not a switch; rebuilding for it
+            // only made the page flicker.
+            return;
         }
+        applyRole(role, R.id.nav_profile);
     }
 
     private void applyRole(String role) {
+        applyRole(role, NO_TAB);
+    }
+
+    /**
+     * Makes {@code role} the acting capacity and rebuilds the shell for it.
+     *
+     * @param initialItemId the tab to land on, or {@link #NO_TAB} for the role's usual one
+     */
+    private void applyRole(String role, int initialItemId) {
         AuthManager auth = AuthManager.getInstance();
         String target = role;
         if (!auth.setRole(target)) {
@@ -594,16 +826,26 @@ public class MainActivity extends AppCompatActivity {
         }
         AppStateStore.get().setUserId(auth.getCurrentUserId());
         renderProfileBadge();
-        buildNavigation(target);
+        buildNavigation(target, initialItemId);
     }
 
-    private void buildNavigation(String role) {
+    /**
+     * Rebuilds the menu and the tab screens for a capacity, landing on exactly one tab.
+     *
+     * @param role          the capacity the menu belongs to
+     * @param initialItemId the tab to show, or {@link #NO_TAB} for the role's usual landing tab
+     */
+    private void buildNavigation(String role, int initialItemId) {
         if (bottomNavigationView == null) return;
+        // A rebuild (first sign-in, role switch, post-sync refresh) starts from fresh screens: the
+        // tab that was on show belonged to the previous menu.
+        resetTabs();
         Menu menu = bottomNavigationView.getMenu();
         menu.clear();
         bottomNavigationView.setOnItemSelectedListener(null);
 
         if (AppConstants.ROLE_HOST.equals(role)) {
+            // Dashboard is the numbers; Bookings is the list of slots. Two tabs, two screens.
             menu.add(0, R.id.nav_host_dashboard, 0, R.string.nav_dashboard).setIcon(R.drawable.ic_dashboard);
             menu.add(0, R.id.nav_host_add_station, 1, R.string.nav_stations).setIcon(R.drawable.ic_pin);
             menu.add(0, R.id.nav_host_bookings, 2, R.string.nav_bookings).setIcon(R.drawable.ic_reserve);
@@ -612,16 +854,17 @@ public class MainActivity extends AppCompatActivity {
             // Selecting the item runs the listener above, which loads the screen. Calling
             // loadRoot here as well built a second fragment and detached the first one while its
             // map was still being attached — the crash this method used to cause on sign-in.
-            selectNavigationItem(R.id.nav_host_dashboard);
+            landOnNavigation(initialItemId, R.id.nav_host_dashboard);
             return;
         }
 
         if (AppConstants.ROLE_ADMIN.equals(role)) {
+            // Disputes no longer has its own tab; the dispute list still lives on the queue page.
             menu.add(0, R.id.nav_admin_queue, 0, R.string.nav_admin_queue).setIcon(R.drawable.ic_queue);
-            menu.add(0, R.id.nav_admin_disputes, 1, R.string.nav_admin_disputes).setIcon(R.drawable.ic_gavel);
-            menu.add(0, R.id.nav_admin_reports, 2, R.string.nav_admin_reports).setIcon(R.drawable.ic_flag);
+            menu.add(0, R.id.nav_admin_reports, 1, R.string.nav_admin_reports).setIcon(R.drawable.ic_flag);
             bottomNavigationView.setOnItemSelectedListener(item -> loadAdminScreen(item.getItemId()));
-            selectNavigationItem(R.id.nav_admin_queue);
+            // Admin has no Profile tab, so a request for one falls back to the queue here.
+            landOnNavigation(initialItemId, R.id.nav_admin_queue);
             return;
         }
 
@@ -630,7 +873,39 @@ public class MainActivity extends AppCompatActivity {
         menu.add(0, R.id.nav_reserve, 2, R.string.nav_bookings).setIcon(R.drawable.ic_reserve);
         menu.add(0, R.id.nav_profile, 3, R.string.nav_profile).setIcon(R.drawable.ic_account);
         bottomNavigationView.setOnItemSelectedListener(item -> loadConsumerScreen(item.getItemId()));
-        selectNavigationItem(R.id.nav_discover);
+        // A trip that was running when the app was last used reopens where it left off; the Trips
+        // tab is also the only place the driver needs to tap to find it again.
+        landOnNavigation(initialItemId, TripSessionStore.hasActive(this)
+                ? R.id.nav_route_plan : R.id.nav_discover);
+    }
+
+    /**
+     * Lands on the one tab this rebuild should show.
+     *
+     * <p>The requested tab wins whenever the new menu has it — that is what keeps a capacity
+     * switch on the Profile page — and anything else, {@link #NO_TAB} included, gets the role's
+     * ordinary landing tab, which is what a sign-in asks for.
+     */
+    private void landOnNavigation(int initialItemId, int defaultItemId) {
+        int itemId = initialItemId;
+        if (itemId == NO_TAB || bottomNavigationView.getMenu().findItem(itemId) == null) {
+            itemId = defaultItemId;
+        }
+        // Highlight the tab first: selecting an id the bar already carries takes the load-only
+        // path, which would leave the new menu with nothing checked.
+        MenuItem landing = bottomNavigationView.getMenu().findItem(itemId);
+        if (landing != null) {
+            landing.setChecked(true);
+        }
+        // Every screen was just removed, so this first one is attached before the frame is drawn:
+        // a queued commit would show an empty container, and loading the home screen first is the
+        // flash this method exists to avoid.
+        commitLandingNow = true;
+        try {
+            selectNavigationItem(itemId);
+        } finally {
+            commitLandingNow = false;
+        }
     }
 
     /**
@@ -665,67 +940,321 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private boolean loadConsumerScreen(int itemId) {
-        Fragment fragment;
-        String tag;
         if (itemId == R.id.nav_route_plan) {
-            fragment = new RoutePlannerFragment();
-            tag = "route";
-        } else if (itemId == R.id.nav_reserve) {
-            fragment = new ReservationFragment();
-            tag = "reserve";
-        } else if (itemId == R.id.nav_profile) {
-            fragment = new AccountFragment();
-            tag = "account";
-        } else {
-            fragment = new ChargerDiscoveryFragment();
-            tag = "discover";
+            openTripsTab();
+            return true;
         }
-        loadRoot(fragment, tag);
+        if (itemId == R.id.nav_reserve) {
+            loadRoot(new ReservationFragment(), TAB_BOOKINGS);
+            return true;
+        }
+        if (itemId == R.id.nav_profile) {
+            loadRoot(new AccountFragment(), TAB_ACCOUNT);
+            return true;
+        }
+        loadRoot(new ChargerDiscoveryFragment(), TAB_DISCOVER);
         return true;
+    }
+
+    /**
+     * The Trips tab: the navigation screen while a trip is running, the planner otherwise.
+     *
+     * <p>This is the way back into a trip. Selecting Trips is enough — no new button anywhere —
+     * and the screen returns with its route, its progress and its timer, because a tab that was
+     * only hidden was never stopped.
+     */
+    private void openTripsTab() {
+        Fragment existing = getSupportFragmentManager().findFragmentByTag(TAB_TRIPS);
+        InAppNavigationFragment trip = InAppNavigationFragment.forActiveTrip(this);
+        if (trip == null && existing instanceof InAppNavigationFragment) {
+            // The trip ended while another tab was on show, so the tab returns to the planner.
+            replaceTabRoot(new RoutePlannerFragment(), TAB_TRIPS);
+            return;
+        }
+        loadRoot(trip != null && existing == null ? trip : new RoutePlannerFragment(), TAB_TRIPS);
     }
 
     private boolean loadHostScreen(int itemId) {
         if (itemId == R.id.nav_host_add_station) {
-            loadRoot(new RegisterStationFragment(), "register");
+            // The tab is the list of stations; registering one opens from its Add station button.
+            loadRoot(new HostStationsFragment(), TAB_HOST_STATIONS);
             return true;
         }
         if (itemId == R.id.nav_profile) {
-            loadRoot(new AccountFragment(), "account");
+            loadRoot(new AccountFragment(), TAB_ACCOUNT);
             return true;
         }
         if (itemId == R.id.nav_host_bookings) {
-            HostDashboardFragment bookings = new HostDashboardFragment();
-            Bundle args = new Bundle();
-            args.putString(HostDashboardFragment.ARG_SECTION, HostDashboardFragment.SECTION_BOOKINGS);
-            bookings.setArguments(args);
-            loadRoot(bookings, "host_dashboard");
+            loadRoot(new HostBookingsFragment(), TAB_HOST_BOOKINGS);
             return true;
         }
-        loadRoot(new HostDashboardFragment(), "host_dashboard");
+        loadRoot(new HostDashboardFragment(), TAB_HOST_HOME);
         return true;
     }
 
     private boolean loadAdminScreen(int itemId) {
         AdminDashboardFragment admin = new AdminDashboardFragment();
         Bundle args = new Bundle();
-        if (itemId == R.id.nav_admin_disputes) {
-            args.putString(AdminDashboardFragment.ARG_SECTION, AdminDashboardFragment.SECTION_DISPUTES);
-        } else if (itemId == R.id.nav_admin_reports) {
+        String tag;
+        if (itemId == R.id.nav_admin_reports) {
             args.putString(AdminDashboardFragment.ARG_SECTION, AdminDashboardFragment.SECTION_REPORTS);
+            tag = TAB_ADMIN_REPORTS;
         } else {
+            // Any other id — including a stale Disputes selection — lands on the queue.
             args.putString(AdminDashboardFragment.ARG_SECTION, AdminDashboardFragment.SECTION_QUEUE);
+            tag = TAB_ADMIN_QUEUE;
         }
         admin.setArguments(args);
-        loadRoot(admin, "admin");
+        loadRoot(admin, tag);
         return true;
     }
 
+    /**
+     * The name the pages opened on top of the tab on show are filed under.
+     *
+     * <p>{@link Navigator#open} asks for this so a page joins the history of the tab it was opened
+     * from. Null only while no tab is on show, which is the sign-in page.
+     */
+    @Nullable
+    @Override
+    public String currentTabBackStackName() {
+        return currentTabTag;
+    }
+
+    /**
+     * Closes what the tab on show has open, leaving its first screen.
+     *
+     * <p>Re-tapping the selected tab is the one gesture that discards a tab's pages instead of
+     * filing them away, and it is what the gesture is expected to do.
+     */
+    private void popCurrentTabPages() {
+        FragmentManager manager = getSupportFragmentManager();
+        if (manager.getBackStackEntryCount() > 0) {
+            manager.popBackStackImmediate(null, FragmentManager.POP_BACK_STACK_INCLUSIVE);
+        }
+    }
+
+    /**
+     * Takes the pages the current tab has open off the back stack before another tab is entered.
+     *
+     * <p>They are filed under the tab's own name instead of being popped away, which is what lets
+     * the tab be entered again on exactly the page that was open. Re-selecting the tab that is
+     * already showing is the opposite case — its pages are being replaced — so they are popped,
+     * and so is a stack with nothing to file it under.
+     */
+    private void leaveCurrentTab(@NonNull FragmentManager manager, @Nullable String targetTag) {
+        String leaving = currentTabTag;
+        if (leaving == null || leaving.equals(targetTag)) {
+            manager.popBackStackImmediate(null, FragmentManager.POP_BACK_STACK_INCLUSIVE);
+            if (leaving != null) {
+                savedTabStacks.remove(leaving);
+            }
+            return;
+        }
+        if (manager.getBackStackEntryCount() == 0) {
+            // Nothing was opened on top of the tab, so there is nothing to keep.
+            return;
+        }
+        if (!isStackFiledUnder(manager, leaving)) {
+            // A page filed under some other name cannot be restored into this tab, so it goes
+            // rather than leaking into the history of the tab being entered.
+            manager.popBackStackImmediate(null, FragmentManager.POP_BACK_STACK_INCLUSIVE);
+            return;
+        }
+        if (savedTabStacks.contains(leaving)) {
+            // A file already held under this name is stale: the pages open now are the newer ones.
+            manager.clearBackStack(leaving);
+            savedTabStacks.remove(leaving);
+        }
+        manager.saveBackStack(leaving);
+        // Saving queues the reversal of the pages it takes off the stack. Whatever is built next
+        // reads the container, so those reversals have to have run first — filling a page away and
+        // then adding a screen on top of a stale view of the container doubles up the tab's root.
+        manager.executePendingTransactions();
+        savedTabStacks.add(leaving);
+    }
+
+    /** True when every page on the back stack was filed under {@code name}. */
+    private static boolean isStackFiledUnder(@NonNull FragmentManager manager, @NonNull String name) {
+        for (int i = 0; i < manager.getBackStackEntryCount(); i++) {
+            if (!name.equals(manager.getBackStackEntryAt(i).getName())) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Shows a tab screen, keeping the other tabs alive instead of replacing them.
+     *
+     * <p>Re-selecting a tab shows the screen that tab already has, so a plan, a running trip or a
+     * half-filled form is still there. The pages opened on top of a tab belong to it as well: they
+     * are filed under the tab's name when another tab is entered and put back when it is entered
+     * again, so a booking's QR code survives a look at Discover.
+     */
     private void loadRoot(Fragment fragment, String tag) {
-        getSupportFragmentManager()
-                .popBackStack(null, FragmentManager.POP_BACK_STACK_INCLUSIVE);
-        getSupportFragmentManager()
-                .beginTransaction()
-                .replace(R.id.fragment_container, fragment, tag)
-                .commit();
+        FragmentManager manager = getSupportFragmentManager();
+        leaveCurrentTab(manager, tag);
+        // Read before the transaction below files the tab being left away under its own name.
+        boolean reopening = savedTabStacks.remove(tag);
+
+        boolean touched = false;
+        FragmentTransaction transaction = manager.beginTransaction();
+        for (Fragment open : new ArrayList<>(manager.getFragments())) {
+            String openTag = open.getTag();
+            if (open.isAdded() && !tabTags.contains(openTag) && !tag.equals(openTag)) {
+                // A page opened outside the tab system (account, vehicle, notifications): it is
+                // finished, so it goes rather than sitting underneath the tab that was chosen.
+                transaction.remove(open);
+                touched = true;
+            }
+        }
+        if (currentTabTag != null && !currentTabTag.equals(tag)) {
+            Fragment current = manager.findFragmentByTag(currentTabTag);
+            if (current != null && current.isAdded()) {
+                transaction.hide(current);
+                touched = true;
+            }
+        }
+
+        if (reopening) {
+            // The tab's first screen goes back on show behind its pages. It was hidden when the
+            // tab was left, and a hidden screen that is put back is a blank one: the restored
+            // record removes it anyway, and popping that record is what returns to it.
+            Fragment root = manager.findFragmentByTag(tag);
+            if (root != null && root.isAdded() && root.isHidden()) {
+                transaction.show(root);
+                touched = true;
+            }
+            // The tab's first screen is not added at all: its pages replace it, exactly as they
+            // were, with the page that was open on top. Restoring re-runs the transactions that
+            // opened them, so they come back only after the container has been cleared.
+            if (touched) {
+                transaction.commitNow();
+            }
+            manager.restoreBackStack(tag);
+            manager.executePendingTransactions();
+            tabTags.add(tag);
+            currentTabTag = tag;
+            return;
+        }
+
+        Fragment existing = null;
+        for (Fragment candidate : new ArrayList<>(manager.getFragments())) {
+            if (!tag.equals(candidate.getTag())) {
+                continue;
+            }
+            if (existing == null && candidate.isAdded()) {
+                existing = candidate;
+            } else if (candidate.isAdded()) {
+                // A page opened under the tab's own tag (a "choose a station" shortcut): the tab
+                // keeps one screen, so the second one is closed.
+                transaction.remove(candidate);
+            }
+        }
+        if (existing != null) {
+            transaction.show(existing);
+        } else {
+            Fragment restored = manager.findFragmentByTag(tag);
+            Fragment root = restored != null ? restored : fragment;
+            if (root.isHidden()) {
+                // A root that was hidden when its tab was left comes back hidden when a page on
+                // another tab removed it, which would draw the tab as an empty page.
+                transaction.show(root);
+            }
+            transaction.add(R.id.fragment_container, root, tag);
+            tabTags.add(tag);
+        }
+        if (commitLandingNow) {
+            // The tab a rebuild lands on is attached now, so the container is never drawn empty.
+            transaction.commitNow();
+        } else {
+            transaction.commit();
+        }
+        currentTabTag = tag;
+    }
+
+    /**
+     * Swaps what one tab shows, keeping its tag.
+     *
+     * <p>The Trips tab changes between the planner and the navigation screen under the same tag,
+     * so going to another tab and back finds the navigation screen instead of rebuilding over it.
+     */
+    private void replaceTabRoot(Fragment fragment, String tag) {
+        FragmentManager manager = getSupportFragmentManager();
+        leaveCurrentTab(manager, tag);
+        if (savedTabStacks.remove(tag)) {
+            // The pages filed for this tab belonged to the screen being replaced.
+            manager.clearBackStack(tag);
+        }
+        FragmentTransaction transaction = manager.beginTransaction();
+        if (currentTabTag != null && !currentTabTag.equals(tag)) {
+            Fragment current = manager.findFragmentByTag(currentTabTag);
+            if (current != null && current.isAdded()) {
+                transaction.hide(current);
+            }
+        }
+        Fragment previous = manager.findFragmentByTag(tag);
+        if (previous != null) {
+            transaction.remove(previous);
+        }
+        transaction.add(R.id.fragment_container, fragment, tag);
+        transaction.commit();
+        tabTags.add(tag);
+        currentTabTag = tag;
+    }
+
+    /** Removes every tab screen: a rebuild, or the sign-in page taking over the container. */
+    private void resetTabs() {
+        FragmentManager manager = getSupportFragmentManager();
+        manager.popBackStackImmediate(null, FragmentManager.POP_BACK_STACK_INCLUSIVE);
+        // Filed pages belong to the capacity that opened them, so a role change takes them with
+        // it instead of letting the next capacity open a page from the previous one.
+        for (String tag : new ArrayList<>(savedTabStacks)) {
+            manager.clearBackStack(tag);
+        }
+        savedTabStacks.clear();
+        if (!tabTags.isEmpty()) {
+            FragmentTransaction transaction = manager.beginTransaction();
+            for (String tag : new ArrayList<>(tabTags)) {
+                Fragment tab = manager.findFragmentByTag(tag);
+                if (tab != null) {
+                    transaction.remove(tab);
+                }
+            }
+            transaction.commitNow();
+            tabTags.clear();
+        }
+        currentTabTag = null;
+    }
+
+    // ------------------------------------------------------- TripNavigationHost
+
+    @Override
+    public void showTripNavigation(@NonNull Bundle args) {
+        // The trip is remembered before the tab is built, so the Trips tab opens on it rather
+        // than on the planner, and so it is still there if the process is killed mid-drive.
+        TripSessionStore.start(this, AuthManager.getInstance().getCurrentUserId(),
+                args.getString(InAppNavigationFragment.ARG_PLAN_ID),
+                args.getDouble(InAppNavigationFragment.ARG_ORIGIN_LAT, 0d),
+                args.getDouble(InAppNavigationFragment.ARG_ORIGIN_LNG, 0d),
+                args.getDouble(InAppNavigationFragment.ARG_DEST_LAT, 0d),
+                args.getDouble(InAppNavigationFragment.ARG_DEST_LNG, 0d),
+                args.getString(InAppNavigationFragment.ARG_LABEL));
+
+        InAppNavigationFragment trip = new InAppNavigationFragment();
+        trip.setArguments(args);
+        replaceTabRoot(trip, TAB_TRIPS);
+        // The bar follows the screen: navigation belongs to the Trips tab even when the driver
+        // started it from a station's details.
+        if (bottomNavigationView != null
+                && bottomNavigationView.getSelectedItemId() != R.id.nav_route_plan) {
+            bottomNavigationView.setSelectedItemId(R.id.nav_route_plan);
+        }
+    }
+
+    @Override
+    public void showTripPlanner() {
+        replaceTabRoot(new RoutePlannerFragment(), TAB_TRIPS);
     }
 }
