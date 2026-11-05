@@ -1,14 +1,15 @@
 package com.amperly.app.car.screen;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.car.app.CarContext;
-import androidx.car.app.CarToast;
 import androidx.car.app.Screen;
 import androidx.car.app.model.Action;
 import androidx.car.app.model.Pane;
 import androidx.car.app.model.PaneTemplate;
 import androidx.car.app.model.Row;
 import androidx.car.app.model.Template;
+import androidx.lifecycle.Lifecycle;
 
 import com.amperly.app.R;
 import com.amperly.app.car.CarBridge;
@@ -18,6 +19,7 @@ import com.amperly.app.data.local.entity.ChargerStation;
 import com.amperly.app.data.local.entity.Reservation;
 import com.amperly.app.data.repository.AmperlyRepository;
 
+/** The active booking, with one safe action: navigate to the charger. */
 public class ReservationStatusCarScreen extends Screen {
 
     private final AmperlyRepository repo;
@@ -34,23 +36,29 @@ public class ReservationStatusCarScreen extends Screen {
     @Override
     public Template onGetTemplate() {
         if (!loaded) {
+            loaded = true;
             CarBridge.load(repo, snapshot -> {
                 reservation = snapshot.getReservation();
-                if (reservation != null) {
-                    repo.background(() -> repo.getStationSync(reservation.getStationId()), loadedStation -> {
-                        station = loadedStation;
-                        loaded = true;
-                        invalidate();
-                    });
-                } else {
-                    loaded = true;
+                if (reservation != null && reservation.getStationId() != null) {
+                    repo.background(() -> repo.getStationSync(reservation.getStationId()),
+                            loadedStation -> {
+                                station = loadedStation;
+                                if (getLifecycle().getCurrentState()
+                                        .isAtLeast(Lifecycle.State.STARTED)) {
+                                    invalidate();
+                                }
+                            });
+                } else if (getLifecycle().getCurrentState()
+                        .isAtLeast(Lifecycle.State.STARTED)) {
                     invalidate();
                 }
             });
             return new PaneTemplate.Builder(new Pane.Builder()
-                    .addRow(new Row.Builder().setTitle("Checking your reservation").build())
+                    .addRow(new Row.Builder()
+                            .setTitle(getCarContext().getString(R.string.car_reservation_loading))
+                            .build())
                     .build())
-                    .setTitle("Reservation")
+                    .setTitle(getCarContext().getString(R.string.car_reservation_title))
                     .setHeaderAction(Action.BACK)
                     .build();
         }
@@ -58,52 +66,60 @@ public class ReservationStatusCarScreen extends Screen {
         if (reservation == null) {
             Pane pane = new Pane.Builder()
                     .addRow(new Row.Builder()
-                            .setTitle("No active reservation")
-                            .addText("Reserve a port on your phone before departure, or use the charger "
-                                    + "details screen to take the next free slot.")
+                            .setTitle(getCarContext().getString(R.string.car_reservation_none_title))
+                            .addText(getCarContext().getString(R.string.car_reservation_none_text))
                             .build())
                     .build();
             return new PaneTemplate.Builder(pane)
-                    .setTitle("Reservation")
+                    .setTitle(getCarContext().getString(R.string.car_reservation_title))
                     .setHeaderAction(Action.BACK)
                     .build();
         }
 
+        String stationName = reservation.getStationName();
+        if (stationName == null || stationName.isEmpty()) {
+            stationName = getCarContext().getString(R.string.car_reservation_unknown_station);
+        }
+        String port = valueOr(reservation.getPortLabel(), "");
+
         Row statusRow = new Row.Builder()
-                .setTitle("Booking " + reservation.getBookingCode() + " · "
-                        + Formatters.bookingStatus(reservation.getStatus()))
-                .addText((reservation.getStationName() == null ? reservation.getStationId()
-                        : reservation.getStationName()) + " · " + reservation.getPortLabel())
-                .addText(Formatters.dayAndSlot(reservation.getStartTimeMs(), reservation.getEndTimeMs()))
+                .setTitle(getCarContext().getString(R.string.car_reservation_booking,
+                        valueOr(reservation.getBookingCode(), "")))
+                .addText(getCarContext().getString(R.string.car_reservation_where,
+                        stationName, port))
+                .addText(valueOr(Formatters.bookingStatus(reservation.getStatus()), ""))
                 .build();
 
         Row checkInRow = new Row.Builder()
-                .setTitle("On arrival")
-                .addText("Show the booking QR code on your phone at the entrance. The host scans it to "
-                        + "start the session, and the meter reading is captured then.")
+                .setTitle(getCarContext().getString(R.string.car_reservation_on_arrival_title))
+                .addText(getCarContext().getString(R.string.car_reservation_on_arrival_text))
                 .build();
 
         Pane.Builder paneBuilder = new Pane.Builder()
                 .addRow(statusRow)
                 .addRow(checkInRow);
 
+        String slot = Formatters.dayAndSlot(reservation.getStartTimeMs(), reservation.getEndTimeMs());
+        if (slot != null && !slot.isEmpty()) {
+            paneBuilder.addRow(new Row.Builder().setTitle(slot).build());
+        }
+
         if (station != null) {
             paneBuilder.addAction(new Action.Builder()
-                    .setTitle("Navigate")
-                    .setOnClickListener(() -> Navigator.navigateTo(getCarContext(), station.getLatitude(),
-                            station.getLongitude(), station.getName()))
+                    .setTitle(getCarContext().getString(R.string.car_navigate_action))
+                    .setOnClickListener(() -> Navigator.navigateToCar(getCarContext(),
+                            station.getLatitude(), station.getLongitude()))
                     .build());
         }
-        paneBuilder.addAction(new Action.Builder()
-                .setTitle("Amperly is not emergency services")
-                .setOnClickListener(() -> CarToast.makeText(getCarContext(),
-                        getCarContext().getString(R.string.car_emergency_notice),
-                        CarToast.LENGTH_LONG).show())
-                .build());
 
         return new PaneTemplate.Builder(paneBuilder.build())
-                .setTitle("Reservation")
+                .setTitle(getCarContext().getString(R.string.car_reservation_title))
                 .setHeaderAction(Action.BACK)
                 .build();
+    }
+
+    @NonNull
+    private static String valueOr(@Nullable String value, @NonNull String fallback) {
+        return value == null ? fallback : value;
     }
 }

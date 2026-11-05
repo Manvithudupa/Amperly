@@ -3,15 +3,20 @@ package com.amperly.app.car.screen;
 import androidx.annotation.NonNull;
 import androidx.car.app.CarContext;
 import androidx.car.app.Screen;
+import androidx.car.app.model.Action;
 import androidx.car.app.model.ItemList;
 import androidx.car.app.model.ListTemplate;
 import androidx.car.app.model.Row;
 import androidx.car.app.model.Template;
+import androidx.lifecycle.Lifecycle;
 
+import com.amperly.app.R;
+import com.amperly.app.car.CarConstraints;
 import com.amperly.app.core.security.AuthManager;
 import com.amperly.app.data.local.entity.RoutePlan;
 import com.amperly.app.data.repository.AmperlyRepository;
 
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -21,6 +26,8 @@ import java.util.List;
  * makes the ones that exist glanceable while the vehicle is moving.
  */
 public class TripHistoryCarScreen extends Screen {
+
+    private static final int DESIRED_ROWS = 6;
 
     private final AmperlyRepository repo;
     private List<RoutePlan> plans;
@@ -38,8 +45,10 @@ public class TripHistoryCarScreen extends Screen {
             loaded = true;
             final String userId = AuthManager.getInstance().getCurrentUserId();
             repo.background(() -> repo.getRoutePlansSync(userId), value -> {
-                plans = value;
-                invalidate();
+                plans = value == null ? Collections.emptyList() : value;
+                if (getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED)) {
+                    invalidate();
+                }
             });
         }
 
@@ -47,27 +56,37 @@ public class TripHistoryCarScreen extends Screen {
 
         if (plans == null) {
             list.addItem(new Row.Builder()
-                    .setTitle("Loading your trips")
+                    .setTitle(getCarContext().getString(R.string.car_trip_history_loading))
                     .build());
         } else if (plans.isEmpty()) {
             list.addItem(new Row.Builder()
-                    .setTitle("No trips yet")
-                    .addText("Plan a trip on your phone and it shows up here.")
+                    .setTitle(getCarContext().getString(R.string.car_trip_history_empty_title))
+                    .addText(getCarContext().getString(R.string.car_trip_history_empty_text))
                     .build());
         } else {
-            for (RoutePlan plan : plans) {
+            int limit = CarConstraints.listLimit(getCarContext(), DESIRED_ROWS);
+            for (int i = 0; i < plans.size() && i < limit; i++) {
+                RoutePlan plan = plans.get(i);
+                String destination = plan.getDestination();
+                if (destination == null || destination.isEmpty()) {
+                    destination = getCarContext().getString(R.string.car_trip_history_untitled);
+                }
+                String origin = plan.getOrigin() == null ? "" : plan.getOrigin();
                 list.addItem(new Row.Builder()
-                        .setTitle(plan.getDestination())
-                        .addText(plan.getOrigin() + " to " + plan.getDestination()
-                                + " - " + Math.round(plan.getTotalDistanceKm()) + " km")
-                        .addText(Math.round(plan.getTotalJourneyMinutes()) + " min"
-                                + " - start at " + plan.getPlannedStartSoc() + "%")
+                        .setTitle(destination)
+                        .addText(getCarContext().getString(R.string.car_trip_history_line,
+                                origin, destination))
+                        .addText(getCarContext().getString(R.string.car_trip_history_meta,
+                                Math.round(plan.getTotalDistanceKm()),
+                                Math.round(plan.getTotalJourneyMinutes()),
+                                plan.getPlannedStartSoc()))
                         .build());
             }
         }
 
         return new ListTemplate.Builder()
-                .setTitle("Trip history")
+                .setTitle(getCarContext().getString(R.string.car_more_trip_history))
+                .setHeaderAction(Action.BACK)
                 .setSingleList(list.build())
                 .build();
     }

@@ -10,12 +10,10 @@
 
     <!--
       Car App Library template access. The projected experience uses MapWithContentTemplate
-      (RouteOverviewCarScreen) and NavigationTemplate (NavigationCarScreen); the host rejects
-      those templates unless the matching declaration is present. NAVIGATION_TEMPLATES covers
-      the navigation category, MAP_TEMPLATES covers the same templates reached through the
-      POI (EV charging) category.
+      (RouteOverviewCarScreen) through the POI (EV charging) category, so MAP_TEMPLATES is the
+      declaration the host requires. Navigation is handed off to the phone's maps application,
+      so neither the navigation template permission nor the navigation category is declared.
     -->
-    <uses-permission android:name="androidx.car.app.NAVIGATION_TEMPLATES" />
     <uses-permission android:name="androidx.car.app.MAP_TEMPLATES" />
     <!-- Required to receive the map Surface that CarMap paints into. -->
     <uses-permission android:name="androidx.car.app.ACCESS_SURFACE" />
@@ -27,9 +25,16 @@
             <data android:scheme="geo" />
         </intent>
         <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="google.navigation" />
+        </intent>
+        <intent>
             <action android:name="android.intent.action.DIAL" />
             <data android:scheme="tel" />
         </intent>
+        <!-- Needed so the release host validator can read the host's signing certificate. -->
+        <package android:name="com.google.android.projection.gearhead" />
+        <package android:name="com.google.android.apps.automotive.templates.host" />
     </queries>
 
     <application
@@ -103,7 +108,6 @@
                   never list this app.
                 -->
                 <category android:name="androidx.car.app.category.POI" />
-                <category android:name="androidx.car.app.category.NAVIGATION" />
             </intent-filter>
         </service>
 

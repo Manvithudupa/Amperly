@@ -7,6 +7,7 @@ code, config or hidden SQL in this repository.
 |---|---|
 | `schema.sql` | All 23 tables, Row Level Security, policies, helper functions, indexes, grants, the settlement functions money is written through, the `auth.users` trigger that gives every account its profile, and the backfill that repairs accounts created before it. **This is the file you were looking for.** |
 | `security_hardening.sql` | Locks the columns an attacker would use to skip review: listing self-approval, forged reputation, dispute self-resolution and self-marked payments. **Run this on any project created before it existed.** |
+| `demo_stations.sql` | Optional demo data: 17 pending stations with ports and seven-day opening hours around Nitte, Karkala and the Udupi–Bajpe route. Owned by `manvithudupa073@gmail.com`; approve them from the admin verification queue. |
 | `create_admin.sql` | Creates the platform administrator (`admin@amperly.app`) with a bcrypt password and the ADMIN role. |
 
 ---
@@ -51,9 +52,24 @@ only creates the account, it does not store it for you.
 
 ### 2. Add your chargers
 
-There is no seed data. Sign in to the app, switch to the **Host** capacity and add a charger from
-**Stations**; an administrator then approves it from the verification queue. Nothing is inserted
-into the database by this repository.
+For a quick demo, run `demo_stations.sql` in the SQL Editor. It creates 17 pending, unpaused demo
+stations with ports and opening hours around Nitte, Karkala and the Udupi–Bajpe route, owned by
+`manvithudupa073@gmail.com`. The host account must already have a `public.users` row; signing in
+once creates it. Sign in as an administrator and approve the listings from the verification queue;
+they then become visible in consumer discovery. Re-running updates the same fixed ids instead of
+duplicating rows.
+
+To add a real charger, sign in to the app, switch to the **Host** capacity and add a charger from
+**Stations**; an administrator then approves it from the verification queue. The normal app flow
+inserts nothing into the database by itself.
+
+To remove the demo rows later, delete schedules and ports before stations:
+
+```sql
+delete from public.availability_schedules where "stationId" like 'demo_%';
+delete from public.charger_ports          where "stationId" like 'demo_%';
+delete from public.charger_stations       where id like 'demo_%';
+```
 
 ### 3. Where the URL and publishable key go
 

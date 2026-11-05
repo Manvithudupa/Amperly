@@ -100,8 +100,8 @@ android {
         applicationId = "com.amperly.app"
         minSdk = 24
         targetSdk = 35
-        versionCode = 25
-        versionName = "4.5.3"
+        versionCode = 26
+        versionName = "4.6.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 

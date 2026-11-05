@@ -775,4 +775,130 @@
     <string name="nav_car_next_stop">Next stop: %1$s</string>
     <string name="car_emergency_notice">Emergency guidance is on your phone.</string>
     <string name="car_sos_notice">SOS logged. Check your phone.</string>
+
+    <!-- Projected car experience (map, trip pane, battery, chargers) -->
+    <string name="car_title">Amperly</string>
+    <string name="car_navigate_action">Navigate</string>
+    <string name="car_start_navigation">Start navigation</string>
+    <string name="car_loading_trip_title">Loading your trip</string>
+    <string name="car_loading_trip_text">Reading the plan from your phone.</string>
+    <string name="car_no_trip_title">No active trip</string>
+    <string name="car_no_trip_text">Plan a trip on your phone.</string>
+    <string name="car_session_unavailable_title">Open Amperly on your phone</string>
+    <string name="car_session_unavailable_text">Sign in there to use the car screen.</string>
+    <string name="car_trip_title">Active trip</string>
+    <string name="car_trip_route">%1$s to %2$s</string>
+    <string name="car_trip_summary">%1$d km · %2$d%% battery · %3$s</string>
+    <string name="car_recommended_title">Recommended stop</string>
+    <string name="car_detour">Detour +%1$.1f km · %2$d kW</string>
+    <string name="car_no_safe_title">No safe charger in range</string>
+    <string name="car_no_safe_text">Update the battery or search wider.</string>
+    <string name="car_no_stop_title">No charging stop needed</string>
+    <string name="car_no_stop_text">Battery covers the trip with reserve.</string>
+    <string name="car_chargers_title">Chargers along route</string>
+    <string name="car_chargers_text">%1$d safely reachable now</string>
+    <string name="car_more_title">More</string>
+    <string name="car_more_text">Battery, trips, vehicle, settings</string>
+
+    <string name="car_map_unavailable">Map unavailable in this build</string>
+    <string name="car_map_offline">Map could not load. Retrying soon.</string>
+    <string name="car_map_waiting_location">Waiting for location</string>
+    <string name="car_map_waiting_trip">No live location. Showing your trip.</string>
+    <string name="car_location_permission_denied">Location is off. Turn it on in phone settings.</string>
+
+    <string name="car_more_battery_text">Enter the dashboard value</string>
+    <string name="car_more_reservation">Reservation</string>
+    <string name="car_more_reservation_active">Active reservation</string>
+    <string name="car_more_reservation_none">No active reservation</string>
+    <string name="car_more_trip_history">Trip history</string>
+    <string name="car_more_trip_history_text">Your recent trips</string>
+    <string name="car_more_vehicle">Vehicle</string>
+    <string name="car_more_vehicle_text">Battery, range and reserve</string>
+    <string name="car_more_settings">Settings</string>
+    <string name="car_more_settings_text">Connection and app details</string>
+
+    <string name="car_soc_title">Dashboard battery</string>
+    <string name="car_soc_option">Battery %1$d%%</string>
+    <string name="car_soc_option_text">Use this dashboard value</string>
+    <string name="car_soc_applied">Battery set to %1$d%%</string>
+    <string name="car_soc_no_safe">Battery set to %1$d%%. No safe charger.</string>
+    <string name="car_soc_failed">Battery was not updated. Try again.</string>
+    <string name="car_soc_no_plan">Plan a trip on your phone first.</string>
+
+    <string name="car_trip_history_loading">Loading your trips</string>
+    <string name="car_trip_history_empty_title">No trips yet</string>
+    <string name="car_trip_history_empty_text">Plan a trip on your phone.</string>
+    <string name="car_trip_history_untitled">Trip</string>
+    <string name="car_trip_history_line">%1$s to %2$s</string>
+    <string name="car_trip_history_meta">%1$d km · %2$d min · start %3$d%%</string>
+
+    <string name="car_charger_list_title">Route chargers</string>
+    <string name="car_charger_loading">Loading chargers</string>
+    <string name="car_charger_empty_title">No reachable charger</string>
+    <string name="car_charger_empty_text">Widen the search on your phone.</string>
+    <string name="car_power_kw">%1$d kW</string>
+    <string name="car_charger_connector_unknown">Connector info unavailable</string>
+    <string name="car_charger_meter_verified">Verified meter</string>
+    <string name="car_charger_discovery_only">Discovery only · no verified meter</string>
+
+    <string name="car_charger_details_title">Charger details</string>
+    <string name="car_charger_details_loading">Loading charger</string>
+    <string name="car_charger_details_missing">Charger not found</string>
+    <string name="car_charger_access_title">Access and meter</string>
+    <string name="car_charger_access_none">No access rules published.</string>
+    <string name="car_charger_meter_verified_line">Verified meter (%1$s)</string>
+    <string name="car_charger_no_meter_line">No verified meter. Discovery only.</string>
+    <string name="car_charger_price">%1$s/kWh · %2$s service · %3$s gateway</string>
+    <string name="car_reserve_action">Reserve next slot</string>
+    <string name="car_reserved">%1$s · code %2$s</string>
+    <string name="car_reserve_no_meter">No verified meter here.</string>
+    <string name="car_reserve_no_slot">No free slot right now.</string>
+    <string name="car_reserve_unavailable">That charger or port is unavailable.</string>
+    <string name="car_reserve_failed">The booking was refused. Try again.</string>
+
+    <string name="car_reservation_title">Reservation</string>
+    <string name="car_reservation_loading">Checking your reservation</string>
+    <string name="car_reservation_none_title">No active reservation</string>
+    <string name="car_reservation_none_text">Reserve a slot on your phone.</string>
+    <string name="car_reservation_booking">Booking %1$s</string>
+    <string name="car_reservation_where">%1$s · %2$s</string>
+    <string name="car_reservation_on_arrival_title">On arrival</string>
+    <string name="car_reservation_on_arrival_text">Show the booking code at the charger.</string>
+    <string name="car_reservation_unknown_station">Charger</string>
+
+    <string name="car_vehicle_title">Vehicle</string>
+    <string name="car_vehicle_loading">Loading your vehicle</string>
+    <string name="car_vehicle_none_title">No vehicle on file</string>
+    <string name="car_vehicle_none_text">Add your vehicle on the phone.</string>
+    <string name="car_vehicle_unnamed">Your vehicle</string>
+    <string name="car_vehicle_battery_title">Battery</string>
+    <string name="car_vehicle_battery_text">%1$d kWh · %2$d%% health</string>
+    <string name="car_vehicle_consumption_title">Consumption</string>
+    <string name="car_vehicle_consumption_text">%1$d km/kWh · DC %2$d kW</string>
+    <string name="car_vehicle_reserve_title">Arrival reserve</string>
+    <string name="car_vehicle_reserve_text">%1$d%% min · charge to %2$d%%</string>
+    <string name="car_vehicle_plate_title">Plate</string>
+
+    <string name="car_settings_title">Settings</string>
+    <string name="car_settings_connection_title">Car connection</string>
+    <string name="car_settings_connected">Connected. Map and trip are live.</string>
+    <string name="car_settings_disconnected">Not connected. Reconnect on phone.</string>
+    <string name="car_settings_version_title">Version</string>
+    <string name="car_settings_version_text">Amperly %1$s</string>
+    <string name="car_settings_phone_title">Details live on the phone</string>
+    <string name="car_settings_phone_text">Payments and account are never editable here.</string>
+
+    <!--
+      Release host allowlist: [SHA-256 certificate digest, package name] pairs. These are the
+      Android Auto and Google Automotive host signatures published with the Car App Library; they
+      are not translated and not shown to the driver.
+    -->
+    <string-array name="car_hosts_allowlist" translatable="false">
+        <item>fdb00c43dbde8b51cb312aa81d3b5fa17713adb94b28f598d77f8eb89daceedf,com.google.android.projection.gearhead</item>
+        <item>70811a3eacfd2e83e18da9bfede52df16ce91f2e69a44d21f18ab66991130771,com.google.android.projection.gearhead</item>
+        <item>1975b2f17177bc89a5dff31f9e64a6cae281a53dc1d1d59b1d147fe1c82afa00,com.google.android.projection.gearhead</item>
+        <item>c241ffbc8e287c4e9a4ad19632ba1b1351ad361d5177b7d7b29859bd2b7fc631,com.google.android.apps.automotive.templates.host</item>
+        <item>dd66deaf312d8daec7adbe85a218ecc8c64f3b152f9b5998d5b29300c2623f61,com.google.android.apps.automotive.templates.host</item>
+        <item>50e603d333c6049a37bd751375d08f3bd0abebd33facd30bd17b64b89658b421,com.google.android.apps.automotive.templates.host</item>
+    </string-array>
 </resources>

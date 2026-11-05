@@ -3,12 +3,14 @@ package com.amperly.app.car.screen;
 import androidx.annotation.NonNull;
 import androidx.car.app.CarContext;
 import androidx.car.app.Screen;
+import androidx.car.app.model.Action;
 import androidx.car.app.model.ItemList;
 import androidx.car.app.model.ListTemplate;
 import androidx.car.app.model.Row;
 import androidx.car.app.model.Template;
 
 import com.amperly.app.BuildConfig;
+import com.amperly.app.R;
 import com.amperly.app.core.state.AppStateStore;
 
 /**
@@ -29,24 +31,26 @@ public class CarSettingsScreen extends Screen {
         ItemList.Builder list = new ItemList.Builder();
 
         list.addItem(new Row.Builder()
-                .setTitle("Car connection")
-                .addText(AppStateStore.get().isCarConnected()
-                        ? "Connected. The map and the trip summary are live."
-                        : "Not connected. Reconnect from the phone.")
+                .setTitle(getCarContext().getString(R.string.car_settings_connection_title))
+                .addText(getCarContext().getString(AppStateStore.get().isCarConnected()
+                        ? R.string.car_settings_connected
+                        : R.string.car_settings_disconnected))
                 .build());
 
         list.addItem(new Row.Builder()
-                .setTitle("Version")
-                .addText("Amperly " + BuildConfig.VERSION_NAME)
+                .setTitle(getCarContext().getString(R.string.car_settings_version_title))
+                .addText(getCarContext().getString(R.string.car_settings_version_text,
+                        BuildConfig.VERSION_NAME))
                 .build());
 
         list.addItem(new Row.Builder()
-                .setTitle("Detailed settings live on the phone")
-                .addText("Payment, meters and account details are never editable while driving.")
+                .setTitle(getCarContext().getString(R.string.car_settings_phone_title))
+                .addText(getCarContext().getString(R.string.car_settings_phone_text))
                 .build());
 
         return new ListTemplate.Builder()
-                .setTitle("Settings")
+                .setTitle(getCarContext().getString(R.string.car_settings_title))
+                .setHeaderAction(Action.BACK)
                 .setSingleList(list.build())
                 .build();
     }

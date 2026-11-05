@@ -5,6 +5,7 @@ import android.content.Intent;
 import android.net.Uri;
 
 import androidx.annotation.NonNull;
+import androidx.car.app.CarContext;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentActivity;
 import androidx.fragment.app.FragmentManager;
@@ -70,6 +71,17 @@ public final class Navigator {
         return false;
     }
 
+    /**
+     * Hand navigation to the car host. A car app runs inside the host's process and cannot start
+     * a phone activity directly: doing so puts Maps on the car display and throws a
+     * SecurityException. ACTION_NAVIGATE is the supported car handoff.
+     */
+    public static void navigateToCar(@NonNull CarContext context, double latitude,
+                                     double longitude) {
+        String data = String.format(Locale.US, "geo:%.6f,%.6f", latitude, longitude);
+        context.startCarApp(new Intent(CarContext.ACTION_NAVIGATE, Uri.parse(data)));
+    }
+
     /** Hand turn-by-turn navigation to the phone's maps application (works with no API key). */
     public static void navigateTo(Context context, double latitude, double longitude, String label) {
         if (context == null) {
@@ -78,6 +90,16 @@ public final class Navigator {
         String query = label != null && !label.isEmpty()
                 ? label
                 : String.format(Locale.US, "%.5f,%.5f", latitude, longitude);
+        // geo: opens a pin, while google.navigation: actually starts turn-by-turn. Prefer the
+        // latter for a button called Start navigation, then fall back for other map apps.
+        Intent navigation = new Intent(Intent.ACTION_VIEW,
+                Uri.parse("google.navigation:q=" + latitude + "," + longitude));
+        navigation.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        if (navigation.resolveActivity(context.getPackageManager()) != null) {
+            context.startActivity(navigation);
+            return;
+        }
+
         Uri geo = Uri.parse("geo:" + latitude + "," + longitude + "?q="
                 + Uri.encode(latitude + "," + longitude + "(" + query + ")"));
         Intent intent = new Intent(Intent.ACTION_VIEW, geo);
