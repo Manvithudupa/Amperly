@@ -5,6 +5,8 @@
 
 **MapLibre** draws an OpenStreetMap-based map, and **Geoapify** supplies the address search and the road routes. **Amperly helps you reserve, access and use the charger** — with route-aware charging plans projected onto the car display.
 
+**Latest release:** [Amperly 4.7.0](https://github.com/Manvithudupa/Amperly/releases/tag/v4.7.0) — signed release APK, versionCode 27.
+
 > Route energy and battery-drain figures are **planning estimates**. The final bill is always based on verified meter readings. Stations without a verified meter can only take a reservation **without automatic billing**.
 
 ---
@@ -17,13 +19,13 @@ The MVP is a **single-process Android application** backed by Supabase/Postgres.
 |---|---|
 | Persistence | Room database (`AmperlyDatabase`, **v5, 23 entities + 23 DAOs**), the single source of truth |
 | Data access | One hub, `AmperlyRepository` (all DAO access, off-main-thread helpers) |
-| Data source | **Supabase is the only source of truth.** No pilot seeding and no offline demo identity: stations, vehicles, reservations and readings are rows the signed-in account is authorised to read through Row Level Security. When the account has no rows, the screens say so instead of inventing content |
+| Data source | **Supabase is the only source of truth.** No automatic seeding and no offline demo identity: stations, vehicles, reservations and readings are rows the signed-in account is authorised to read through Row Level Security. When the account has no rows, the screens say so instead of inventing content. The optional `supabase/demo_stations.sql` pilot seed is described in §7 |
 | Maps & navigation | **MapLibre Native** renders an OpenStreetMap-based vector style for the map, the charger markers and in-app navigation; **Geoapify** supplies the address search (autocomplete and reverse geocoding), the road routes and the turn-by-turn steps. There is **no live-traffic data**: drive times follow real roads and are labelled as estimates where no measurement exists. A missing key shows an actionable setup notice instead of a blank map. See §6.1 |
 | Payments | **None are collected in this build.** A booking is a free hold and completing a session issues an invoice that is not charged. `PaymentManager` is an in-repo sandbox (authorize → capture/refund/release, idempotency, offline failure) covered by tests, but no gateway is connected and the booking flow does not take a hold |
 | Charger telemetry | None. Availability is schedule-, reservation- and host-update-based, and is labelled with a freshness timestamp |
 | Meter data | `MeterSimulator` / manual entry, always labelled **Demo meter** or **manually entered** |
 | Cloud | Supabase/Postgres backend (`supabase/`), the source of truth. When `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` are set every screen reads and writes it; when they are absent `SyncEngine.isEnabled()` is false, nothing is pushed, and the app can only show what is already in the local Room cache. A trigger on `auth.users` gives every account its `public.users` profile — the row Row Level Security resolves the caller through |
-| Sync | Room is the read cache only. Every save is written straight to Supabase by `SyncEngine` in the same task, so there is no outbox to drain and no manual sync control; `SyncEngine.syncNow` pulls rows changed since a per-table cursor and then reconciles each table's live id list, so a server-side edit, a deletion or another device's change all reach the app |
+| Sync | Room is the read cache only. Every save is written straight to Supabase by `SyncEngine` in the same task, so there is no outbox to drain and no manual sync control; `SyncEngine.syncNow` pulls rows changed since a per-table cursor and then reconciles each table's live id list, so a server-side edit, a deletion or another device's change all reach the app. On launch, a warm cache is drawn immediately; a cold cache holds a loading state until the first pull completes, and tabs are rebuilt only when the pull changed or removed rows |
 
 `AmperlyDatabase` uses `fallbackToDestructiveMigration()`, so a schema change resets local demo data instead of migrating it.
 
@@ -33,8 +35,8 @@ The MVP is a **single-process Android application** backed by Supabase/Postgres.
 
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
-│                          MainActivity (role switch)                  │
-│        Consumer tabs │ Host tabs │ Admin tabs  (ChipGroup of roles)   │
+│                MainActivity (shell + capacity-aware tabs)            │
+│   Consumer tabs │ Host tabs │ Admin tabs (capacity switch on Profile)  │
 └───────────────┬──────────────────────────────────────────────────────┘
                 │  fragments call engines directly (no ViewModels)
                 ▼
@@ -157,10 +159,11 @@ com.amperly.app/
 │   │               Receipt, SafetySOS, HostChat
 │   ├── auth/       SignIn, Account
 │   ├── common/     Notifications
-│   ├── host/       HostDashboard, RegisterStation
+│   ├── host/       HostDashboard, HostStations, HostBookings, RegisterStation
 │   └── admin/      AdminDashboard
 │
-├── ui/             Ux, adapter/* (11 adapters), dialog/* (ReportDialog, MeterEvidenceDialog)
+├── ui/             Ux, adapter/* (13 adapters), dialog/* (Report, MeterEvidence,
+│                   PlaceSearch, VehicleSwitcher)
 │
 ├── car/
 │   ├── AmperlyCarAppService.java, AmperlyCarSession.java, CarBridge.java, CarScreenFactory.java
@@ -296,11 +299,15 @@ modelled, so such an SDK can be dropped in behind the same interface.
 
 ## 7. Data model
 
-The app itself ships with **no demo data** and the repository no longer contains a seed script.
-On first launch it shows the sign-in screen, and every screen after that reads the signed-in
-account's own rows from Supabase (Room is only the read cache; saves are written straight to the
-database). Sign-up creates the `public.users` profile row through the `auth.users` trigger, so a
-brand-new account starts with empty lists and honest empty states.
+The app itself ships with **no demo data** and no seed runs automatically. On first launch it
+shows the sign-in screen, and every screen after that reads the signed-in account's own rows from
+Supabase (Room is only the read cache; saves are written straight to the database). Sign-up
+creates the `public.users` profile row through the `auth.users` trigger, so a brand-new account
+starts with empty lists and honest empty states.
+
+`supabase/demo_stations.sql` is an **optional** demo seed: 17 pending stations with ports and
+seven-day hours around Nitte, Karkala and the Udupi–Bajpe corridor. It is not part of the app or
+`schema.sql`, and an administrator still has to approve each listing.
 
 An account can keep **several vehicle profiles** (`vehicles` rows). Exactly one carries
 `"isActive" = true`; that is the profile every range, connector-compatibility and reservation
@@ -318,20 +325,30 @@ creates every table (including `vehicles."isActive"`) and is safe to re-run; the
 migrate because the app holds no demo rows.
 
 Chargers appear only when a host publishes one: sign in, switch to the **Host** capacity and add a
-charger from **Stations**. It reaches the map once an administrator approves it from the
+charger from **Stations**. The form takes one or more **port types** — connector, number of ports,
+power and AC/DC for each — and derives the station's connector list, highest power and total port
+count. Amperly's service and gateway fees are fixed platform amounts shown read-only; the host
+cannot edit them. The listing reaches the map once an administrator approves it from the
 verification queue, which is also how a fresh project shows its first real listing.
+
+Once the station has bookings, the Host tabs split the work. **Dashboard** shows analytics and
+sessions; each session opens the itemised **receipt** or files a **Report driver** report.
+**Bookings** lists every reservation with its QR code, chat and receipt. **Stations** keeps the
+chargers. A host's report lands in **Admin → Reports → Reports from hosts** and is about the
+driver, not a consumer dispute.
 
 ---
 
 ## 8. Suggested demo script
 
-1. **Host** → add a charger from **Stations**; **Admin** → approve it from the verification queue, and it becomes a public marker on the map.
+1. **Host → Stations → Add station**: add one or more port types (connector, count, power, DC). Amperly's service and gateway fees are shown read-only. Submit it; **Admin → Queue** approves it and it becomes a public marker on the map.
 2. **Consumer → Profile → Vehicle (My vehicles).** The garage is a card list: name, registration, connector, usable range, and an **In use** badge on the car every check is planned against. Press **Add a car**, fill the form and save; the card appears and becomes the active profile. Point out **Use this car** on another card (it switches without opening the form), then tap a card to show the **Edit vehicle** form and its delete confirmation — deleting the active car promotes another one. Then open **Discover**: the map centres on your real position, shows how far each charger is, and plots every approved, compatible charger.
 3. **Consumer** → open **Route planner**. The start is already your current location; type a destination and pick it from the **Geoapify address search**. Enter your battery %. Geoapify supplies the road distance, the measured drive time and the **turn-by-turn directions** listed under the summary.
 4. **Consumer** → see the corridor chargers, the detour/charge-time/arrival trade-off, the recommended stop plus **backup stops before and after**, the recorded assumptions, and the confidence level.
 5. **Consumer** → enter a lower **actual dashboard SoC**. The value becomes authoritative: unreachable chargers are removed, the remaining trip is recalculated, and the revised recommendation is explained. Drop the battery very low to demonstrate the **no safe charger** state — alternatives are offered instead of a route past the safe range.
 6. **Consumer** → tap **Start in-app navigation** for the MapLibre navigation screen, then reserve a port and scan the **booking QR code**.
 7. **Car** → launch the Android Auto service (Desktop Head Unit or a real head unit): route overview, the driver-safe **navigation** screen, and the large **Update battery** action that recalculates from shared state.
+8. **Host → Dashboard**: after a session closes, its card opens the itemised **receipt** and offers **Report driver**; the report appears in **Admin → Reports → Reports from hosts**. **Host → Bookings** shows every booking with its QR code, chat and receipt.
 
 ---
 
@@ -340,6 +357,8 @@ verification queue, which is also how a fresh project shows its first real listi
 ```bash
 ./gradlew :app:testDebugUnitTest    # unit suite, no device required
 ```
+
+The current suite has **27 classes and 171 tests**, all passing without a device.
 
 | Class | Covers |
 |---|---|
@@ -361,6 +380,12 @@ verification queue, which is also how a fresh project shows its first real listi
 | `StationVisibilityTest` | Approved/pending/rejected/paused station visibility and coordinate validity |
 | `StationMarkerModelTest` | Marker styling and the honest no-verified-meter / verified-meter wording; no host contact details leak |
 | `HostAnalyticsEngineTest` | Revenue, refunds, energy, repeat consumers, cancellation rate and utilization on hand-built lists, plus the empty case |
+| `AppStateStoreTest` | Per-vehicle battery state: switching cars drops the previous reading, an explicit correction stays authoritative, and reset clears the account's vehicle |
+| `CarLimitsTest` | Car row caps, the API-7 map gate, battery-picker options and immutability |
+| `CarMapGeometryTest` | Static-map refetch floor and distance rules, viewport fitting, coordinate validation |
+| `CarMapUrlTest` | Geoapify marker syntax, lowercase colours and locale-independent coordinates |
+| `SupabaseRestTest` | Reads a server error body as well as a success body, so refusals keep their reason |
+| `SyncReconcilerTest` | Deletion reconciliation: removes only ids missing server-side, preserves order, ignores null ids |
 | `TripTimeEngineTest` | Drive + detour + charging minutes, the total, zero distance and minute rounding |
 | `UserProfileRowTest` | The `public.users` profile row and the `auth.users` trigger that creates it, checked against `supabase/schema.sql` |
 | `SettlementFunctionContractTest` | The settlement SQL functions against the documented contract |
@@ -371,7 +396,7 @@ verification queue, which is also how a fresh project shows its first real listi
 
 | Layer | Technology |
 |---|---|
-| Language / IDE | Java 11 source level, Android Studio, Gradle 9 + AGP 9 |
+| Language / IDE | Java 11 source level, Android Studio, Gradle 9.6 + AGP 9.4 |
 | Compile/target SDK | 35 (minSdk 24) |
 | UI | Material 3 components, XML layouts with `findViewById`, RecyclerView, custom `Widget.Amperly.*` styles + `values-night` theme |
 | Car UI | Android for Cars App Library (`androidx.car.app:app:1.4.0`), Charging + Navigation categories, navigation template |
@@ -383,7 +408,7 @@ verification queue, which is also how a fresh project shows its first real listi
 | Routing | **Geoapify routing** (no live traffic), behind the `NavigationProvider` interface |
 | QR codes | ZXing `core` (bitmap generated in-app) |
 | Payments | None collected; in-repo sandbox `PaymentManager` tested but not connected to a gateway, and no card data is ever stored |
-| Tests | JUnit 4 (unit tests, no device required) |
+| Tests | JUnit 4 (27 suites / 171 tests, no device required) |
 
 ---
 
