@@ -20,14 +20,18 @@ import com.amperly.app.core.security.AuthManager;
 import com.amperly.app.core.security.RoleGuard;
 import com.amperly.app.data.local.entity.ChargerStation;
 import com.amperly.app.data.local.entity.ChargingSession;
+import com.amperly.app.data.local.entity.Report;
 import com.amperly.app.data.local.entity.User;
 import com.amperly.app.data.repository.AmperlyRepository;
 import com.amperly.app.engine.analytics.HostAnalyticsEngine;
+import com.amperly.app.feature.consumer.ReceiptFragment;
 import com.amperly.app.ui.Ux;
 import com.amperly.app.ui.adapter.SessionAdapter;
+import com.amperly.app.ui.dialog.ReportDialog;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import java.util.List;
+import java.util.UUID;
 
 /**
  * The host's dashboard: what the chargers have earned and how they are used, then the sessions
@@ -71,14 +75,20 @@ public class HostDashboardFragment extends Fragment {
         final SessionAdapter sessionAdapter = new SessionAdapter(new SessionAdapter.Listener() {
             @Override
             public void onViewReceipt(ChargingSession session) {
-                Ux.info(HostDashboardFragment.this, getString(R.string.host_receipt_toast,
-                        session.getStationName(), Formatters.money(session.getTotalPaid()),
-                        Formatters.kwh(session.getVerifiedKwhConsumed())));
+                // The same server-issued receipt the consumer sees, opened by session id so the
+                // host gets the itemised bill rather than a summary toast.
+                ReceiptFragment fragment = new ReceiptFragment();
+                Bundle args = new Bundle();
+                args.putString(ReceiptFragment.ARG_SESSION_ID, session.getId());
+                fragment.setArguments(args);
+                Navigator.open(HostDashboardFragment.this, fragment, "receipt");
             }
 
             @Override
             public void onReportSession(ChargingSession session) {
-                Ux.info(HostDashboardFragment.this, getString(R.string.host_session_dispute_note));
+                ReportDialog.showHost(HostDashboardFragment.this,
+                        getString(R.string.report_title), null,
+                        (type, details) -> submitReport(session, type, details));
             }
         });
         sessions.setAdapter(sessionAdapter);
@@ -102,6 +112,33 @@ public class HostDashboardFragment extends Fragment {
             emptyText.setVisibility(data.stations.isEmpty() ? View.VISIBLE : View.GONE);
             sessionAdapter.submit(data.sessions);
             bindAnalytics(data.analytics);
+        });
+    }
+
+    /**
+     * Files a host's report about a driver on a finished session.
+     *
+     * <p>The report names the session and not a host, because the session is what identifies the
+     * other party: the admin desk resolves the driver from it. It is not a dispute — a dispute is
+     * the consumer's refund channel — so it goes to the reports queue with the host as reporter.
+     */
+    private void submitReport(ChargingSession session, String type, String details) {
+        User user = AuthManager.getInstance().getCurrentUser();
+        if (user == null) {
+            return;
+        }
+        repo.background(() -> {
+            Report report = new Report(UUID.randomUUID().toString(), user.getId(), user.getName(),
+                    session.getStationId(), null, session.getId(), type,
+                    details == null || details.isEmpty()
+                            ? getString(R.string.report_no_details) : details,
+                    "OPEN", System.currentTimeMillis());
+            repo.saveReport(report);
+            return Boolean.TRUE;
+        }, ok -> {
+            if (isAdded()) {
+                Ux.success(this, getString(R.string.report_submitted));
+            }
         });
     }
 

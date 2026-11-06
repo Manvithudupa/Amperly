@@ -85,7 +85,7 @@ public final class ReservationEngine {
         }
         if (!AppConstants.PORT_AVAILABLE.equalsIgnoreCase(port.getStatus())) {
             return new BookingCheck(false, "Port " + port.getPortNumber() + " is "
-                    + port.getStatus().toLowerCase() + " and cannot be reserved.", false);
+                    + port.getStatus().toLowerCase(Locale.ROOT) + " and cannot be reserved.", false);
         }
         if (endMs <= startMs) {
             return new BookingCheck(false, "The selected slot is invalid.", false);

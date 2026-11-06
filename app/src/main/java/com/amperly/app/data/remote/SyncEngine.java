@@ -273,6 +273,16 @@ public final class SyncEngine {
 
     // ------------------------------------------------------------------- state
 
+    /**
+     * True once a pull has completed successfully on this device.
+     *
+     * <p>Used on launch to tell a warm cache that can be drawn immediately from a cold one that
+     * would show every screen's empty state until the first pull lands.
+     */
+    public static boolean hasCompletedSync(Context context) {
+        return cursors(context).getLong(KEY_LAST_SYNC_MS, 0L) > 0L;
+    }
+
     /** Human-readable state for the UI: when the last pull worked, and what broke. */
     public static String statusSummary(Context context, AmperlyDatabase db) {
         if (!isEnabled()) {

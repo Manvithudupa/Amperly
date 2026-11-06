@@ -273,13 +273,14 @@
     <string name="host_location_type">Location type</string>
     <string name="host_operating_hours">Operating hours</string>
     <string name="host_price">Price per kWh (₹)</string>
-    <string name="host_service_fee">Amperly service fee (₹)</string>
-    <string name="host_gateway_fee">Gateway charge (₹)</string>
+    <string name="host_platform_fees_note">Amperly sets a %1$s service fee and a %2$s payment gateway charge per session. These cannot be changed.</string>
     <string name="host_meter_level">Meter verification level</string>
     <string name="host_access_rules">Access rules</string>
     <string name="host_port_count">Number of ports</string>
     <string name="host_port_power">Port power (kW)</string>
     <string name="host_port_dc">DC fast charger</string>
+    <string name="host_port_types_note">Add one row per connector type. Each type can have its own number of ports, power and DC support.</string>
+    <string name="host_add_port_type">Add another port type</string>
     <string name="host_submit_station">Submit station</string>
     <string name="host_station_saved">Station submitted for verification.</string>
     <string name="host_tab_sessions">Sessions</string>
@@ -438,6 +439,11 @@
     <string name="report_type_conflict">Reservation conflict</string>
     <string name="report_type_route_estimate">Route estimate variance</string>
     <string name="report_type_stop_unavailable">Planned stop unavailable</string>
+    <string name="report_type_host_unpaid">Driver left without paying</string>
+    <string name="report_type_host_behaviour">Unsafe or abusive behaviour</string>
+    <string name="report_type_host_damage">Damage to the charger</string>
+    <string name="report_type_host_booking">Incorrect booking details</string>
+    <string name="report_type_host_other">Other</string>
 
     <!-- Sign in and account -->
     <string name="auth_title">Sign in</string>
@@ -537,6 +543,7 @@
     <string name="error_station_not_found">This charger is no longer available.</string>
     <string name="sync_failed">Some changes couldn\u2019t be saved to the server.</string>
     <string name="sync_write_failed">Some changes couldn\u2019t be saved to the server.</string>
+    <string name="startup_loading">Loading your account…</string>
     <string name="sync_last_synced">Last synced %1$s</string>
     <string name="sync_never">Never synced</string>
     <string name="sync_no_backend">Server sync is off in this build.</string>
@@ -547,6 +554,7 @@
 
     <!-- Generic actions and units added during the audit -->
     <string name="action_delete">Delete</string>
+    <string name="action_remove">Remove</string>
     <string name="unsaved_changes_title">Discard your changes?</string>
     <string name="unsaved_changes_body">You have edits that are not saved.</string>
     <string name="unsaved_changes_keep">Keep editing</string>
@@ -673,8 +681,6 @@
     <string name="host_analytics_ports">Ports</string>
     <string name="host_meter_evidence_saved">Meter evidence saved: %1$s.</string>
     <string name="meter_evidence_header">%1$s\nDemo meter reading: %2$s\nSimulated or hand-entered.</string>
-    <string name="host_session_dispute_note">Session closed. A dispute can be raised from the receipt.</string>
-    <string name="host_receipt_toast">%1$s · %2$s · %3$s</string>
 
     <!-- Admin desk -->
     <string name="admin_approved">Listing approved: %1$s</string>

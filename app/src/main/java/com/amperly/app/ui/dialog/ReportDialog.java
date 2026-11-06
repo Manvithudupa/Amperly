@@ -15,11 +15,12 @@ import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
 
 /**
- * The consumer reporting flow. Categories mirror the spec so reports reach the admin queue with the
- * right context (charger unavailable, incorrect meter reading, off-platform payment, and so on).
+ * The reporting flow, with a category set for each side of a session.
  *
- * <p>{@link #REPORT_TYPES} stays in English because it is the value stored on the server; the
- * dialog shows the translated label for the same position.
+ * <p>{@link #REPORT_TYPES} is what a consumer files about a charger or a host;
+ * {@link #HOST_REPORT_TYPES} is what a host files about a driver. Both stay in English because
+ * that is the value stored on the server; the dialog shows the translated label for the same
+ * position.
  */
 public final class ReportDialog {
 
@@ -53,10 +54,38 @@ public final class ReportDialog {
             R.string.report_type_stop_unavailable
     };
 
+    /** What a host can report about a driver, instead of the charger-side categories above. */
+    public static final String[] HOST_REPORT_TYPES = {
+            "Driver left without paying",
+            "Unsafe or abusive behaviour",
+            "Damage to the charger",
+            "Incorrect booking details",
+            "Other"
+    };
+
+    private static final int[] HOST_REPORT_TYPE_LABELS = {
+            R.string.report_type_host_unpaid,
+            R.string.report_type_host_behaviour,
+            R.string.report_type_host_damage,
+            R.string.report_type_host_booking,
+            R.string.report_type_host_other
+    };
+
     private ReportDialog() {
     }
 
     public static void show(Fragment fragment, String title, String selectedType, OnSubmit onSubmit) {
+        show(fragment, title, selectedType, REPORT_TYPES, REPORT_TYPE_LABELS, onSubmit);
+    }
+
+    /** The host side of the same dialog: a report about a driver or a finished session. */
+    public static void showHost(Fragment fragment, String title, String selectedType,
+                                OnSubmit onSubmit) {
+        show(fragment, title, selectedType, HOST_REPORT_TYPES, HOST_REPORT_TYPE_LABELS, onSubmit);
+    }
+
+    private static void show(Fragment fragment, String title, String selectedType,
+                             String[] types, int[] labelResources, OnSubmit onSubmit) {
         Context context = fragment.getContext();
         if (context == null) {
             return;
@@ -65,12 +94,12 @@ public final class ReportDialog {
         View content = LayoutInflater.from(context).inflate(R.layout.dialog_report, null, false);
         TextInputLayout typeField = content.findViewById(R.id.reportTypeField);
         MaterialAutoCompleteTextView dropdown = content.findViewById(R.id.reportTypeDropdown);
-        String[] labels = typeLabels(context);
+        String[] labels = typeLabels(context, labelResources);
 
         final int[] selectedIndex = {0};
         if (selectedType != null) {
-            for (int i = 0; i < REPORT_TYPES.length; i++) {
-                if (REPORT_TYPES[i].equalsIgnoreCase(selectedType)) {
+            for (int i = 0; i < types.length; i++) {
+                if (types[i].equalsIgnoreCase(selectedType)) {
                     selectedIndex[0] = i;
                     break;
                 }
@@ -102,7 +131,7 @@ public final class ReportDialog {
                     if (onSubmit != null) {
                         String text = details.getText() == null
                                 ? "" : details.getText().toString().trim();
-                        onSubmit.onSubmit(REPORT_TYPES[selectedIndex[0]], text);
+                        onSubmit.onSubmit(types[selectedIndex[0]], text);
                     }
                 })
                 .create();
@@ -110,10 +139,10 @@ public final class ReportDialog {
         dialog.show();
     }
 
-    private static String[] typeLabels(Context context) {
-        String[] labels = new String[REPORT_TYPE_LABELS.length];
-        for (int i = 0; i < REPORT_TYPE_LABELS.length; i++) {
-            labels[i] = context.getString(REPORT_TYPE_LABELS[i]);
+    private static String[] typeLabels(Context context, int[] labelResources) {
+        String[] labels = new String[labelResources.length];
+        for (int i = 0; i < labelResources.length; i++) {
+            labels[i] = context.getString(labelResources[i]);
         }
         return labels;
     }

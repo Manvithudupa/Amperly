@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * The MVP has no charger API. Availability is therefore derived from host-provided schedules,
@@ -113,7 +114,8 @@ public final class AvailabilityEngine {
 
             for (ChargerPort port : ports) {
                 if (!isPortUsable(port)) {
-                    reason = "Port " + port.getPortNumber() + " is " + port.getStatus().toLowerCase();
+                    reason = "Port " + port.getPortNumber() + " is "
+                            + port.getStatus().toLowerCase(Locale.ROOT);
                     continue;
                 }
                 AvailabilitySchedule schedule = scheduleFor(schedules, port.getId(), startMs);

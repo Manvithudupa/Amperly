@@ -13,6 +13,7 @@ import android.widget.ArrayAdapter;
 import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.FrameLayout;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import androidx.activity.OnBackPressedCallback;
@@ -76,6 +77,7 @@ public class RegisterStationFragment extends Fragment {
     private TextInputLayout stationNameField;
     private TextInputLayout addressField;
     private FrameLayout stationMapContainer;
+    private LinearLayout portTypesContainer;
     @Nullable
     private MapPanel mapPanel;
     /** Set while the map, rather than the host, is writing the coordinate fields. */
@@ -93,7 +95,18 @@ public class RegisterStationFragment extends Fragment {
     /** The choices the removed Spinners used to hold as their selected position. */
     private int locationTypeIndex;
     private int meterLevelIndex;
-    private int portConnectorIndex;
+
+    /** One row of port setup: a connector type with its own count, power and DC flag. */
+    private static class PortTypeRow {
+        private final View view;
+        private int connectorIndex;
+
+        PortTypeRow(View view) {
+            this.view = view;
+        }
+    }
+
+    private final List<PortTypeRow> portTypeRows = new ArrayList<>();
 
     @Nullable
     @Override
@@ -124,12 +137,18 @@ public class RegisterStationFragment extends Fragment {
         meterLevelDropdown.setOnItemClickListener((parent, v, position, id) ->
                 meterLevelIndex = position);
 
-        MaterialAutoCompleteTextView portConnectorDropdown = view.findViewById(R.id.portConnectorDropdown);
-        portConnectorDropdown.setAdapter(new ArrayAdapter<>(requireContext(),
-                R.layout.item_dropdown, CONNECTOR_LABELS));
-        portConnectorDropdown.setText(CONNECTOR_LABELS[0], false);
-        portConnectorDropdown.setOnItemClickListener((parent, v, position, id) ->
-                portConnectorIndex = position);
+        // Amperly sets the fees; the host only sees them. They are never read back from an input.
+        TextView platformFeesNote = view.findViewById(R.id.platformFeesNote);
+        platformFeesNote.setText(getString(R.string.host_platform_fees_note,
+                Formatters.money(AppConstants.DEFAULT_SERVICE_FEE_INR),
+                Formatters.money(AppConstants.DEFAULT_GATEWAY_FEE_INR)));
+
+        // A charger may offer more than one connector standard, so the form starts with one row
+        // and the host can add another type beside it.
+        portTypesContainer = view.findViewById(R.id.portTypesContainer);
+        portTypeRows.clear();
+        addPortTypeRow();
+        view.findViewById(R.id.addPortTypeButton).setOnClickListener(v -> addPortTypeRow());
 
         setUpLocationPicker(view);
         // The coordinates are never typed: the form locates the charger as it opens, and the host
@@ -199,15 +218,21 @@ public class RegisterStationFragment extends Fragment {
     private String snapshot(View view) {
         StringBuilder out = new StringBuilder();
         for (int id : new int[]{R.id.stationNameEdit, R.id.addressEdit, R.id.latitudeEdit,
-                R.id.longitudeEdit, R.id.hoursEdit, R.id.priceEdit, R.id.serviceFeeEdit,
-                R.id.gatewayFeeEdit, R.id.portCountEdit, R.id.portPowerEdit, R.id.accessRulesEdit}) {
+                R.id.longitudeEdit, R.id.hoursEdit, R.id.priceEdit, R.id.accessRulesEdit}) {
             out.append(text(view, id)).append('\u0001');
         }
-        CheckBox dc = view.findViewById(R.id.portDcCheck);
-        out.append(dc != null && dc.isChecked()).append('\u0001');
+        // Every port type row, in order: its connector, count, power and DC flag. Adding or
+        // removing a row changes the snapshot, so Back still asks before discarding the work.
+        out.append(portTypeRows.size()).append('\u0001');
+        for (PortTypeRow row : portTypeRows) {
+            CheckBox dc = row.view.findViewById(R.id.portTypeDcCheck);
+            out.append(row.connectorIndex).append('\u0001')
+                    .append(text(row.view, R.id.portTypeCountEdit)).append('\u0001')
+                    .append(text(row.view, R.id.portTypePowerEdit)).append('\u0001')
+                    .append(dc != null && dc.isChecked()).append('\u0001');
+        }
         return out.append(locationTypeIndex).append('\u0001')
-                .append(meterLevelIndex).append('\u0001')
-                .append(portConnectorIndex).toString();
+                .append(meterLevelIndex).toString();
     }
 
     /** A field-level error disappears the moment the host starts correcting the field. */
@@ -249,6 +274,47 @@ public class RegisterStationFragment extends Fragment {
                     }
                 }
             });
+        }
+    }
+
+    /**
+     * Adds one connector type to the station.
+     *
+     * <p>Each row is independent — its own standard, port count, power and DC flag — because a
+     * host with, say, two Type 2 sockets and one CCS2 unit should not have to register the same
+     * address twice. The station's summary fields are derived from these rows when it is saved.
+     */
+    private void addPortTypeRow() {
+        if (portTypesContainer == null) {
+            return;
+        }
+        View rowView = LayoutInflater.from(requireContext())
+                .inflate(R.layout.item_port_type_row, portTypesContainer, false);
+        PortTypeRow row = new PortTypeRow(rowView);
+
+        MaterialAutoCompleteTextView connector = rowView.findViewById(R.id.portTypeConnectorDropdown);
+        connector.setAdapter(new ArrayAdapter<>(requireContext(), R.layout.item_dropdown,
+                CONNECTOR_LABELS));
+        connector.setText(CONNECTOR_LABELS[0], false);
+        connector.setOnItemClickListener((parent, v, position, id) -> row.connectorIndex = position);
+
+        rowView.findViewById(R.id.portTypeRemoveButton).setOnClickListener(v -> {
+            portTypesContainer.removeView(rowView);
+            portTypeRows.remove(row);
+            updateRemoveButtons();
+        });
+
+        portTypesContainer.addView(rowView);
+        portTypeRows.add(row);
+        updateRemoveButtons();
+    }
+
+    /** The first row stays: a station needs at least one connector standard. */
+    private void updateRemoveButtons() {
+        boolean canRemove = portTypeRows.size() > 1;
+        for (PortTypeRow row : portTypeRows) {
+            row.view.findViewById(R.id.portTypeRemoveButton)
+                    .setVisibility(canRemove ? View.VISIBLE : View.GONE);
         }
     }
 
@@ -470,12 +536,10 @@ public class RegisterStationFragment extends Fragment {
         double latitude = parse(latText, 0);
         double longitude = parse(lngText, 0);
         double price = parse(text(view, R.id.priceEdit), AppConstants.DEFAULT_TARIFF_INR_PER_KWH);
-        double serviceFee = parse(text(view, R.id.serviceFeeEdit), AppConstants.DEFAULT_SERVICE_FEE_INR);
-        double gatewayFee = parse(text(view, R.id.gatewayFeeEdit), AppConstants.DEFAULT_GATEWAY_FEE_INR);
-        int portCount = (int) parse(text(view, R.id.portCountEdit), 1);
-        double portPower = parse(text(view, R.id.portPowerEdit), 7.2);
-        String connector = pick(CONNECTORS, portConnectorIndex);
-        boolean dc = ((CheckBox) view.findViewById(R.id.portDcCheck)).isChecked();
+        // Platform fees belong to Amperly: the host cannot edit them, so only the defaults are
+        // ever written, whatever an older build may have left in the form.
+        double serviceFee = AppConstants.DEFAULT_SERVICE_FEE_INR;
+        double gatewayFee = AppConstants.DEFAULT_GATEWAY_FEE_INR;
         String locationType = pick(LOCATION_TYPES, locationTypeIndex);
         String meterLevel = pick(METER_LEVELS, meterLevelIndex);
         String hours = text(view, R.id.hoursEdit);
@@ -484,19 +548,47 @@ public class RegisterStationFragment extends Fragment {
         String stationId = UUID.randomUUID().toString();
         long now = System.currentTimeMillis();
 
+        // Build the ports per row first, then derive the station's summary from them: the list of
+        // connector standards, the highest power, whether any port is DC, and the total count.
+        List<ChargerPort> ports = new ArrayList<>();
+        List<String> connectorTypeList = new ArrayList<>();
+        double maxPowerKw = 0;
+        boolean anyDc = false;
+        int portNumber = 0;
+        for (PortTypeRow row : portTypeRows) {
+            String connector = pick(CONNECTORS, row.connectorIndex);
+            int rowCount = Math.max(1, (int) parse(text(row.view, R.id.portTypeCountEdit), 1));
+            double powerKw = Math.max(0.1, parse(text(row.view, R.id.portTypePowerEdit), 7.2));
+            boolean dc = ((CheckBox) row.view.findViewById(R.id.portTypeDcCheck)).isChecked();
+            maxPowerKw = Math.max(maxPowerKw, powerKw);
+            anyDc = anyDc || dc;
+            if (!connectorTypeList.contains(connector)) {
+                connectorTypeList.add(connector);
+            }
+            for (int i = 0; i < rowCount; i++) {
+                portNumber++;
+                ports.add(new ChargerPort(UUID.randomUUID().toString(), stationId,
+                        String.valueOf(portNumber), connector, powerKw, dc,
+                        AppConstants.PORT_AVAILABLE));
+            }
+        }
+        if (ports.isEmpty()) {
+            // The form always keeps one row, so this only guards against a form that was never
+            // built; a station without a port could never be booked.
+            connectorTypeList.add(CONNECTORS[0]);
+            maxPowerKw = 7.2;
+            ports.add(new ChargerPort(UUID.randomUUID().toString(), stationId, "1",
+                    CONNECTORS[0], maxPowerKw, false, AppConstants.PORT_AVAILABLE));
+        }
+        String connectorTypes = TextUtils.join(",", connectorTypeList);
+
         ChargerStation station = new ChargerStation(stationId, user.getId(), user.getName(), name, address,
                 latitude, longitude, locationType, TextUtils.isEmpty(hours) ? "08:00 - 20:00" : hours,
                 price, serviceFee, gatewayFee, meterLevel, false, false,
                 AppConstants.APPROVAL_PENDING, "",
-                connector, portPower, dc, Math.max(1, portCount),
+                connectorTypes, maxPowerKw, anyDc, ports.size(),
                 TextUtils.isEmpty(access) ? "Contact the host on arrival." : access,
                 0.0, 0.0, 0, now);
-
-        List<ChargerPort> ports = new ArrayList<>();
-        for (int i = 1; i <= Math.max(1, portCount); i++) {
-            ports.add(new ChargerPort(UUID.randomUUID().toString(), stationId, String.valueOf(i),
-                    connector, portPower, dc, AppConstants.PORT_AVAILABLE));
-        }
 
         List<AvailabilitySchedule> schedules = new ArrayList<>();
         int open = 8 * 60;

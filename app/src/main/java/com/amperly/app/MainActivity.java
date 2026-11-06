@@ -141,6 +141,7 @@ public class MainActivity extends AppCompatActivity
     private View appBarLayout;
     private View appBarDivider;
     private View fragmentContainer;
+    private View startupLoadingOverlay;
 
     private AmperlyRepository repo;
 
@@ -195,6 +196,7 @@ public class MainActivity extends AppCompatActivity
             appBarLayout = findViewById(R.id.appBarLayout);
             appBarDivider = findViewById(R.id.appBarDivider);
             fragmentContainer = findViewById(R.id.fragment_container);
+            startupLoadingOverlay = findViewById(R.id.startupLoadingOverlay);
 
             handleDeepLink(getIntent());
             startBackend();
@@ -444,6 +446,7 @@ public class MainActivity extends AppCompatActivity
     public void showSignIn() {
         setNavWanted(false);
         setChromeVisible(false);
+        showStartupLoading(false);
         // The tabs belong to the account that signed in, so they go with it.
         resetTabs();
         getSupportFragmentManager()
@@ -468,19 +471,29 @@ public class MainActivity extends AppCompatActivity
                     SocStore.load(this, user.getId(), vehicle.getId()));
         });
         // Capacity is switched on the Profile page, so the shell itself stays identical.
-        setNavWanted(true);
         setChromeVisible(true);
-        // An administrator signs in to work the verification queue, not to browse chargers;
-        // landing them in Consumer hid the only screens their account exists for.
-        applyRole(user.isPlatformAdmin() ? AppConstants.ROLE_ADMIN : AppConstants.ROLE_CONSUMER);
-        invalidateOptionsMenu();
         Ux.toast(this, getString(R.string.auth_signed_in_as) + " " + user.getName());
         if (repo.didProfileWriteFail()) {
             // The account exists on the device but not in public.users, which makes it anonymous
             // to every RLS policy. Say so instead of showing an app that looks broken.
             Ux.toast(this, getString(R.string.auth_profile_local_only));
         }
-        syncAfterSignIn();
+
+        // A cache that belongs to this account and has completed a pull can be drawn at once.
+        // A cold cache cannot: building the tabs now would show every screen's empty state and
+        // then replace it after the pull, which is the flash this branch avoids.
+        if (hasCachedAccount(user)) {
+            setNavWanted(true);
+            // An administrator signs in to work the verification queue, not to browse chargers;
+            // landing them in Consumer hid the only screens their account exists for.
+            applyRole(user.isPlatformAdmin() ? AppConstants.ROLE_ADMIN : AppConstants.ROLE_CONSUMER);
+            invalidateOptionsMenu();
+            syncAfterSignIn(false);
+        } else {
+            setNavWanted(false);
+            showStartupLoading(true);
+            syncAfterSignIn(true);
+        }
     }
 
     public void onSignedOut() {
@@ -527,13 +540,39 @@ public class MainActivity extends AppCompatActivity
     }
 
     /**
+     * True when Room already holds this account's data from a completed pull.
+     *
+     * <p>The account id is remembered separately from the Room rows because a different person
+     * signing in on the same device must not be shown the previous account's cache.
+     */
+    private boolean hasCachedAccount(User user) {
+        if (user == null) {
+            return false;
+        }
+        String previousUserId = getSharedPreferences(PREFS, MODE_PRIVATE)
+                .getString(KEY_LAST_USER, "");
+        return user.getId().equals(previousUserId) && SyncEngine.hasCompletedSync(this);
+    }
+
+    /** Covers the content while a cold cache fills, so a tap cannot open an empty screen. */
+    private void showStartupLoading(boolean loading) {
+        if (startupLoadingOverlay != null) {
+            startupLoadingOverlay.setVisibility(loading ? View.VISIBLE : View.GONE);
+        }
+    }
+
+    /**
      * Pulls the account's data from Supabase after a sign-in.
      *
      * <p>Room is only a cache, so it is wiped when a DIFFERENT account signs in — otherwise one
      * person's stations and reservations would linger under another person's session. The same
      * account signing in again keeps its cache, which is what makes the app usable offline.
+     *
+     * @param buildAfterSync true when no screen has been built yet, because the cache was cold;
+     *                       the shell is built once the pull finishes (or fails) so no screen is
+     *                       ever drawn against an empty cache and then refreshed
      */
-    private void syncAfterSignIn() {
+    private void syncAfterSignIn(boolean buildAfterSync) {
         repo.background(() -> {
             User currentUser = AuthManager.getInstance().getCurrentUser();
             if (currentUser != null) {
@@ -550,11 +589,28 @@ public class MainActivity extends AppCompatActivity
             }
             return SyncEngine.syncNow(this, repo.database());
         }, result -> {
+            if (isFinishing() || isDestroyed()) {
+                return;
+            }
+            showStartupLoading(false);
+            if (buildAfterSync) {
+                // The pull (or its failure) is the first moment the cache can be trusted to
+                // describe this account, so the shell is built now rather than before it.
+                if (!AuthManager.getInstance().isLoggedIn()) {
+                    return;
+                }
+                User user = AuthManager.getInstance().getCurrentUser();
+                setNavWanted(true);
+                applyRole(user != null && user.isPlatformAdmin()
+                        ? AppConstants.ROLE_ADMIN : AppConstants.ROLE_CONSUMER);
+                invalidateOptionsMenu();
+                return;
+            }
             if (result != null) {
                 Log.i(TAG, "Signed-in sync: " + result.summary());
-                // The screens were built against an empty cache; rebuild so the pulled rows
-                // appear without the user having to leave and come back.
-                if (isNavShowing()) {
+                // Only a pull that changed something needs the screens rebuilt. Rebuilding the
+                // whole shell after an unchanged sync was the extra refresh on every launch.
+                if (isNavShowing() && (result.pulled > 0 || result.removed > 0)) {
                     // Rebuild under the tab that is showing rather than jumping back home: the
                     // pulled rows belong to the screen the person is already looking at.
                     int selected = bottomNavigationView == null

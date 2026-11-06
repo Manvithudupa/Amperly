@@ -253,45 +253,13 @@
                 android:text="18" />
         </com.google.android.material.textfield.TextInputLayout>
 
-        <LinearLayout
+        <!-- Amperly's own fees: shown for transparency, never editable by the host. -->
+        <TextView
+            android:id="@+id/platformFeesNote"
+            style="@style/Widget.Amperly.Notice"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/amp_space_s"
-            android:orientation="horizontal">
-
-            <com.google.android.material.textfield.TextInputLayout
-                style="@style/Widget.Amperly.TextInput"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:hint="@string/host_service_fee">
-
-                <com.google.android.material.textfield.TextInputEditText
-                    android:id="@+id/serviceFeeEdit"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:fontFeatureSettings="tnum"
-                    android:inputType="numberDecimal"
-                    android:text="5" />
-            </com.google.android.material.textfield.TextInputLayout>
-
-            <com.google.android.material.textfield.TextInputLayout
-                style="@style/Widget.Amperly.TextInput"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="@dimen/amp_space_s"
-                android:layout_weight="1"
-                android:hint="@string/host_gateway_fee">
-
-                <com.google.android.material.textfield.TextInputEditText
-                    android:id="@+id/gatewayFeeEdit"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:fontFeatureSettings="tnum"
-                    android:inputType="numberDecimal"
-                    android:text="4" />
-            </com.google.android.material.textfield.TextInputLayout>
-        </LinearLayout>
+            android:layout_marginTop="@dimen/amp_space_s" />
 
         <TextView
             android:layout_width="match_parent"
@@ -361,76 +329,27 @@
                 android:textAppearance="@style/TextAppearance.Amperly.TitleSmall" />
         </LinearLayout>
 
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/amp_space_s"
-            android:orientation="horizontal">
-
-            <com.google.android.material.textfield.TextInputLayout
-                style="@style/Widget.Amperly.TextInput"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:hint="@string/host_port_count">
-
-                <com.google.android.material.textfield.TextInputEditText
-                    android:id="@+id/portCountEdit"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:fontFeatureSettings="tnum"
-                    android:inputType="number"
-                    android:text="2" />
-            </com.google.android.material.textfield.TextInputLayout>
-
-            <com.google.android.material.textfield.TextInputLayout
-                style="@style/Widget.Amperly.TextInput"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="@dimen/amp_space_s"
-                android:layout_weight="1"
-                android:hint="@string/host_port_power">
-
-                <com.google.android.material.textfield.TextInputEditText
-                    android:id="@+id/portPowerEdit"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:fontFeatureSettings="tnum"
-                    android:inputType="numberDecimal"
-                    android:text="7.2" />
-            </com.google.android.material.textfield.TextInputLayout>
-        </LinearLayout>
-
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/amp_space_m"
-            android:layout_marginBottom="@dimen/amp_space_xs"
-            android:text="@string/vehicle_connector"
-            android:textAppearance="@style/TextAppearance.Amperly.LabelStrong" />
+            android:layout_marginTop="@dimen/amp_space_xs"
+            android:text="@string/host_port_types_note"
+            android:textAppearance="@style/TextAppearance.Amperly.Label" />
 
-        <com.google.android.material.textfield.TextInputLayout
-            android:id="@+id/portConnectorField"
-            style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+        <!-- One row per connector type; rows are inflated from item_port_type_row. -->
+        <LinearLayout
+            android:id="@+id/portTypesContainer"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/amp_space_xs"
-            android:hint="@string/vehicle_connector">
+            android:orientation="vertical" />
 
-            <com.google.android.material.textfield.MaterialAutoCompleteTextView
-                android:id="@+id/portConnectorDropdown"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:contentDescription="@string/vehicle_connector"
-                android:inputType="none" />
-        </com.google.android.material.textfield.TextInputLayout>
-
-        <com.google.android.material.checkbox.MaterialCheckBox
-            android:id="@+id/portDcCheck"
-            android:layout_width="wrap_content"
-            android:layout_height="@dimen/amp_touch_target"
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/addPortTypeButton"
+            style="@style/Widget.Amperly.Button.Outlined"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/amp_space_s"
-            android:text="@string/host_port_dc" />
+            android:text="@string/host_add_port_type" />
 
         <TextView
             android:id="@+id/registerStatusText"

@@ -9,6 +9,7 @@ import com.amperly.app.data.local.entity.User;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 
 /**
@@ -71,7 +72,9 @@ public class ChatManager {
         if (text == null) {
             return false;
         }
-        String lower = text.toLowerCase();
+        // Locale.ROOT keeps "I" folding to "i" in every language; the default locale makes the
+        // phrase check miss real requests in Turkish, where "DIRECT GPAY" lowercases to a dotless ı.
+        String lower = text.toLowerCase(Locale.ROOT);
         return lower.contains("pay cash") || lower.contains("direct gpay") || lower.contains("off platform")
                 || lower.contains("transfer account") || lower.contains("paytm me directly")
                 || lower.contains("upi to my") || lower.contains("outside the app");
