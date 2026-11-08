@@ -5,7 +5,7 @@
 
 **MapLibre** draws an OpenStreetMap-based map, and **Geoapify** supplies the address search and the road routes. **Amperly helps you reserve, access and use the charger** — with route-aware charging plans projected onto the car display.
 
-**Latest release:** [Amperly 4.7.0](https://github.com/Manvithudupa/Amperly/releases/tag/v4.7.0) — signed release APK, versionCode 27.
+**Latest release:** [Amperly 5.0.0](https://github.com/Manvithudupa/Amperly/releases/tag/v5.0.0) — signed release APK, versionCode 28.
 
 > Route energy and battery-drain figures are **planning estimates**. The final bill is always based on verified meter readings. Stations without a verified meter can only take a reservation **without automatic billing**.
 
