@@ -53,12 +53,26 @@ public final class SupabaseAuth {
     @Nullable
     private static volatile Context appContext;
 
+    /** The Flutter host can follow Java-side refreshes when it is already running. */
+    public interface SessionRefreshListener {
+        void onSessionRefreshed(@Nullable String sessionJson);
+    }
+
+    @Nullable
+    private static volatile SessionRefreshListener refreshListener;
+
     private static volatile SharedPreferences cachedPrefs;
     private static final String KEY_ACCESS = "access_token";
     private static final String KEY_REFRESH = "refresh_token";
     private static final String KEY_EXPIRES_AT = "expires_at_ms";
     private static final String KEY_USER_ID = "auth_user_id";
     private static final String KEY_EMAIL = "email";
+
+    /**
+     * The complete GoTrue session JSON, stored so Supabase Flutter can restore
+     * the same session the Java car layer uses.
+     */
+    private static final String KEY_SESSION_JSON = "session_json";
 
     private static final MediaType JSON = MediaType.parse("application/json; charset=utf-8");
 
@@ -90,13 +104,18 @@ public final class SupabaseAuth {
         public final String email;
         public final long expiresAtMs;
 
+        /** The GoTrue payload, or null for a session migrated from old fields. */
+        @Nullable
+        public final String rawJson;
+
         Session(String accessToken, String refreshToken, String authUserId, String email,
-                long expiresAtMs) {
+                long expiresAtMs, @Nullable String rawJson) {
             this.accessToken = accessToken;
             this.refreshToken = refreshToken;
             this.authUserId = authUserId;
             this.email = email;
             this.expiresAtMs = expiresAtMs;
+            this.rawJson = rawJson;
         }
 
         public boolean needsRefresh(long nowMs) {
@@ -141,6 +160,11 @@ public final class SupabaseAuth {
         if (context != null) {
             appContext = context.getApplicationContext();
         }
+    }
+
+    /** Registers the host bridge so a Java refresh cannot leave Flutter on an old token. */
+    public static void setRefreshListener(@Nullable SessionRefreshListener listener) {
+        refreshListener = listener;
     }
 
     /** True once a session has been loaded into {@link SupabaseClient}. */
@@ -226,6 +250,103 @@ public final class SupabaseAuth {
         }
     }
 
+    /**
+     * The stored session in the JSON shape Supabase Flutter's LocalStorage
+     * expects.
+     *
+     * <p>This is read and written by the Java bridge, not exposed to the UI.
+     * The payload contains bearer tokens and is therefore only ever held in the
+     * Keystore-backed preference file.
+     */
+    @Nullable
+    public static String persistedSessionJson(Context context) {
+        if (context == null) {
+            return null;
+        }
+        try {
+            SharedPreferences prefs = prefs(context);
+            String access = prefs.getString(KEY_ACCESS, null);
+            if (access == null || access.trim().isEmpty()) {
+                return null;
+            }
+            Session session = new Session(
+                    access,
+                    prefs.getString(KEY_REFRESH, null),
+                    prefs.getString(KEY_USER_ID, null),
+                    prefs.getString(KEY_EMAIL, null),
+                    prefs.getLong(KEY_EXPIRES_AT, 0L),
+                    prefs.getString(KEY_SESSION_JSON, null));
+            return sessionJson(session);
+        } catch (RuntimeException e) {
+            Log.w(TAG, "Could not read the stored session for Flutter: "
+                    + e.getClass().getSimpleName());
+            return null;
+        }
+    }
+
+    /**
+     * Adopts a session written by Flutter.
+     *
+     * <p>No network call is made: the Flutter client has already authenticated.
+     * The token is persisted in the same encrypted store and applied to the
+     * Java client so the car service can use it immediately.
+     */
+    public static void adoptSessionFromHost(Context context, String sessionJson)
+            throws Failure {
+        if (context == null) {
+            throw new Failure("No application context was available.");
+        }
+        requireConfigured();
+        if (sessionJson == null || sessionJson.trim().isEmpty()) {
+            throw new Failure("The Flutter session was empty.");
+        }
+
+        JsonObject json;
+        try {
+            JsonElement parsed = JsonParser.parseString(sessionJson);
+            if (!parsed.isJsonObject()) {
+                throw new IllegalArgumentException("Session is not an object.");
+            }
+            json = parsed.getAsJsonObject();
+        } catch (RuntimeException e) {
+            throw new Failure("The Flutter session was not valid JSON.");
+        }
+
+        String access = optString(json, "access_token");
+        String refresh = optString(json, "refresh_token");
+        if (access == null || access.trim().isEmpty()) {
+            throw new Failure("The Flutter session had no access token.");
+        }
+        if (refresh == null || refresh.trim().isEmpty()) {
+            throw new Failure("The Flutter session had no refresh token.");
+        }
+
+        String userId = null;
+        String email = null;
+        JsonElement userElement = json.get("user");
+        if (userElement != null && userElement.isJsonObject()) {
+            JsonObject user = userElement.getAsJsonObject();
+            userId = optString(user, "id");
+            email = optString(user, "email");
+        }
+        if (userId == null || userId.trim().isEmpty()) {
+            throw new Failure("The Flutter session had no user id.");
+        }
+
+        attach(context);
+        Session session = new Session(access, refresh, userId, email,
+                expiryFromJson(json), sessionJson);
+        persist(context, session);
+        apply(session);
+    }
+
+    /** Clears tokens only; Flutter has already ended the server-side session. */
+    public static void clearFromHost(Context context) {
+        if (context != null) {
+            clear(context);
+        }
+    }
+
     /** Loads a stored session and refreshes it when it is close to expiring. */
     @Nullable
     public static Session restoreSession(Context context) {
@@ -240,8 +361,9 @@ public final class SupabaseAuth {
         }
         String storedUserId = prefs.getString(KEY_USER_ID, null);
         String storedEmail = prefs.getString(KEY_EMAIL, null);
+        String storedJson = prefs.getString(KEY_SESSION_JSON, null);
         Session session = new Session(access, prefs.getString(KEY_REFRESH, null),
-                storedUserId, storedEmail, prefs.getLong(KEY_EXPIRES_AT, 0L));
+                storedUserId, storedEmail, prefs.getLong(KEY_EXPIRES_AT, 0L), storedJson);
 
         if (session.needsRefresh(System.currentTimeMillis())) {
             try {
@@ -277,6 +399,14 @@ public final class SupabaseAuth {
                 prefs.getString(KEY_EMAIL, null));
         persist(context, session);
         apply(session);
+
+        // Both surfaces share this store. A refresh performed for the car must
+        // be adopted by a running Flutter client before its own auto-refresh
+        // tries the now-rotated refresh token.
+        SessionRefreshListener listener = refreshListener;
+        if (listener != null) {
+            listener.onSessionRefreshed(persistedSessionJson(context));
+        }
         return session;
     }
 
@@ -355,13 +485,90 @@ public final class SupabaseAuth {
     }
 
     private static void persist(Context context, Session session) {
+        String json = sessionJson(session);
         prefs(context).edit()
                 .putString(KEY_ACCESS, session.accessToken)
                 .putString(KEY_REFRESH, session.refreshToken)
                 .putString(KEY_USER_ID, session.authUserId)
                 .putString(KEY_EMAIL, session.email)
                 .putLong(KEY_EXPIRES_AT, session.expiresAtMs)
+                .putString(KEY_SESSION_JSON, json)
                 .apply();
+    }
+
+    /**
+     * Normalises any stored payload into the shape Supabase Flutter parses.
+     *
+     * <p>GoTrue responses carry the user object and metadata; a session migrated
+     * from the old field-only store does not. Both are made complete here so a
+     * Flutter restore never receives a token without the identity that goes
+     * with it. Returns a string with bearer credentials and must not be logged.
+     */
+    private static String sessionJson(Session session) {
+        JsonObject json = new JsonObject();
+        if (session.rawJson != null && !session.rawJson.trim().isEmpty()) {
+            try {
+                JsonElement parsed = JsonParser.parseString(session.rawJson);
+                if (parsed.isJsonObject()) {
+                    json = parsed.getAsJsonObject();
+                }
+            } catch (RuntimeException ignored) {
+                // Fall back to the field-only representation below.
+            }
+        }
+
+        json.addProperty("access_token", session.accessToken);
+        if (session.refreshToken != null && !session.refreshToken.isEmpty()) {
+            json.addProperty("refresh_token", session.refreshToken);
+        } else {
+            json.remove("refresh_token");
+        }
+        json.addProperty("token_type", "bearer");
+        long now = System.currentTimeMillis();
+        long expiresAtSeconds = session.expiresAtMs > 0 ? session.expiresAtMs / 1000L : 0L;
+        long expiresInSeconds = session.expiresAtMs > now
+                ? (session.expiresAtMs - now) / 1000L : 0L;
+        json.addProperty("expires_at", expiresAtSeconds);
+        json.addProperty("expires_in", expiresInSeconds);
+
+        JsonObject user = new JsonObject();
+        JsonElement storedUser = json.get("user");
+        if (storedUser != null && storedUser.isJsonObject()) {
+            user = storedUser.getAsJsonObject();
+        }
+        if (session.authUserId != null && !session.authUserId.isEmpty()) {
+            user.addProperty("id", session.authUserId);
+        }
+        if (session.email != null && !session.email.isEmpty()) {
+            user.addProperty("email", session.email);
+        }
+        json.add("user", user);
+        return json.toString();
+    }
+
+    /** Supabase stores expiry in seconds; older callers may have used millis. */
+    private static long expiryFromJson(JsonObject json) {
+        JsonElement expiresAt = json.get("expires_at");
+        if (expiresAt != null && expiresAt.isJsonPrimitive()) {
+            try {
+                long value = expiresAt.getAsLong();
+                if (value > 0) {
+                    return value < 10_000_000_000L ? value * 1000L : value;
+                }
+            } catch (RuntimeException ignored) {
+                // Fall through to expires_in.
+            }
+        }
+        long seconds = 3600L;
+        JsonElement expiresIn = json.get("expires_in");
+        if (expiresIn != null && expiresIn.isJsonPrimitive()) {
+            try {
+                seconds = Math.max(0L, expiresIn.getAsLong());
+            } catch (RuntimeException ignored) {
+                seconds = 3600L;
+            }
+        }
+        return System.currentTimeMillis() + (seconds * 1000L);
     }
 
     private static void clear(Context context) {
@@ -490,7 +697,7 @@ public final class SupabaseAuth {
             }
         }
         long expiresAt = System.currentTimeMillis() + (expiresInSeconds * 1000L);
-        return new Session(access, refresh, userId, email, expiresAt);
+        return new Session(access, refresh, userId, email, expiresAt, result.body);
     }
 
     /**

@@ -25,3 +25,6 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Local Flutter SDK used only to run the Flutter rewrite's checks.
+/.tools/

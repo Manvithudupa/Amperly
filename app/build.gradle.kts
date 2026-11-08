@@ -94,7 +94,8 @@ if (releaseKeystore == null) {
 
 android {
     namespace = "com.amperly.app"
-    compileSdk = 35
+    // The embedded Flutter module is built against API 36.
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.amperly.app"
@@ -137,8 +138,8 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
     buildFeatures {
         viewBinding = true
@@ -151,6 +152,10 @@ dependencies {
     implementation(libs.material)
     implementation(libs.constraintlayout)
     implementation(libs.activity.ktx)
+
+    // The phone surface. Flutter is embedded as a library; Android Auto stays
+    // entirely in this Java application behind AmperlyCarAppService.
+    implementation(project(":flutter"))
 
     // Android for Cars App Library
     implementation("androidx.car.app:app:1.4.0")

@@ -1,0 +1,17 @@
+// Bridges the embedded Flutter module into the existing Amperly Android app.
+// settings.gradle.kts adds the Flutter SDK's Gradle plugin build before this
+// runs. The module itself stays in flutter_app/ and keeps its own pubspec,
+// tests and assets; only its generated .android/Flutter library is a subproject.
+
+include ':flutter'
+project(':flutter').projectDir = new File(settingsDir, 'flutter_app/.android/Flutter')
+
+def localPropertiesFile = new File(settingsDir, 'flutter_app/.android/local.properties')
+def properties = new Properties()
+assert localPropertiesFile.exists(), "Run `flutter pub get` in flutter_app first."
+localPropertiesFile.withReader('UTF-8') { reader -> properties.load(reader) }
+
+def flutterSdkPath = properties.getProperty('flutter.sdk')
+assert flutterSdkPath != null, 'flutter.sdk is missing from flutter_app/.android/local.properties'
+
+apply from: "$flutterSdkPath/packages/flutter_tools/gradle/module_plugin_loader.gradle"

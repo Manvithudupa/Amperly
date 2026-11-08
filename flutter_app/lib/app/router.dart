@@ -1,0 +1,157 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
+import '../core/ui/strings.dart';
+import '../core/widgets/amp_scaffold.dart';
+import '../core/widgets/error_state.dart';
+import '../features/auth/application/session_controller.dart';
+import '../features/auth/presentation/account_screen.dart';
+import '../features/auth/presentation/sign_in_screen.dart';
+import '../features/consumer/presentation/booking_code_screen.dart';
+import '../features/consumer/presentation/booking_screen.dart';
+import '../features/consumer/presentation/bookings_screen.dart';
+import '../features/consumer/presentation/charger_details_screen.dart';
+import '../features/consumer/presentation/charging_history_screen.dart';
+import '../features/consumer/presentation/charging_session_screen.dart';
+import '../features/consumer/presentation/chat_screen.dart';
+import '../features/consumer/presentation/messages_screen.dart';
+import '../features/consumer/presentation/trip_planner_screen.dart';
+import '../features/consumer/presentation/vehicle_form_screen.dart';
+import '../features/consumer/presentation/vehicle_garage_screen.dart';
+import '../features/gallery/component_gallery_screen.dart';
+import '../features/home/presentation/home_screen.dart';
+
+/// The route table and the one redirect that protects every private screen.
+///
+/// The session controller follows Supabase's auth stream, including a restored
+/// encrypted session after a restart. The gallery route exists only in debug
+/// builds and is the one exception to the guard.
+final Provider<GoRouter> routerProvider = Provider<GoRouter>((Ref ref) {
+  final ValueNotifier<int> refresh = ValueNotifier<int>(0);
+  ref.listen<SessionSnapshot>(sessionProvider, (
+    SessionSnapshot? previous,
+    SessionSnapshot next,
+  ) {
+    refresh.value += 1;
+  });
+  ref.onDispose(refresh.dispose);
+
+  return GoRouter(
+    initialLocation: '/sign-in',
+    refreshListenable: refresh,
+    debugLogDiagnostics: kDebugMode,
+    redirect: (BuildContext context, GoRouterState state) {
+      final bool signedIn = ref.read(sessionProvider).isSignedIn;
+      final String location = state.matchedLocation;
+      final bool onSignIn = location == '/sign-in';
+      final bool onGallery = location == '/gallery' && kDebugMode;
+
+      if (!signedIn && !onSignIn && !onGallery) {
+        return '/sign-in';
+      }
+      if (signedIn && onSignIn) {
+        return '/home';
+      }
+      return null;
+    },
+    routes: <RouteBase>[
+      GoRoute(
+        path: '/sign-in',
+        builder: (BuildContext context, GoRouterState state) =>
+            const SignInScreen(),
+      ),
+      GoRoute(
+        path: '/home',
+        builder: (BuildContext context, GoRouterState state) =>
+            const HomeScreen(),
+      ),
+      GoRoute(
+        path: '/account',
+        builder: (BuildContext context, GoRouterState state) =>
+            const AccountScreen(),
+      ),
+      GoRoute(
+        path: '/vehicles',
+        builder: (BuildContext context, GoRouterState state) =>
+            const VehicleGarageScreen(),
+      ),
+      GoRoute(
+        path: '/vehicles/new',
+        builder: (BuildContext context, GoRouterState state) =>
+            const VehicleFormScreen(),
+      ),
+      GoRoute(
+        path: '/vehicles/:vehicleId',
+        builder: (BuildContext context, GoRouterState state) =>
+            VehicleFormScreen(vehicleId: state.pathParameters['vehicleId']),
+      ),
+      GoRoute(
+        path: '/trips',
+        builder: (BuildContext context, GoRouterState state) =>
+            const TripPlannerScreen(),
+      ),
+      GoRoute(
+        path: '/sessions',
+        builder: (BuildContext context, GoRouterState state) =>
+            const ChargingHistoryScreen(),
+      ),
+      GoRoute(
+        path: '/sessions/:reservationId',
+        builder: (BuildContext context, GoRouterState state) =>
+            ChargingSessionScreen(
+              reservationId: state.pathParameters['reservationId']!,
+            ),
+      ),
+      GoRoute(
+        path: '/messages',
+        builder: (BuildContext context, GoRouterState state) =>
+            const MessagesScreen(),
+      ),
+      GoRoute(
+        path: '/messages/:threadId',
+        builder: (BuildContext context, GoRouterState state) =>
+            ChatScreen(threadId: state.pathParameters['threadId']!),
+      ),
+      GoRoute(
+        path: '/bookings',
+        builder: (BuildContext context, GoRouterState state) =>
+            const BookingsScreen(),
+      ),
+      GoRoute(
+        path: '/bookings/:reservationId',
+        builder: (BuildContext context, GoRouterState state) =>
+            BookingCodeScreen(
+              reservationId: state.pathParameters['reservationId']!,
+            ),
+      ),
+      GoRoute(
+        path: '/book/:stationId',
+        builder: (BuildContext context, GoRouterState state) =>
+            BookingScreen(stationId: state.pathParameters['stationId']!),
+      ),
+      GoRoute(
+        path: '/chargers/:stationId',
+        builder: (BuildContext context, GoRouterState state) =>
+            ChargerDetailsScreen(stationId: state.pathParameters['stationId']!),
+      ),
+      if (kDebugMode)
+        GoRoute(
+          path: '/gallery',
+          builder: (BuildContext context, GoRouterState state) =>
+              const ComponentGalleryScreen(),
+        ),
+    ],
+    errorBuilder: (BuildContext context, GoRouterState state) {
+      return AmpScaffold(
+        title: AmpStrings.routeNotFoundTitle,
+        padded: true,
+        body: const ErrorState(
+          title: AmpStrings.routeNotFoundTitle,
+          message: AmpStrings.routeNotFoundBody,
+        ),
+      );
+    },
+  );
+});

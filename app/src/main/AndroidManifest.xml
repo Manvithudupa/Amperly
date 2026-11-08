@@ -64,10 +64,23 @@
             android:name="androidx.car.app.minCarApiLevel"
             android:value="1" />
 
+        <!-- Flutter v2 embedding. The phone activity above owns this engine. -->
+        <meta-data
+            android:name="flutterEmbedding"
+            android:value="2" />
+
+        <!--
+          The handset is Flutter. Android Auto is not: it never starts this activity and keeps
+          its own CarAppService below. The configChanges list is the Flutter embedding contract;
+          the engine handles rotation and insets without recreating the activity.
+        -->
         <activity
-            android:name=".MainActivity"
+            android:name=".FlutterPhoneActivity"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
             android:enableOnBackInvokedCallback="true"
             android:exported="true"
+            android:hardwareAccelerated="true"
+            android:launchMode="singleTop"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -78,7 +91,7 @@
               Email-confirmation return path. The app deliberately does not read a token or a
               status out of this intent: a custom scheme can be fired by any installed app, so
               nothing it carries can be treated as proof that an address was confirmed. The
-              handler shows a neutral "return and sign in" message instead.
+              person returns to the sign-in screen and signs in with the confirmed address.
             -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />

@@ -1,0 +1,59 @@
+name: amperly
+description: Amperly — EV charger discovery, reservations and honest charging.
+publish_to: 'none'
+version: 5.0.0+1
+
+environment:
+  sdk: ^3.12.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # State and routing.
+  flutter_riverpod: 3.5.0
+  go_router: 18.1.3
+
+  # Backend and encrypted session persistence.
+  supabase_flutter: 2.18.3
+  flutter_secure_storage: 11.2.0
+
+  # Formatting, Geoapify HTTP, the phone map and device location.
+  intl: 0.20.3
+  http: 1.6.0
+  freezed_annotation: ^3.1.0
+  json_annotation: ^4.12.0
+  flutter_map: 8.3.2
+  latlong2: 0.9.1
+  geolocator: ^14.1.2
+  qr_flutter: ^4.1.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: 6.0.0
+  freezed: ^4.0.3
+  build_runner: ^2.17.1
+  json_serializable: ^6.15.2
+
+flutter:
+  uses-material-design: true
+
+  fonts:
+    - family: Fraunces
+      fonts:
+        - asset: assets/fonts/fraunces.ttf
+    - family: PlusJakartaSans
+      fonts:
+        - asset: assets/fonts/pjs_regular.ttf
+          weight: 400
+        - asset: assets/fonts/pjs_medium.ttf
+          weight: 500
+        - asset: assets/fonts/pjs_bold.ttf
+          weight: 700
+
+  # Add-to-app markers. The phone UI is a module inside the native Amperly shell.
+  module:
+    androidX: true
+    androidPackage: com.amperly.amperly_phone
+    iosBundleIdentifier: com.amperly.amperlyPhone

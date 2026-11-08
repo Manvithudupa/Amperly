@@ -2371,6 +2371,25 @@ revoke all on function public.prevent_reservation_tampering() from public;
 revoke all on function public.round2(double precision) from public;
 
 -- ---------------------------------------------------------------------------
+-- Chat is the one live surface. These two tables are already participant-only
+-- under RLS above, which is what Realtime enforces for each subscriber. The
+-- publication is extended only when the project uses Supabase's standard
+-- publication and it is not already covering every table.
+do $$
+begin
+    if exists (select 1
+                 from pg_publication
+                where pubname = 'supabase_realtime'
+                  and not puballtables)
+       and not exists (select 1
+                         from pg_publication_tables
+                        where pubname = 'supabase_realtime'
+                          and schemaname = 'public'
+                          and tablename = 'chat_messages') then
+        alter publication supabase_realtime add table public.chat_messages;
+    end if;
+end $$;
+
 -- 6. Grants
 --    RLS filters rows; grants decide which verbs are reachable at all. Both are
 --    required. The service_role bypasses RLS entirely — never ship that key.

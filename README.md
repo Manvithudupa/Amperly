@@ -1,13 +1,21 @@
 # Amperly
 ### Smart Reservation and Management Platform for Existing EV Chargers
 
-**Amperly** is an Android-first hyperlocal EV charger-management, route-planning, and reservation platform written in Java. It helps drivers plan a journey around compatible chargers that already exist, reserve a specific port, check in with a QR code, talk to the Host through masked channels, and see exactly what a charge for **verified meter readings** costs — with a glanceable version of the same trip on the car display through **Android Auto**.
+**Amperly** is an Android-first hyperlocal EV charger-management, route-planning, and reservation platform. The handset UI is now Flutter; the Android Auto layer remains native Java because the Car App Library has no Flutter embedding path. It helps drivers plan a journey around compatible chargers that already exist, reserve a specific port, check in with a QR code, talk to the Host through masked channels, and see exactly what a charge for **verified meter readings** costs — with a glanceable version of the same trip on the car display through **Android Auto**.
 
 **MapLibre** draws an OpenStreetMap-based map, and **Geoapify** supplies the address search and the road routes. **Amperly helps you reserve, access and use the charger** — with route-aware charging plans projected onto the car display.
 
 **Latest release:** [Amperly 4.7.0](https://github.com/Manvithudupa/Amperly/releases/tag/v4.7.0) — signed release APK, versionCode 27.
 
 > Route energy and battery-drain figures are **planning estimates**. The final bill is always based on verified meter readings. Stations without a verified meter can only take a reservation **without automatic billing**.
+
+> **Rewrite in progress (November 2026).** The handset surface is now Flutter,
+> embedded in this Java application through `FlutterPhoneActivity`; the phone
+> screens described below are the behavioural reference and are no longer the
+> launcher. **Android Auto stays native Java** behind
+> `AmperlyCarAppService`, because the Car App Library has no Flutter embedding
+> path. The Flutter module lives in `flutter_app/`; see its README for the
+> split, build command and current feature coverage.
 
 ---
 
@@ -68,7 +76,7 @@ The MVP is a **single-process Android application** backed by Supabase/Postgres.
                    └──────────────────────────────────────────┘
 ```
 
-The phone and the car read the **same** `AppStateStore`, so a reservation or battery update made on one surface is visible on the other.
+The two surfaces now share one Supabase session. Flutter performs the phone sign-in and writes the encrypted session through `NativeSessionBridge` into the same Keystore-backed store that `SupabaseAuth` exposes to the Java car layer; signing out of Flutter clears the Java account and local cache. Plan, battery and reservation state are still separate — sharing those belongs to the feature-port phases, so do not assume the two screens are synchronised yet.
 
 ---
 
@@ -110,11 +118,12 @@ These are requirements, not niceties, and the code enforces them:
 
 ```text
 com.amperly.app/
-├── AmperlyApplication.java, MainActivity.java
+├── AmperlyApplication.java, FlutterPhoneActivity.java (launcher),
+│   MainActivity.java (legacy Java phone shell, no longer the launcher)
 │
 ├── core/
 │   ├── common/     AppConstants, Formatters, GeoUtils, MapConfig, GeoapifyErrors,
-│   │               RequestSequence, ValidationUtils,
+│   │               RequestSequence,
 │   │               UserMessages (one place that turns failures into plain language)
 │   ├── location/   LocationProvider
 │   ├── map/        MapPanel, MapContainerView, StationMarkerModel, StationVisibility
@@ -140,9 +149,6 @@ com.amperly.app/
 │   │               SupabaseAuth, SupabaseConfig, SupabaseRest
 │   └── repository/ AmperlyRepository            (single data hub)
 │
-├── domain/enums/   ChargerStatus, ConnectorType, MeterVerificationLevel,
-│                   ReservationStatus, UserRole
-│
 ├── engine/
 │   ├── admin/        EnforcementPolicyEngine
 │   ├── analytics/    HostAnalyticsEngine
@@ -166,7 +172,7 @@ com.amperly.app/
 │                   PlaceSearch, VehicleSwitcher)
 │
 ├── car/
-│   ├── AmperlyCarAppService.java, AmperlyCarSession.java, CarBridge.java, CarScreenFactory.java
+│   ├── AmperlyCarAppService.java, AmperlyCarSession.java, CarBridge.java
 │   └── screen/     RouteOverviewCarScreen, NavigationCarScreen, ChargerListCarScreen,
 │                   ChargerDetailsCarScreen, SoCUpdateCarScreen,
 │                   ReservationStatusCarScreen, TripHistoryCarScreen, VehicleCarScreen,
@@ -181,20 +187,24 @@ com.amperly.app/
 ## 6. Build & run
 
 ### Prerequisites
-- Android Studio (JDK 11+ sources; the Studio bundled JBR works).
-- Android SDK Platform 35 (compile/target 35, min 24).
+- Android Studio / JDK 17+ (the Studio bundled JBR works).
+- Android SDK Platform 36 (compile 36, min 24).
+- Flutter 3.47.x for the embedded phone module. This working copy uses `.tools/flutter`.
 - A free **Geoapify** API key (see §6.1). No Google Cloud project and no billing account are needed.
 
 ### Commands
 
 ```bash
+# Flutter phone dependencies (once, and after pubspec changes)
+cd flutter_app && flutter pub get && cd ..
+
 # Unit tests
 ./gradlew :app:testDebugUnitTest
 
 # Lint
 ./gradlew :app:lintDebug
 
-# Debug APK → app/build/outputs/apk/debug/app-debug.apk
+# Debug APK (Flutter phone + Java Android Auto) → app/build/outputs/apk/debug/app-debug.apk
 ./gradlew :app:assembleDebug
 
 # Release APK → app/build/outputs/apk/release/app-release.apk
