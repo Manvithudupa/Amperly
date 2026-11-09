@@ -8,15 +8,18 @@ import '../../../core/errors/user_messages.dart';
 import '../../../core/formatting/amp_format.dart';
 import '../../../core/ids.dart';
 import '../../../core/ui/strings.dart';
-import '../../../core/widgets/amp_badge.dart';
 import '../../../core/widgets/amp_button.dart';
-import '../../../core/widgets/amp_chip.dart';
 import '../../../core/widgets/amp_icon.dart';
 import '../../../core/widgets/amp_scaffold.dart';
 import '../../../core/widgets/amp_snackbar.dart';
+import '../../../core/widgets/big_number.dart';
 import '../../../core/widgets/error_state.dart';
-import '../../../core/widgets/receipt_row.dart';
+import '../../../core/widgets/eyebrow.dart';
+import '../../../core/widgets/hairline.dart';
+import '../../../core/widgets/receipt_rows.dart';
 import '../../../core/widgets/skeleton.dart';
+import '../../../core/widgets/text_action.dart';
+import '../../../core/widgets/text_filter_row.dart';
 import '../../../data/models/models.dart';
 import '../../../data/repositories/repository_providers.dart';
 import '../../../data/repositories/repository_result.dart';
@@ -202,43 +205,40 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(
         AmpTheme.screenPadding,
-        AmpTheme.spaceM,
+        AmpTheme.spaceS,
         AmpTheme.screenPadding,
         AmpTheme.spaceXxl,
       ),
       children: <Widget>[
-        Text(name, style: text.displaySmall),
-        const SizedBox(height: 2),
+        Text(name, style: text.displayMedium),
+        const SizedBox(height: 4),
         Text(address, style: text.bodySmall),
-        const SizedBox(height: AmpTheme.spaceM),
+        const SizedBox(height: 12),
         Wrap(
-          spacing: AmpTheme.spaceS,
-          runSpacing: AmpTheme.spaceS,
+          spacing: 14,
+          runSpacing: 6,
           children: <Widget>[
-            AmpBadge(
-              AmpFormat.meterLevel(station.verificationLevel),
-              tone: station.supportsPaidEnergyBilling
-                  ? AmpBadgeTone.success
-                  : AmpBadgeTone.warning,
-              icon: station.supportsPaidEnergyBilling
-                  ? AmpIconName.check
-                  : AmpIconName.info,
-            ),
-            if (station.isDcCapable)
-              const AmpBadge(
-                AmpStrings.filterDc,
-                tone: AmpBadgeTone.info,
-                icon: AmpIconName.bolt,
-              ),
+            if (station.isDcCapable) const Eyebrow(AmpStrings.filterDc),
+            Eyebrow(AmpFormat.meterLevel(station.verificationLevel)),
           ],
         ),
-        const SizedBox(height: AmpTheme.spaceM),
-        _vehicleCard(context, vehicle),
+        const SizedBox(height: 18),
+        const Hairline(),
+        const _SectionHeading(AmpStrings.bookingVehicleLabel, rule: false),
+        Text(
+          vehicle == null ? AmpStrings.bookingNoVehicle : vehicle.displayName,
+          style: text.titleMedium,
+        ),
+        const SizedBox(height: 2),
+        TextAction(
+          AmpStrings.tripManageVehicles,
+          onPressed: () => context.push('/vehicles'),
+        ),
         if (!bookable) ...<Widget>[
           const SizedBox(height: AmpTheme.spaceM),
-          const _Callout(message: AmpStrings.detailsMeterGating),
+          const _PaperNotice(message: AmpStrings.detailsMeterGating),
         ] else ...<Widget>[
-          _SectionTitle(AmpStrings.bookingPortLabel),
+          const _SectionHeading(AmpStrings.bookingPortLabel),
           if (ports.isEmpty)
             Text(
               vehicle == null
@@ -247,34 +247,32 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
               style: text.bodySmall,
             )
           else
-            Wrap(
-              spacing: AmpTheme.spaceS,
-              runSpacing: AmpTheme.spaceS,
-              children: <Widget>[
+            TextFilterRow<String>(
+              selected: port?.id,
+              onSelected: _selectPort,
+              options: <TextFilterOption<String>>[
                 for (final ChargerPort option in ports)
-                  AmpChip(
+                  TextFilterOption<String>(
+                    value: option.id,
                     label: BookingRules.portLabel(option),
-                    selected: option.id == port?.id,
-                    onTap: () => _selectPort(option.id),
                   ),
               ],
             ),
-          _SectionTitle(AmpStrings.bookingDayLabel),
-          Wrap(
-            spacing: AmpTheme.spaceS,
-            runSpacing: AmpTheme.spaceS,
-            children: <Widget>[
+          const _SectionHeading(AmpStrings.bookingDayLabel),
+          TextFilterRow<int>(
+            selected: _selectedDayIndex,
+            onSelected: _selectDay,
+            options: <TextFilterOption<int>>[
               for (int index = 0; index < _dayStarts.length; index++)
-                AmpChip(
+                TextFilterOption<int>(
+                  value: index,
                   label: AmpFormat.dayLabel(
                     DateTime.fromMillisecondsSinceEpoch(_dayStarts[index]),
                   ),
-                  selected: _selectedDayIndex == index,
-                  onTap: () => _selectDay(index),
                 ),
             ],
           ),
-          _SectionTitle(AmpStrings.bookingSlotLabel),
+          const _SectionHeading(AmpStrings.bookingSlotLabel),
           if (port == null)
             Text(AmpStrings.bookingNoPorts, style: text.bodySmall)
           else if (!hasSchedule)
@@ -282,141 +280,72 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
           else if (slots.isEmpty)
             Text(AmpStrings.bookingNoSlots, style: text.bodySmall)
           else
-            Wrap(
-              spacing: AmpTheme.spaceS,
-              runSpacing: AmpTheme.spaceS,
-              children: <Widget>[
+            TextFilterRow<int>(
+              selected: slot?.startMs,
+              onSelected: _selectSlot,
+              options: <TextFilterOption<int>>[
                 for (final Slot option in slots)
-                  AmpChip(
+                  TextFilterOption<int>(
+                    value: option.startMs,
                     label: AmpFormat.timeRange(option.startMs, option.endMs),
-                    selected: option.startMs == slot?.startMs,
-                    onTap: () => _selectSlot(option.startMs),
                   ),
               ],
             ),
-          _SectionTitle(AmpStrings.bookingPriceTitle),
-          if (port != null) _priceCard(context, station, port),
-          _SectionTitle(AmpStrings.bookingPolicyTitle),
+          const _SectionHeading(AmpStrings.bookingPriceTitle),
+          if (port != null) _priceBody(context, station, port),
+          const _SectionHeading(AmpStrings.bookingPolicyTitle),
           Text(ReservationEngine.cancellationPolicy, style: text.bodySmall),
           if (_error != null) ...<Widget>[
             const SizedBox(height: AmpTheme.spaceM),
-            _Callout(message: _error!, error: true),
+            _PaperNotice(message: _error!, error: true),
           ],
         ],
       ],
     );
   }
 
-  Widget _vehicleCard(BuildContext context, Vehicle? vehicle) {
-    final AmpColors colors = context.amp;
-    final TextTheme text = Theme.of(context).textTheme;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AmpTheme.spaceM),
-      decoration: BoxDecoration(
-        color: colors.surfaceVariant,
-        borderRadius: BorderRadius.circular(AmpTheme.radiusCard),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: colors.primaryTint,
-              borderRadius: BorderRadius.circular(AmpTheme.radiusField),
-            ),
-            child: Center(
-              child: AmpIcon(
-                AmpIconName.bolt,
-                size: 20,
-                color: colors.onPrimaryTint,
-              ),
-            ),
-          ),
-          const SizedBox(width: AmpTheme.spaceM),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(AmpStrings.bookingVehicleLabel, style: text.labelLarge),
-                const SizedBox(height: 2),
-                Text(
-                  vehicle == null
-                      ? AmpStrings.bookingNoVehicle
-                      : vehicle.displayName,
-                  style: text.titleSmall,
-                ),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: TextButton(
-                    onPressed: () => context.push('/vehicles'),
-                    child: const Text(AmpStrings.tripManageVehicles),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _priceCard(
+  Widget _priceBody(
     BuildContext context,
     ChargerStation station,
     ChargerPort port,
   ) {
-    final AmpColors colors = context.amp;
     final PricePreview preview = BookingRules.previewFor(station, port);
+    final TextTheme text = Theme.of(context).textTheme;
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AmpTheme.spaceM),
-      decoration: BoxDecoration(
-        color: colors.surface,
-        borderRadius: BorderRadius.circular(AmpTheme.radiusCard),
-        border: Border.all(color: colors.divider),
-      ),
-      child: Column(
-        children: <Widget>[
-          ReceiptRow(
-            label: AmpStrings.bookingEnergyEstimate,
-            value: AmpFormat.kWh(preview.estimatedKwh),
-          ),
-          ReceiptRow(
-            label: AmpStrings.bookingEnergyCharge,
-            value: AmpStrings.bookingEnergyChargeValue(
-              AmpFormat.rupees(preview.energyCharge),
-              AmpFormat.rupees(station.pricePerKwh),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        BigNumber(
+          value: AmpFormat.rupees(preview.estimatedTotal),
+          label: AmpStrings.bookingTotal,
+        ),
+        const SizedBox(height: AmpTheme.spaceS),
+        ReceiptRows(
+          lines: <ReceiptLine>[
+            ReceiptLine(
+              label: AmpStrings.bookingEnergyEstimate,
+              value: AmpFormat.kWh(preview.estimatedKwh),
             ),
-          ),
-          ReceiptRow(
-            label: AmpStrings.bookingServiceFee,
-            value: AmpFormat.rupees(preview.serviceFee),
-          ),
-          ReceiptRow(
-            label: AmpStrings.bookingGatewayFee,
-            value: AmpFormat.rupees(preview.gatewayFee),
-          ),
-          const Divider(height: AmpTheme.spaceL),
-          ReceiptRow(
-            label: AmpStrings.bookingTotal,
-            value: AmpFormat.rupees(preview.estimatedTotal),
-            emphasis: true,
-          ),
-          const SizedBox(height: AmpTheme.spaceS),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              AmpStrings.bookingPriceNote,
-              style: Theme.of(context).textTheme.bodySmall,
+            ReceiptLine(
+              label: AmpStrings.bookingEnergyCharge,
+              value: AmpStrings.bookingEnergyChargeValue(
+                AmpFormat.rupees(preview.energyCharge),
+                AmpFormat.rupees(station.pricePerKwh),
+              ),
             ),
-          ),
-        ],
-      ),
+            ReceiptLine(
+              label: AmpStrings.bookingServiceFee,
+              value: AmpFormat.rupees(preview.serviceFee),
+            ),
+            ReceiptLine(
+              label: AmpStrings.bookingGatewayFee,
+              value: AmpFormat.rupees(preview.gatewayFee),
+            ),
+          ],
+        ),
+        const SizedBox(height: AmpTheme.spaceS),
+        Text(AmpStrings.bookingPriceNote, style: text.bodySmall),
+      ],
     );
   }
 
@@ -524,8 +453,35 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
   }
 }
 
-class _Callout extends StatelessWidget {
-  const _Callout({required this.message, this.error = false});
+class _SectionHeading extends StatelessWidget {
+  const _SectionHeading(this.label, {this.rule = true});
+
+  final String label;
+  final bool rule;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        if (rule) ...<Widget>[
+          const SizedBox(height: AmpTheme.spaceL),
+          const Hairline(),
+        ],
+        Padding(
+          padding: const EdgeInsets.only(
+            top: AmpTheme.spaceL,
+            bottom: AmpTheme.spaceS,
+          ),
+          child: Eyebrow(label),
+        ),
+      ],
+    );
+  }
+}
+
+class _PaperNotice extends StatelessWidget {
+  const _PaperNotice({required this.message, this.error = false});
 
   final String message;
   final bool error;
@@ -533,47 +489,28 @@ class _Callout extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final AmpColors colors = context.amp;
-    final Color background = error ? colors.errorTint : colors.busyTint;
-    final Color foreground = error ? colors.error : colors.busyInk;
+    final Color rule = error ? colors.error : colors.busy;
+    final Color icon = error ? colors.error : colors.busyInk;
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AmpTheme.spaceM),
+      padding: const EdgeInsets.only(left: 12, top: 2, bottom: 2),
       decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(AmpTheme.radiusCard),
+        border: Border(left: BorderSide(color: rule, width: 2)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          AmpIcon(AmpIconName.alert, size: 18, color: foreground),
+          AmpIcon(AmpIconName.alert, size: 17, color: icon),
           const SizedBox(width: AmpTheme.spaceS),
           Expanded(
             child: Text(
               message,
               style: Theme.of(
                 context,
-              ).textTheme.bodySmall?.copyWith(color: foreground),
+              ).textTheme.bodySmall?.copyWith(color: colors.ink),
             ),
           ),
         ],
       ),
-    );
-  }
-}
-
-class _SectionTitle extends StatelessWidget {
-  const _SectionTitle(this.label);
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(
-        top: AmpTheme.spaceL,
-        bottom: AmpTheme.spaceS,
-      ),
-      child: Text(label, style: Theme.of(context).textTheme.titleMedium),
     );
   }
 }
@@ -590,11 +527,15 @@ class _BookingLoading extends StatelessWidget {
         SizedBox(height: AmpTheme.spaceS),
         SkeletonLine(widthFactor: 0.45),
         SizedBox(height: AmpTheme.spaceL),
-        Skeleton(height: 112, radius: AmpTheme.radiusCard),
+        Hairline(),
         SizedBox(height: AmpTheme.spaceL),
-        Skeleton(height: 180, radius: AmpTheme.radiusCard),
+        SkeletonLine(widthFactor: 0.3),
+        SizedBox(height: AmpTheme.spaceM),
+        SkeletonLine(widthFactor: 0.8),
         SizedBox(height: AmpTheme.spaceL),
-        Skeleton(height: 220, radius: AmpTheme.radiusCard),
+        SkeletonLine(widthFactor: 0.2),
+        SizedBox(height: AmpTheme.spaceM),
+        SkeletonLine(widthFactor: 0.62),
       ],
     );
   }

@@ -9,12 +9,13 @@ import '../../../app/theme/amp_theme.dart';
 import '../../../core/env/app_env.dart';
 import '../../../core/errors/user_messages.dart';
 import '../../../core/ui/strings.dart';
-import '../../../core/widgets/amp_badge.dart';
 import '../../../core/widgets/amp_button.dart';
 import '../../../core/widgets/amp_field.dart';
 import '../../../core/widgets/amp_icon.dart';
-import '../../../core/widgets/amp_illustration.dart';
 import '../../../core/widgets/amp_scaffold.dart';
+import '../../../core/widgets/hairline.dart';
+import '../../../core/widgets/status_dot_label.dart';
+import '../../../core/widgets/text_action.dart';
 import '../application/auth_validation.dart';
 import '../data/auth_repository.dart';
 
@@ -149,37 +150,24 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                         onPressed: _submit,
                       ),
                       const SizedBox(height: AmpTheme.spaceS),
-                      Center(
-                        child: AmpButton(
-                          label: _createMode
-                              ? AmpStrings.authHaveAccount
-                              : AmpStrings.authCreatePrompt,
-                          variant: AmpButtonVariant.quiet,
-                          expand: false,
-                          onPressed: _busy ? null : _toggleMode,
-                        ),
+                      TextAction(
+                        _createMode
+                            ? AmpStrings.authHaveAccount
+                            : AmpStrings.authCreatePrompt,
+                        onPressed: _busy ? null : _toggleMode,
                       ),
                     ],
                   ),
                 ),
               ),
             ],
-            const SizedBox(height: AmpTheme.spaceL),
-            const AmpIllustration(
-              AmpIllustrationKind.unpluggedCable,
-              width: 172,
-              height: 124,
-            ),
             if (kDebugMode) ...<Widget>[
               const SizedBox(height: AmpTheme.spaceL),
-              AmpButton(
-                label: AmpStrings.galleryTitle,
-                icon: AmpIconName.arrowRight,
-                variant: AmpButtonVariant.tonal,
-                expand: false,
+              TextAction(
+                AmpStrings.galleryTitle,
                 onPressed: () => context.go('/gallery'),
               ),
-              const SizedBox(height: AmpTheme.spaceS),
+              const SizedBox(height: 2),
               Text(AmpStrings.openGalleryHint, style: text.labelLarge),
             ],
           ],
@@ -275,29 +263,29 @@ class _SetupNotice extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final AmpColors colors = context.amp;
-    return Container(
-      padding: const EdgeInsets.all(AmpTheme.spaceM),
-      decoration: BoxDecoration(
-        color: colors.surfaceVariant,
-        borderRadius: BorderRadius.circular(AmpTheme.radiusCard),
-        border: Border.all(color: colors.divider),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          const AmpBadge(
-            AmpStrings.configNotConfigured,
-            tone: AmpBadgeTone.warning,
-            icon: AmpIconName.alert,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        const Hairline(),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              const StatusDotLabel(
+                AmpStrings.configNotConfigured,
+                tone: StatusDotTone.busy,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                AmpStrings.configMissingNotice,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
           ),
-          const SizedBox(height: AmpTheme.spaceS),
-          Text(
-            AmpStrings.configMissingNotice,
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-        ],
-      ),
+        ),
+        const Hairline(),
+      ],
     );
   }
 }

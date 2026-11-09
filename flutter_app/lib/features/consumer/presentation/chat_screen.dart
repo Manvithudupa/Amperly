@@ -7,13 +7,15 @@ import '../../../core/errors/user_messages.dart';
 import '../../../core/formatting/amp_format.dart';
 import '../../../core/ui/strings.dart';
 import '../../../core/widgets/amp_button.dart';
-import '../../../core/widgets/amp_chip.dart';
 import '../../../core/widgets/amp_field.dart';
-import '../../../core/widgets/amp_icon.dart';
 import '../../../core/widgets/amp_scaffold.dart';
 import '../../../core/widgets/amp_snackbar.dart';
-import '../../../core/widgets/empty_state.dart';
+import '../../../core/widgets/confirm_dialog.dart';
 import '../../../core/widgets/error_state.dart';
+import '../../../core/widgets/eyebrow.dart';
+import '../../../core/widgets/hairline.dart';
+import '../../../core/widgets/skeleton.dart';
+import '../../../core/widgets/text_action.dart';
 import '../../../data/models/models.dart';
 import '../../../data/repositories/repository_providers.dart';
 import '../../../data/repositories/repository_result.dart';
@@ -87,6 +89,85 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
   }
 
+  Future<void> _reportThread(ChatThreadData data) async {
+    if (data.thread.isReported) {
+      return;
+    }
+    final bool confirmed = await showAmpConfirmDialog(
+      context,
+      title: AmpStrings.chatReportTitle,
+      message: AmpStrings.chatReportBody,
+      confirmLabel: AmpStrings.chatReportConfirm,
+      destructive: false,
+    );
+    if (!confirmed || !mounted) {
+      return;
+    }
+    final chatRepository = ref.read(chatRepositoryProvider);
+    if (chatRepository == null) {
+      return;
+    }
+    final RepositoryResult<bool> result = await chatRepository.setThreadFlags(
+      threadId: data.thread.id,
+      isReported: true,
+    );
+    if (!mounted) {
+      return;
+    }
+    if (result.failureOrNull != null) {
+      AmpSnackbar.show(
+        context,
+        AmpStrings.chatFlagFailed,
+        tone: AmpSnackbarTone.error,
+      );
+      return;
+    }
+    ref.invalidate(chatThreadProvider(widget.threadId));
+    AmpSnackbar.show(
+      context,
+      AmpStrings.chatReported,
+      tone: AmpSnackbarTone.success,
+    );
+  }
+
+  Future<void> _blockThread(ChatThreadData data) async {
+    final bool confirmed = await showAmpConfirmDialog(
+      context,
+      title: AmpStrings.chatBlockTitle,
+      message: AmpStrings.chatBlockBody,
+      confirmLabel: AmpStrings.chatBlockConfirm,
+    );
+    if (!confirmed || !mounted) {
+      return;
+    }
+    final chatRepository = ref.read(chatRepositoryProvider);
+    if (chatRepository == null) {
+      return;
+    }
+    final RepositoryResult<bool> result = await chatRepository.setThreadFlags(
+      threadId: data.thread.id,
+      isBlocked: true,
+    );
+    if (!mounted) {
+      return;
+    }
+    if (result.failureOrNull != null) {
+      AmpSnackbar.show(
+        context,
+        AmpStrings.chatFlagFailed,
+        tone: AmpSnackbarTone.error,
+      );
+      return;
+    }
+    ref.invalidate(chatThreadProvider(widget.threadId));
+    ref.invalidate(chatInboxProvider);
+    AmpSnackbar.show(
+      context,
+      AmpStrings.chatBlockedToast,
+      tone: AmpSnackbarTone.success,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final AsyncValue<RepositoryResult<ChatThreadData>> thread = ref.watch(
@@ -107,7 +188,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           : ChatRules.title(data.thread, data.consumer.id),
       subtitle: subtitle.isEmpty ? null : subtitle,
       body: thread.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const _ThreadLoading(),
         error: (Object error, StackTrace stack) => ErrorState(
           message: UserMessages.from(error),
           onRetry: () => ref.invalidate(chatThreadProvider(widget.threadId)),
@@ -124,10 +205,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           }
           final ChatThreadData? chat = result.valueOrNull;
           if (chat == null) {
-            return const EmptyState(
-              title: AmpStrings.chatNotFoundTitle,
-              message: AmpStrings.chatNotFoundBody,
-            );
+            return const _MissingThread();
           }
           return _ThreadBody(thread: chat.thread, consumer: chat.consumer);
         },
@@ -146,18 +224,19 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
         SizedBox(
-          height: 38,
+          height: 44,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             itemCount: ChatManager.quickQuestions.length,
             separatorBuilder: (BuildContext context, int index) =>
-                const SizedBox(width: AmpTheme.spaceS),
+                const SizedBox(width: 20),
             itemBuilder: (BuildContext context, int index) {
               final String question = ChatManager.quickQuestions[index];
               return Center(
-                child: AmpChip(
-                  label: question,
-                  onTap: () {
+                child: TextAction(
+                  question,
+                  underline: false,
+                  onPressed: () {
                     _composer.text = question;
                     _send(data);
                   },
@@ -165,6 +244,24 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               );
             },
           ),
+        ),
+        const SizedBox(height: AmpTheme.spaceS),
+        Wrap(
+          spacing: AmpTheme.spaceL,
+          runSpacing: 0,
+          children: <Widget>[
+            if (!data.thread.isReported)
+              TextAction(
+                AmpStrings.chatReportThread,
+                onPressed: () => _reportThread(data),
+              ),
+            if (!data.thread.isBlocked)
+              TextAction(
+                AmpStrings.chatBlockThread,
+                tone: TextActionTone.danger,
+                onPressed: () => _blockThread(data),
+              ),
+          ],
         ),
         const SizedBox(height: AmpTheme.spaceS),
         Row(
@@ -188,7 +285,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             const SizedBox(width: AmpTheme.spaceS),
             AmpButton(
               label: AmpStrings.chatSend,
-              icon: AmpIconName.arrowRight,
               expand: false,
               height: 48,
               loading: _sending,
@@ -267,7 +363,7 @@ class _ThreadBodyState extends ConsumerState<_ThreadBody> {
         const _SafetyNote(),
         Expanded(
           child: messages.when(
-            loading: () => const Center(child: CircularProgressIndicator()),
+            loading: () => const _MessageLoading(),
             error: (Object error, StackTrace stack) => ErrorState(
               message: UserMessages.from(error),
               onRetry: () =>
@@ -283,22 +379,14 @@ class _ThreadBodyState extends ConsumerState<_ThreadBody> {
                 child: ListView.builder(
                   controller: _scroll,
                   physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(
-                    AmpTheme.screenPadding,
-                    AmpTheme.spaceM,
-                    AmpTheme.screenPadding,
-                    AmpTheme.spaceL,
-                  ),
+                  padding: EdgeInsets.zero,
                   itemCount: list.isEmpty ? 1 : list.length,
                   itemBuilder: (BuildContext context, int index) {
                     if (list.isEmpty) {
-                      return const EmptyState(
-                        title: AmpStrings.chatNoMessagesTitle,
-                        message: AmpStrings.chatNoMessagesBody,
-                      );
+                      return const _EmptyConversation();
                     }
                     final ChatMessage message = list[index];
-                    return _MessageBubble(
+                    return _MessageEntry(
                       message: message,
                       own: message.senderId == widget.consumer.id,
                     );
@@ -318,34 +406,27 @@ class _SafetyNote extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final AmpColors colors = context.amp;
-
-    return Container(
-      width: double.infinity,
-      color: colors.surfaceVariant,
-      padding: const EdgeInsets.symmetric(
-        horizontal: AmpTheme.screenPadding,
-        vertical: AmpTheme.spaceS,
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          AmpIcon(AmpIconName.shield, size: 16, color: colors.inkSecondary),
-          const SizedBox(width: AmpTheme.spaceS),
-          Expanded(
-            child: Text(
-              AmpStrings.chatMaskedNote,
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
+    return Column(
+      children: <Widget>[
+        const Hairline(),
+        Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AmpTheme.screenPadding,
+            vertical: 10,
           ),
-        ],
-      ),
+          child: Text(
+            AmpStrings.chatMaskedNote,
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ),
+        const Hairline(),
+      ],
     );
   }
 }
 
-class _MessageBubble extends StatelessWidget {
-  const _MessageBubble({required this.message, required this.own});
+class _MessageEntry extends StatelessWidget {
+  const _MessageEntry({required this.message, required this.own});
 
   final ChatMessage message;
   final bool own;
@@ -353,54 +434,51 @@ class _MessageBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final AmpColors colors = context.amp;
-    final TextTheme text = Theme.of(context).textTheme;
     final String body = (message.messageText ?? '').trim();
     if (body.isEmpty) {
       return const SizedBox.shrink();
     }
 
-    final Color foreground = own ? colors.onPrimary : colors.ink;
-    final Color timestamp = own
-        ? colors.onPrimary.withValues(alpha: 0.68)
-        : colors.inkSecondary;
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AmpTheme.spaceS),
-      child: Align(
-        alignment: own ? Alignment.centerRight : Alignment.centerLeft,
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxWidth: MediaQuery.sizeOf(context).width * 0.78,
-          ),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: own ? colors.primary : colors.surface,
-              borderRadius: BorderRadius.only(
-                topLeft: const Radius.circular(AmpTheme.radiusCard),
-                topRight: const Radius.circular(AmpTheme.radiusCard),
-                bottomLeft: Radius.circular(own ? AmpTheme.radiusCard : 4),
-                bottomRight: Radius.circular(own ? 4 : AmpTheme.radiusCard),
+    return Column(
+      children: <Widget>[
+        Padding(
+          padding: EdgeInsets.fromLTRB(own ? 42 : 0, 12, own ? 0 : 42, 0),
+          child: Align(
+            alignment: own ? Alignment.centerRight : Alignment.centerLeft,
+            child: Container(
+              constraints: BoxConstraints(
+                maxWidth: MediaQuery.sizeOf(context).width * 0.78,
               ),
-              border: own ? null : Border.all(color: colors.divider),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              padding: EdgeInsets.only(left: own ? 0 : 10, right: own ? 10 : 0),
+              decoration: BoxDecoration(
+                border: Border(
+                  right: own
+                      ? BorderSide(color: colors.energy, width: 2)
+                      : BorderSide.none,
+                  left: own
+                      ? BorderSide.none
+                      : BorderSide(color: colors.divider, width: 1),
+                ),
+              ),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: own
+                    ? CrossAxisAlignment.end
+                    : CrossAxisAlignment.start,
                 children: <Widget>[
+                  Eyebrow(
+                    own ? AmpStrings.chatYou : AmpStrings.chatHostFallback,
+                  ),
+                  const SizedBox(height: 4),
                   Text(
                     body,
-                    style: text.bodyMedium?.copyWith(color: foreground),
+                    textAlign: own ? TextAlign.right : TextAlign.left,
+                    style: Theme.of(context).textTheme.bodyMedium,
                   ),
                   if (message.createdAtMs > 0) ...<Widget>[
                     const SizedBox(height: 4),
                     Text(
                       AmpFormat.messageTimestamp(message.createdAtMs),
-                      style: text.bodySmall?.copyWith(
-                        fontSize: 11,
-                        color: timestamp,
-                      ),
+                      style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ],
                 ],
@@ -408,7 +486,128 @@ class _MessageBubble extends StatelessWidget {
             ),
           ),
         ),
+        const SizedBox(height: 10),
+        const Hairline(),
+      ],
+    );
+  }
+}
+
+class _EmptyConversation extends StatelessWidget {
+  const _EmptyConversation();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AmpTheme.screenPadding,
+        AmpTheme.spaceXl,
+        AmpTheme.screenPadding,
+        AmpTheme.spaceXxl,
       ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            AmpStrings.chatNoMessagesTitle,
+            style: Theme.of(context).textTheme.displaySmall,
+          ),
+          const SizedBox(height: AmpTheme.spaceS),
+          Text(
+            AmpStrings.chatNoMessagesBody,
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MissingThread extends StatelessWidget {
+  const _MissingThread();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(AmpTheme.screenPadding),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            AmpStrings.chatNotFoundTitle,
+            style: Theme.of(context).textTheme.displaySmall,
+          ),
+          const SizedBox(height: AmpTheme.spaceS),
+          Text(
+            AmpStrings.chatNotFoundBody,
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ThreadLoading extends StatelessWidget {
+  const _ThreadLoading();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: EdgeInsets.zero,
+      children: const <Widget>[
+        Padding(
+          padding: EdgeInsets.all(AmpTheme.screenPadding),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              SkeletonLine(widthFactor: 0.28, height: 9),
+              SizedBox(height: 8),
+              SkeletonLine(widthFactor: 0.62, height: 26),
+              SizedBox(height: 8),
+              SkeletonLine(widthFactor: 0.44),
+              SizedBox(height: 20),
+              Hairline(),
+              SizedBox(height: 18),
+              SkeletonLine(widthFactor: 0.55, height: 12),
+              SizedBox(height: 8),
+              SkeletonLine(widthFactor: 0.7, height: 12),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _MessageLoading extends StatelessWidget {
+  const _MessageLoading();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AmpTheme.screenPadding,
+        vertical: AmpTheme.spaceM,
+      ),
+      children: const <Widget>[
+        SkeletonLine(widthFactor: 0.2, height: 8),
+        SizedBox(height: 6),
+        SkeletonLine(widthFactor: 0.66, height: 14),
+        SizedBox(height: 16),
+        Hairline(),
+        SizedBox(height: 16),
+        Align(
+          alignment: Alignment.centerRight,
+          child: SkeletonLine(widthFactor: 0.46, height: 14),
+        ),
+        SizedBox(height: 16),
+        Hairline(),
+        SizedBox(height: 16),
+        SkeletonLine(widthFactor: 0.58, height: 14),
+        SizedBox(height: 16),
+        Hairline(),
+      ],
     );
   }
 }

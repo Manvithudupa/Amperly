@@ -18,6 +18,7 @@ class AmpScaffold extends StatelessWidget {
     this.actions = const <Widget>[],
     this.leading,
     this.bottomBar,
+    this.tabBar,
     this.floatingActionButton,
     this.padded = false,
     this.wordmark = false,
@@ -30,6 +31,7 @@ class AmpScaffold extends StatelessWidget {
   final List<Widget> actions;
   final Widget? leading;
   final Widget? bottomBar;
+  final Widget? tabBar;
   final Widget? floatingActionButton;
   final bool padded;
   final bool wordmark;
@@ -41,11 +43,37 @@ class AmpScaffold extends StatelessWidget {
     final bool hasHeader =
         wordmark || title != null || subtitle != null || actions.isNotEmpty;
     final bool canPop = showBack && Navigator.of(context).canPop();
+    final Widget? footer = bottomBar == null && tabBar == null
+        ? null
+        : Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              if (bottomBar != null)
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: colors.surface,
+                    border: Border(top: BorderSide(color: colors.divider)),
+                  ),
+                  child: SafeArea(
+                    top: false,
+                    minimum: const EdgeInsets.fromLTRB(
+                      AmpTheme.screenPadding,
+                      AmpTheme.spaceS,
+                      AmpTheme.screenPadding,
+                      AmpTheme.spaceS,
+                    ),
+                    child: bottomBar!,
+                  ),
+                ),
+              ?tabBar,
+            ],
+          );
 
     return Scaffold(
       backgroundColor: colors.background,
       appBar: hasHeader
           ? AppBar(
+              toolbarHeight: subtitle == null ? null : 78,
               leading:
                   leading ??
                   (canPop
@@ -88,6 +116,8 @@ class AmpScaffold extends StatelessWidget {
                             padding: const EdgeInsets.only(top: 2),
                             child: Text(
                               subtitle!,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
                               style: Theme.of(context).textTheme.bodySmall,
                             ),
                           ),
@@ -106,24 +136,7 @@ class AmpScaffold extends StatelessWidget {
           child: body,
         ),
       ),
-      bottomNavigationBar: bottomBar == null
-          ? null
-          : DecoratedBox(
-              decoration: BoxDecoration(
-                color: colors.surface,
-                border: Border(top: BorderSide(color: colors.divider)),
-              ),
-              child: SafeArea(
-                top: false,
-                minimum: const EdgeInsets.fromLTRB(
-                  AmpTheme.screenPadding,
-                  AmpTheme.spaceS,
-                  AmpTheme.screenPadding,
-                  AmpTheme.spaceS,
-                ),
-                child: bottomBar!,
-              ),
-            ),
+      bottomNavigationBar: footer,
       floatingActionButton: floatingActionButton,
     );
   }

@@ -51,7 +51,7 @@ class HomeScreen extends ConsumerWidget {
         if (user.isBlocked) {
           return BlockedScreen(profile: user);
         }
-        return DiscoverScreen(profile: user);
+        return const DiscoverScreen();
       },
     );
   }

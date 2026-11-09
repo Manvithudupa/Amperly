@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -6,35 +8,61 @@ import '../../../app/theme/amp_colors.dart';
 import '../../../app/theme/amp_theme.dart';
 import '../../../core/errors/user_messages.dart';
 import '../../../core/formatting/amp_format.dart';
+import '../../../core/location/device_location.dart';
 import '../../../core/ui/strings.dart';
-import '../../../core/widgets/amp_badge.dart';
 import '../../../core/widgets/amp_button.dart';
 import '../../../core/widgets/amp_icon.dart';
 import '../../../core/widgets/amp_scaffold.dart';
+import '../../../core/widgets/amp_snackbar.dart';
+import '../../../core/widgets/big_number.dart';
 import '../../../core/widgets/error_state.dart';
+import '../../../core/widgets/eyebrow.dart';
 import '../../../core/widgets/freshness_label.dart';
-import '../../../core/widgets/receipt_row.dart';
+import '../../../core/widgets/hairline.dart';
+import '../../../core/widgets/port_dots.dart';
+import '../../../core/widgets/receipt_rows.dart';
 import '../../../core/widgets/skeleton.dart';
+import '../../../core/widgets/status_dot_label.dart';
+import '../../../core/widgets/text_action.dart';
+import '../../../core/widgets/text_filter_row.dart';
+import '../../../data/geoapify/geoapify_client.dart';
+import '../../../data/geoapify/geoapify_models.dart';
 import '../../../data/models/models.dart';
 import '../../../data/repositories/repository_result.dart';
 import '../../../data/repositories/station_repository.dart';
 import '../../../domain/policy.dart';
 import '../application/discovery_providers.dart';
 import '../application/station_detail_provider.dart';
+import '../application/trip_providers.dart';
+import 'navigation_screen.dart';
 
 /// A charger's published facts, live port status and fee breakdown.
 ///
 /// Reserve opens the real booking form. It is hidden for stations without a
 /// verified meter, because those cannot bill energy.
-class ChargerDetailsScreen extends ConsumerWidget {
+class ChargerDetailsScreen extends ConsumerStatefulWidget {
   const ChargerDetailsScreen({required this.stationId, super.key});
 
   final String stationId;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ChargerDetailsScreen> createState() =>
+      _ChargerDetailsScreenState();
+}
+
+class _ChargerDetailsScreenState extends ConsumerState<ChargerDetailsScreen> {
+  TravelMode _mode = TravelMode.driving;
+
+  @override
+  Widget build(BuildContext context) {
     final AsyncValue<RepositoryResult<StationCatalogueEntry>> detail = ref
-        .watch(stationDetailProvider(stationId));
+        .watch(stationDetailProvider(widget.stationId));
+    final StationCatalogueEntry? loaded = detail.asData?.value.valueOrNull;
+    final ChargerStation? station = loaded?.station;
+    final VoidCallback? reserve =
+        station != null && station.supportsPaidEnergyBilling
+        ? () => context.push('/book/${station.id}')
+        : null;
 
     return AmpScaffold(
       title: AmpStrings.detailsTitle,
@@ -42,7 +70,8 @@ class ChargerDetailsScreen extends ConsumerWidget {
         loading: () => const _DetailsLoading(),
         error: (Object error, StackTrace stack) => ErrorState(
           message: UserMessages.from(error),
-          onRetry: () => ref.invalidate(stationDetailProvider(stationId)),
+          onRetry: () =>
+              ref.invalidate(stationDetailProvider(widget.stationId)),
         ),
         data: (RepositoryResult<StationCatalogueEntry> result) {
           final RepositoryFailure<StationCatalogueEntry>? failure =
@@ -50,25 +79,117 @@ class ChargerDetailsScreen extends ConsumerWidget {
           if (failure != null) {
             return ErrorState(
               message: failure.message,
-              onRetry: () => ref.invalidate(stationDetailProvider(stationId)),
+              onRetry: () =>
+                  ref.invalidate(stationDetailProvider(widget.stationId)),
             );
           }
-          return _DetailsBody(entry: result.valueOrNull!);
+          return _DetailsBody(
+            entry: result.valueOrNull!,
+            mode: _mode,
+            onModeChanged: (TravelMode value) => setState(() => _mode = value),
+            onNavigate: () =>
+                _navigate(context, ref, result.valueOrNull!, _mode),
+          );
         },
+      ),
+      bottomBar: reserve == null
+          ? null
+          : AmpButton(
+              label: AmpStrings.bookingReserveAction,
+              icon: AmpIconName.ticket,
+              onPressed: reserve,
+            ),
+    );
+  }
+
+  Future<void> _navigate(
+    BuildContext context,
+    WidgetRef ref,
+    StationCatalogueEntry entry,
+    TravelMode mode,
+  ) async {
+    final GeoapifyClient? client = ref.read(geoapifyClientProvider);
+    if (client == null || ref.read(geoapifyMapConfigProvider) == null) {
+      AmpSnackbar.show(
+        context,
+        AmpStrings.tripMapSetupBody,
+        tone: AmpSnackbarTone.error,
+      );
+      return;
+    }
+
+    AmpSnackbar.show(
+      context,
+      AmpStrings.detailsLocating,
+      tone: AmpSnackbarTone.info,
+    );
+    final DeviceLocationFix fix = await ref
+        .read(deviceLocationServiceProvider)
+        .current();
+    if (!context.mounted) {
+      return;
+    }
+    if (!fix.hasPosition) {
+      final String message = switch (fix.status) {
+        DeviceLocationStatus.permissionDenied =>
+          AmpStrings.tripLocationPermission,
+        DeviceLocationStatus.servicesDisabled =>
+          AmpStrings.tripLocationServices,
+        DeviceLocationStatus.unavailable ||
+        DeviceLocationStatus.found => AmpStrings.tripLocationUnavailable,
+      };
+      AmpSnackbar.show(context, message, tone: AmpSnackbarTone.error);
+      return;
+    }
+
+    final RepositoryResult<DirectionsRoute> routed = await client.route(
+      mode: mode,
+      fromLat: fix.latitude,
+      fromLng: fix.longitude,
+      toLat: entry.station.latitude,
+      toLng: entry.station.longitude,
+    );
+    if (!context.mounted) {
+      return;
+    }
+    final DirectionsRoute? route = routed.valueOrNull;
+    if (route == null || route.points.length < 2) {
+      AmpSnackbar.show(
+        context,
+        routed.failureOrNull?.message ?? AmpStrings.detailsRouteFailed,
+        tone: AmpSnackbarTone.error,
+      );
+      return;
+    }
+
+    final String name = (entry.station.name ?? '').trim().isEmpty
+        ? AmpStrings.unnamedCharger
+        : entry.station.name!.trim();
+    unawaited(
+      context.push(
+        '/navigation',
+        extra: NavigationTrip(label: name, route: route, mode: mode),
       ),
     );
   }
 }
 
 class _DetailsBody extends StatelessWidget {
-  const _DetailsBody({required this.entry});
+  const _DetailsBody({
+    required this.entry,
+    required this.mode,
+    required this.onModeChanged,
+    required this.onNavigate,
+  });
 
   final StationCatalogueEntry entry;
+  final TravelMode mode;
+  final ValueChanged<TravelMode> onModeChanged;
+  final VoidCallback onNavigate;
 
   @override
   Widget build(BuildContext context) {
     final ChargerStation station = entry.station;
-    final AmpColors colors = context.amp;
     final TextTheme text = Theme.of(context).textTheme;
     final String name = (station.name ?? '').trim().isEmpty
         ? AmpStrings.unnamedCharger
@@ -77,209 +198,250 @@ class _DetailsBody extends StatelessWidget {
         ? AmpStrings.addressNotPublished
         : station.address!.trim();
     final int available = availablePortCount(entry);
+    final int totalPorts = entry.ports.length;
+    final bool hasPorts = totalPorts > 0;
     final String? hours = (station.operatingHours ?? '').trim().isEmpty
         ? null
         : station.operatingHours!.trim();
+    final double totalPerKwh =
+        station.pricePerKwh + station.serviceFee + station.gatewayFee;
+    final bool showReliability =
+        station.rating > 0 ||
+        station.reliabilityScore > 0 ||
+        station.incidentCount > 0;
+    final String availability = !hasPorts
+        ? AmpStrings.portsNotPublished
+        : available > 0
+        ? AmpStrings.discoverAvailable
+        : AmpStrings.discoverBusy;
+    final String? availabilityDetail = hasPorts
+        ? AmpStrings.portsAvailable(available, totalPorts)
+        : null;
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(
         AmpTheme.screenPadding,
-        AmpTheme.spaceL,
+        AmpTheme.spaceS,
         AmpTheme.screenPadding,
         AmpTheme.spaceXxl,
       ),
       children: <Widget>[
-        Text(name, style: text.displaySmall),
-        const SizedBox(height: 2),
+        Text(name, style: text.displayMedium),
+        const SizedBox(height: 4),
         Text(address, style: text.bodySmall),
-        const SizedBox(height: AmpTheme.spaceM),
-        Wrap(
-          spacing: AmpTheme.spaceS,
-          runSpacing: AmpTheme.spaceS,
-          children: <Widget>[
-            AmpBadge(
-              availabilityLabel(entry),
-              tone: available > 0 ? AmpBadgeTone.success : AmpBadgeTone.warning,
-              icon: AmpIconName.bolt,
+        const SizedBox(height: 10),
+        Eyebrow(AmpStrings.detailsDirectionsMode),
+        const SizedBox(height: 2),
+        TextFilterRow<TravelMode>(
+          options: const <TextFilterOption<TravelMode>>[
+            TextFilterOption<TravelMode>(
+              value: TravelMode.driving,
+              label: AmpStrings.detailsDrive,
             ),
-            if (station.isDcCapable)
-              const AmpBadge(
-                AmpStrings.filterDc,
-                tone: AmpBadgeTone.info,
-                icon: AmpIconName.bolt,
-              ),
-            AmpBadge(
-              AmpFormat.meterLevel(station.verificationLevel),
-              tone: station.supportsPaidEnergyBilling
-                  ? AmpBadgeTone.success
-                  : AmpBadgeTone.warning,
-              icon: station.supportsPaidEnergyBilling
-                  ? AmpIconName.check
-                  : AmpIconName.info,
+            TextFilterOption<TravelMode>(
+              value: TravelMode.walking,
+              label: AmpStrings.detailsWalk,
             ),
           ],
+          selected: mode,
+          onSelected: onModeChanged,
         ),
-        const SizedBox(height: AmpTheme.spaceS),
-        if (station.lastUpdatedMs > 0)
+        const SizedBox(height: 2),
+        TextAction(AmpStrings.detailsNavigate, onPressed: onNavigate),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 14,
+          runSpacing: 6,
+          children: <Widget>[
+            if (station.isDcCapable) const Eyebrow(AmpStrings.filterDc),
+            Eyebrow(AmpFormat.meterLevel(station.verificationLevel)),
+          ],
+        ),
+        const SizedBox(height: 18),
+        const Hairline(),
+        const _SectionHeading(AmpStrings.detailsAvailability, rule: false),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Expanded(
+              child: StatusDotLabel(
+                availability,
+                detail: availabilityDetail,
+                tone: !hasPorts
+                    ? StatusDotTone.neutral
+                    : available > 0
+                    ? StatusDotTone.available
+                    : StatusDotTone.busy,
+              ),
+            ),
+            if (hasPorts) ...<Widget>[
+              const SizedBox(width: AmpTheme.spaceM),
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: PortDots(available: available, total: totalPorts),
+              ),
+            ],
+          ],
+        ),
+        if (station.lastUpdatedMs > 0) ...<Widget>[
+          const SizedBox(height: 7),
           FreshnessLabel(
             updatedAt: DateTime.fromMillisecondsSinceEpoch(
               station.lastUpdatedMs,
             ),
-          )
-        else
-          Text(AmpStrings.availabilityUnknown, style: text.labelLarge),
+          ),
+        ] else ...<Widget>[
+          const SizedBox(height: 7),
+          Text(AmpStrings.availabilityUnknown, style: text.bodySmall),
+        ],
+        const SizedBox(height: AmpTheme.spaceS),
+        Text(AmpStrings.detailsAvailabilityNote, style: text.bodySmall),
         if (!station.supportsPaidEnergyBilling) ...<Widget>[
           const SizedBox(height: AmpTheme.spaceM),
-          _Notice(message: AmpStrings.detailsMeterGating),
+          const _PaperNotice(message: AmpStrings.detailsMeterGating),
         ],
-        const SizedBox(height: AmpTheme.spaceM),
-        Text(AmpStrings.detailsBillingNote, style: text.bodySmall),
-        if (hours != null) ...<Widget>[
-          const SizedBox(height: AmpTheme.spaceM),
-          Text(AmpStrings.detailsOperatingHours, style: text.labelLarge),
-          const SizedBox(height: 2),
-          Text(hours, style: text.bodyMedium),
-        ],
-        _SectionTitle(AmpStrings.detailsAvailability),
-        Text(AmpStrings.detailsAvailabilityNote, style: text.bodySmall),
-        const SizedBox(height: AmpTheme.spaceS),
-        Container(
-          padding: const EdgeInsets.all(AmpTheme.spaceM),
-          decoration: BoxDecoration(
-            color: colors.surface,
-            borderRadius: BorderRadius.circular(AmpTheme.radiusCard),
-            border: Border.all(color: colors.divider),
-          ),
-          child: Row(
-            children: <Widget>[
-              AmpIcon(AmpIconName.bolt, size: 20, color: colors.primary),
-              const SizedBox(width: AmpTheme.spaceS),
-              Expanded(
-                child: Text(availabilityLabel(entry), style: text.titleSmall),
-              ),
-            ],
-          ),
-        ),
-        _SectionTitle(AmpStrings.detailsPorts),
-        if (entry.ports.isEmpty)
+        const _SectionHeading(AmpStrings.detailsPorts),
+        if (!hasPorts)
           Text(AmpStrings.detailsNoPorts, style: text.bodySmall)
         else
-          for (final ChargerPort port in entry.ports) ...<Widget>[
-            _PortRow(port: port),
-            const SizedBox(height: AmpTheme.spaceS),
+          for (int index = 0; index < entry.ports.length; index++) ...<Widget>[
+            _PortLine(port: entry.ports[index]),
+            if (index < entry.ports.length - 1) const Hairline(),
           ],
-        _SectionTitle(AmpStrings.detailsPrice),
-        Container(
-          padding: const EdgeInsets.all(AmpTheme.spaceM),
-          decoration: BoxDecoration(
-            color: colors.surface,
-            borderRadius: BorderRadius.circular(AmpTheme.radiusCard),
-            border: Border.all(color: colors.divider),
+        const _SectionHeading(AmpStrings.detailsPrice),
+        if (totalPerKwh > 0) ...<Widget>[
+          BigNumber(
+            value: AmpFormat.rupees(totalPerKwh),
+            unit: AmpStrings.perKwh,
+            label: AmpStrings.detailsTotal,
           ),
-          child: Column(
-            children: <Widget>[
-              ReceiptRow(
+          const SizedBox(height: AmpTheme.spaceS),
+          ReceiptRows(
+            lines: <ReceiptLine>[
+              ReceiptLine(
                 label: AmpStrings.detailsEnergyPrice,
                 value: AmpFormat.rupees(station.pricePerKwh),
               ),
-              ReceiptRow(
+              ReceiptLine(
                 label: AmpStrings.detailsServiceFee,
                 value: AmpFormat.rupees(station.serviceFee),
               ),
-              ReceiptRow(
+              ReceiptLine(
                 label: AmpStrings.detailsGatewayFee,
                 value: AmpFormat.rupees(station.gatewayFee),
               ),
-              const Divider(height: AmpTheme.spaceL),
-              ReceiptRow(
-                label: AmpStrings.detailsTotal,
-                value: AmpFormat.rupees(
-                  station.pricePerKwh + station.serviceFee + station.gatewayFee,
-                ),
-                emphasis: true,
-              ),
             ],
           ),
-        ),
-        _SectionTitle(AmpStrings.detailsAccess),
+        ] else
+          Text(AmpStrings.priceNotPublished, style: text.bodySmall),
+        const SizedBox(height: AmpTheme.spaceS),
+        Text(AmpStrings.detailsBillingNote, style: text.bodySmall),
+        if (hours != null) ...<Widget>[
+          const SizedBox(height: AmpTheme.spaceL),
+          const Eyebrow(AmpStrings.detailsOperatingHours),
+          const SizedBox(height: 4),
+          Text(hours, style: text.bodyMedium),
+        ],
+        const _SectionHeading(AmpStrings.detailsAccess),
         Text(
           (station.accessRules ?? '').trim().isEmpty
               ? AmpStrings.detailsNoAccess
               : station.accessRules!.trim(),
           style: text.bodyMedium,
         ),
-        _SectionTitle(AmpStrings.detailsHost),
+        const _SectionHeading(AmpStrings.detailsHost),
         Text(
           (station.hostName ?? '').trim().isEmpty
               ? AmpStrings.detailsNoHost
               : station.hostName!.trim(),
           style: text.bodyMedium,
         ),
-        const SizedBox(height: 4),
-        if (station.rating > 0 ||
-            station.reliabilityScore > 0 ||
-            station.incidentCount > 0)
-          Text(
-            AmpStrings.detailsReliability(
-              station.reliabilityScore.round(),
-              station.rating.toStringAsFixed(1),
-              station.incidentCount,
-            ),
-            style: text.bodySmall,
-          )
-        else
-          Text(AmpStrings.detailsReliabilityUnknown, style: text.bodySmall),
-        if (station.supportsPaidEnergyBilling) ...<Widget>[
-          const SizedBox(height: AmpTheme.spaceL),
-          AmpButton(
-            label: AmpStrings.bookingReserveAction,
-            icon: AmpIconName.ticket,
-            onPressed: () => context.push('/book/${station.id}'),
+        const SizedBox(height: 6),
+        Text(
+          showReliability
+              ? AmpStrings.detailsReliability(
+                  station.reliabilityScore.round(),
+                  station.rating.toStringAsFixed(1),
+                  station.incidentCount,
+                )
+              : AmpStrings.detailsReliabilityUnknown,
+          style: text.bodySmall,
+        ),
+        const SizedBox(height: AmpTheme.spaceL),
+        const Hairline(),
+        const SizedBox(height: AmpTheme.spaceS),
+        TextAction(
+          AmpStrings.reportTitle,
+          onPressed: () => context.push(
+            Uri(
+              path: '/report',
+              queryParameters: <String, String>{
+                'stationId': station.id,
+                'hostId': station.hostId ?? '',
+                'stationName': name,
+              },
+            ).toString(),
           ),
-        ],
+        ),
       ],
     );
   }
 }
 
-class _PortRow extends StatelessWidget {
-  const _PortRow({required this.port});
+class _PortLine extends StatelessWidget {
+  const _PortLine({required this.port});
 
   final ChargerPort port;
 
   @override
   Widget build(BuildContext context) {
-    final AmpColors colors = context.amp;
     final TextTheme text = Theme.of(context).textTheme;
+    final String storedStatus = (port.status ?? '').toUpperCase();
+    final bool available = storedStatus == AmpPolicy.portAvailable;
     final String status = AmpFormat.portStatus(port.status);
-    final bool available =
-        (port.status ?? '').toUpperCase() == AmpPolicy.portAvailable;
-    final String label =
-        'Port ${port.portNumber ?? '?'} · '
-        '${AmpFormat.connectorLabel(port.connectorType)} · '
-        '${port.powerKw > 0 ? '${port.powerKw.toInt()} kW' : AmpStrings.powerNotPublished}';
+    final String connector = AmpFormat.connectorLabel(port.connectorType);
+    final String power = port.powerKw > 0
+        ? '${port.powerKw.toInt()} kW'
+        : AmpStrings.powerNotPublished;
+    final String detail =
+        '${connector.isEmpty ? AmpStrings.connectorNotPublished : connector} · '
+        '$power';
+    final StatusDotTone tone = storedStatus.isEmpty
+        ? StatusDotTone.neutral
+        : available
+        ? StatusDotTone.available
+        : StatusDotTone.busy;
 
-    return Container(
-      padding: const EdgeInsets.all(AmpTheme.spaceM),
-      decoration: BoxDecoration(
-        color: colors.surface,
-        borderRadius: BorderRadius.circular(AmpTheme.radiusCard),
-        border: Border.all(color: colors.divider),
-      ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 13),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          AmpIcon(
-            AmpIconName.plug,
-            size: 19,
-            color: available ? colors.available : colors.inkSecondary,
+          SizedBox(
+            width: 58,
+            child: Text(
+              (port.portNumber ?? '').trim().isEmpty
+                  ? '?'
+                  : port.portNumber!.trim(),
+              maxLines: 1,
+              softWrap: false,
+              overflow: TextOverflow.visible,
+              style: AmpType.metric(context, size: 27),
+            ),
           ),
-          const SizedBox(width: AmpTheme.spaceS),
-          Expanded(child: Text(label, style: text.bodyMedium)),
-          const SizedBox(width: AmpTheme.spaceS),
-          AmpBadge(
-            status.isEmpty ? AmpStrings.labelUnknown : status,
-            tone: available ? AmpBadgeTone.success : AmpBadgeTone.warning,
-            icon: available ? AmpIconName.check : AmpIconName.info,
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(detail, style: text.titleSmall),
+                const SizedBox(height: 5),
+                StatusDotLabel(
+                  status.isEmpty ? AmpStrings.labelUnknown : status,
+                  tone: tone,
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -287,8 +449,35 @@ class _PortRow extends StatelessWidget {
   }
 }
 
-class _Notice extends StatelessWidget {
-  const _Notice({required this.message});
+class _SectionHeading extends StatelessWidget {
+  const _SectionHeading(this.label, {this.rule = true});
+
+  final String label;
+  final bool rule;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        if (rule) ...<Widget>[
+          const SizedBox(height: AmpTheme.spaceL),
+          const Hairline(),
+        ],
+        Padding(
+          padding: const EdgeInsets.only(
+            top: AmpTheme.spaceL,
+            bottom: AmpTheme.spaceS,
+          ),
+          child: Eyebrow(label),
+        ),
+      ],
+    );
+  }
+}
+
+class _PaperNotice extends StatelessWidget {
+  const _PaperNotice({required this.message});
 
   final String message;
 
@@ -296,17 +485,14 @@ class _Notice extends StatelessWidget {
   Widget build(BuildContext context) {
     final AmpColors colors = context.amp;
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AmpTheme.spaceM),
+      padding: const EdgeInsets.only(left: 12, top: 2, bottom: 2),
       decoration: BoxDecoration(
-        color: colors.busyTint,
-        borderRadius: BorderRadius.circular(AmpTheme.radiusCard),
-        border: Border.all(color: colors.busy.withValues(alpha: 0.35)),
+        border: Border(left: BorderSide(color: colors.busy, width: 2)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          AmpIcon(AmpIconName.alert, size: 18, color: colors.busyInk),
+          AmpIcon(AmpIconName.alert, size: 17, color: colors.busyInk),
           const SizedBox(width: AmpTheme.spaceS),
           Expanded(
             child: Text(
@@ -318,23 +504,6 @@ class _Notice extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _SectionTitle extends StatelessWidget {
-  const _SectionTitle(this.label);
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(
-        top: AmpTheme.spaceL,
-        bottom: AmpTheme.spaceS,
-      ),
-      child: Text(label, style: Theme.of(context).textTheme.titleMedium),
     );
   }
 }
@@ -351,8 +520,10 @@ class _DetailsLoading extends StatelessWidget {
         SizedBox(height: AmpTheme.spaceS),
         SkeletonLine(widthFactor: 0.45),
         SizedBox(height: AmpTheme.spaceL),
-        Skeleton(height: 48, radius: AmpTheme.radiusCard),
+        Hairline(),
         SizedBox(height: AmpTheme.spaceL),
+        SkeletonLine(widthFactor: 0.32),
+        SizedBox(height: AmpTheme.spaceM),
         Skeleton(height: 120, radius: AmpTheme.radiusCard),
         SizedBox(height: AmpTheme.spaceL),
         Skeleton(height: 120, radius: AmpTheme.radiusCard),

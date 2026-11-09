@@ -1,22 +1,25 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../app/theme/amp_colors.dart';
 import '../../../app/theme/amp_theme.dart';
 import '../../../core/errors/user_messages.dart';
 import '../../../core/formatting/amp_format.dart';
 import '../../../core/ids.dart';
 import '../../../core/ui/strings.dart';
 import '../../../core/widgets/amp_button.dart';
-import '../../../core/widgets/amp_chip.dart';
 import '../../../core/widgets/amp_field.dart';
-import '../../../core/widgets/amp_icon.dart';
 import '../../../core/widgets/amp_scaffold.dart';
 import '../../../core/widgets/amp_snackbar.dart';
+import '../../../core/widgets/big_number.dart';
 import '../../../core/widgets/confirm_dialog.dart';
 import '../../../core/widgets/error_state.dart';
+import '../../../core/widgets/eyebrow.dart';
+import '../../../core/widgets/hairline.dart';
 import '../../../core/widgets/skeleton.dart';
+import '../../../core/widgets/text_filter_row.dart';
 import '../../../data/models/models.dart';
 import '../../../data/repositories/repository_providers.dart';
 import '../../../data/repositories/repository_result.dart';
@@ -148,8 +151,29 @@ class _VehicleFormState extends ConsumerState<_VehicleForm> {
   late double _efficiencyCorrection;
   bool _saving = false;
   bool _deleting = false;
+  bool _allowPop = false;
 
   bool get _busy => _saving || _deleting;
+
+  bool get _hasUnsavedChanges {
+    final VehicleDraft initial = widget.vehicle == null
+        ? VehicleDraft.blank()
+        : VehicleDraft.fromVehicle(widget.vehicle!);
+    final VehicleDraft current = _draft();
+    return current.make != initial.make ||
+        current.model != initial.model ||
+        current.variant != initial.variant ||
+        current.year != initial.year ||
+        current.capacityKwh != initial.capacityKwh ||
+        current.connectorType != initial.connectorType ||
+        current.maxAcKw != initial.maxAcKw ||
+        current.maxDcKw != initial.maxDcKw ||
+        current.efficiencyKmPerKwh != initial.efficiencyKmPerKwh ||
+        current.healthPercent != initial.healthPercent ||
+        current.minArrivalPercent != initial.minArrivalPercent ||
+        current.maxChargePercent != initial.maxChargePercent ||
+        current.licensePlate != initial.licensePlate;
+  }
 
   @override
   void initState() {
@@ -172,10 +196,21 @@ class _VehicleFormState extends ConsumerState<_VehicleForm> {
     _connector = draft.connectorType;
     _efficiencyCorrection = draft.efficiencyCorrectionPercent;
 
+    // Every field feeds the discard guard, not only the battery preview. The
+    // listener must rebuild so PopScope sees the dirty state before Back.
     for (final TextEditingController controller in <TextEditingController>[
+      _make,
+      _model,
+      _variant,
+      _year,
       _capacity,
+      _maxAc,
+      _maxDc,
       _efficiency,
       _health,
+      _minArrival,
+      _maxCharge,
+      _plate,
     ]) {
       controller.addListener(_refreshPreview);
     }
@@ -268,7 +303,7 @@ class _VehicleFormState extends ConsumerState<_VehicleForm> {
       AmpStrings.vehicleSaved,
       tone: AmpSnackbarTone.success,
     );
-    context.pop();
+    _closeForm();
   }
 
   Future<void> _confirmDelete() async {
@@ -317,7 +352,7 @@ class _VehicleFormState extends ConsumerState<_VehicleForm> {
       AmpStrings.vehicleDeleted,
       tone: AmpSnackbarTone.success,
     );
-    context.pop();
+    _closeForm();
   }
 
   void _refreshVehicleViews() {
@@ -326,16 +361,44 @@ class _VehicleFormState extends ConsumerState<_VehicleForm> {
     ref.invalidate(discoveryProvider);
   }
 
+  void _closeForm() {
+    if (!mounted) {
+      return;
+    }
+    setState(() => _allowPop = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        context.pop();
+      }
+    });
+  }
+
+  Future<void> _confirmDiscard() async {
+    if (!_hasUnsavedChanges) {
+      return;
+    }
+    final bool discard = await showAmpConfirmDialog(
+      context,
+      title: AmpStrings.vehicleUnsavedTitle,
+      message: AmpStrings.vehicleUnsavedBody,
+      confirmLabel: AmpStrings.vehicleDiscard,
+      cancelLabel: AmpStrings.vehicleKeepEditing,
+    );
+    if (!discard || !mounted) {
+      return;
+    }
+    _closeForm();
+  }
+
   @override
   Widget build(BuildContext context) {
     final VehicleDraft draft = _draft();
     final bool editing = widget.vehicle != null;
 
-    return AmpScaffold(
+    final Widget scaffold = AmpScaffold(
       title: editing ? AmpStrings.vehicleEditTitle : AmpStrings.vehicleAddTitle,
       bottomBar: AmpButton(
         label: _saving ? AmpStrings.vehicleSaving : AmpStrings.vehicleSave,
-        icon: AmpIconName.check,
         loading: _saving,
         onPressed: _busy ? null : _save,
       ),
@@ -418,22 +481,19 @@ class _VehicleFormState extends ConsumerState<_VehicleForm> {
                   onChanged: (_) => _refreshPreview(),
                 ),
                 const SizedBox(height: AmpTheme.spaceM),
-                Text(
-                  AmpStrings.vehicleConnector,
-                  style: Theme.of(context).textTheme.labelLarge,
-                ),
-                const SizedBox(height: AmpTheme.spaceS),
-                Wrap(
-                  spacing: AmpTheme.spaceS,
-                  runSpacing: AmpTheme.spaceS,
-                  children: <Widget>[
+                Eyebrow(AmpStrings.vehicleConnector),
+                const SizedBox(height: 2),
+                TextFilterRow<String>(
+                  options: <TextFilterOption<String>>[
                     for (final String connector in VehicleDraft.connectors)
-                      AmpChip(
+                      TextFilterOption<String>(
+                        value: connector,
                         label: AmpFormat.connectorLabel(connector),
-                        selected: _connector == connector,
-                        onTap: () => setState(() => _connector = connector),
                       ),
                   ],
+                  selected: _connector,
+                  onSelected: (String value) =>
+                      setState(() => _connector = value),
                 ),
                 const SizedBox(height: AmpTheme.spaceM),
                 Row(
@@ -524,46 +584,37 @@ class _VehicleFormState extends ConsumerState<_VehicleForm> {
               ],
             ),
             const SizedBox(height: AmpTheme.spaceM),
-            Container(
-              padding: const EdgeInsets.all(AmpTheme.spaceM),
-              decoration: BoxDecoration(
-                color: context.amp.surfaceVariant,
-                borderRadius: BorderRadius.circular(AmpTheme.radiusCard),
-              ),
-              child: Row(
+            const Hairline(),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: AmpTheme.spaceM),
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  AmpIcon(AmpIconName.info, size: 19, color: context.amp.info),
-                  const SizedBox(width: AmpTheme.spaceS),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        Text(
-                          AmpStrings.vehiclePlanningPreview(
-                            draft.usableCapacityKwh,
-                            draft.rangeKm.round(),
-                          ),
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(color: context.amp.ink),
-                        ),
-                        const SizedBox(height: AmpTheme.spaceXs),
-                        Text(
-                          AmpStrings.vehiclePlanningNote,
-                          style: Theme.of(context).textTheme.labelLarge,
-                        ),
-                      ],
-                    ),
+                  BigNumber(
+                    value: draft.usableCapacityKwh.toStringAsFixed(1),
+                    unit: AmpStrings.kwh,
+                    label: AmpStrings.vehicleUsableLabel,
+                    size: 48,
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    AmpStrings.vehicleRangeNote(draft.rangeKm.round()),
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    AmpStrings.vehiclePlanningNote,
+                    style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ],
               ),
             ),
+            const Hairline(),
             if (editing) ...<Widget>[
               const SizedBox(height: AmpTheme.spaceL),
               AmpButton(
                 label: AmpStrings.vehicleDelete,
                 variant: AmpButtonVariant.danger,
-                icon: AmpIconName.close,
                 loading: _deleting,
                 onPressed: _busy ? null : _confirmDelete,
               ),
@@ -571,6 +622,17 @@ class _VehicleFormState extends ConsumerState<_VehicleForm> {
           ],
         ),
       ),
+    );
+
+    return PopScope<Object?>(
+      canPop: !_hasUnsavedChanges || _allowPop,
+      onPopInvokedWithResult: (bool didPop, Object? result) {
+        if (didPop) {
+          return;
+        }
+        unawaited(_confirmDiscard());
+      },
+      child: scaffold,
     );
   }
 }
@@ -583,21 +645,21 @@ class _SectionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AmpTheme.spaceM),
-      decoration: BoxDecoration(
-        color: context.amp.surface,
-        borderRadius: BorderRadius.circular(AmpTheme.radiusCard),
-        border: Border.all(color: context.amp.divider),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Text(title, style: Theme.of(context).textTheme.titleSmall),
-          const SizedBox(height: AmpTheme.spaceM),
-          ...children,
-        ],
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        const Hairline(),
+        Padding(
+          padding: const EdgeInsets.only(
+            top: AmpTheme.spaceM,
+            bottom: AmpTheme.spaceS,
+          ),
+          child: Eyebrow(title),
+        ),
+        ...children,
+        const SizedBox(height: AmpTheme.spaceM),
+        const Hairline(),
+      ],
     );
   }
 }
@@ -622,9 +684,23 @@ class _FormLoading extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(AmpTheme.screenPadding),
       children: const <Widget>[
-        Skeleton(height: 220, radius: AmpTheme.radiusCard),
+        SkeletonLine(widthFactor: 0.3, height: 9),
+        SizedBox(height: 8),
+        SkeletonLine(widthFactor: 0.6, height: 28),
+        SizedBox(height: AmpTheme.spaceL),
+        Hairline(),
         SizedBox(height: AmpTheme.spaceM),
-        Skeleton(height: 280, radius: AmpTheme.radiusCard),
+        SkeletonLine(widthFactor: 0.45),
+        SizedBox(height: 14),
+        SkeletonLine(widthFactor: 0.8),
+        SizedBox(height: 14),
+        SkeletonLine(widthFactor: 0.72),
+        SizedBox(height: AmpTheme.spaceM),
+        Hairline(),
+        SizedBox(height: AmpTheme.spaceM),
+        SkeletonLine(widthFactor: 0.42),
+        SizedBox(height: 14),
+        SkeletonLine(widthFactor: 0.76),
       ],
     );
   }

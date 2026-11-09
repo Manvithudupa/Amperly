@@ -19,8 +19,8 @@ abstract final class AmpTheme {
   static const double spaceXxl = 40;
   static const double screenPadding = 20;
 
-  static const double radiusCard = 16;
-  static const double radiusField = 12;
+  static const double radiusCard = 14;
+  static const double radiusField = 8;
   static const double radiusPill = 999;
   static const double touchTarget = 48;
 
@@ -77,7 +77,11 @@ abstract final class AmpTheme {
       extensions: <ThemeExtension<dynamic>>[c],
       visualDensity: VisualDensity.standard,
       materialTapTargetSize: MaterialTapTargetSize.padded,
-      splashFactory: InkRipple.splashFactory,
+      splashFactory: NoSplash.splashFactory,
+      splashColor: Colors.transparent,
+      highlightColor: c.ink.withValues(alpha: 0.06),
+      hoverColor: c.ink.withValues(alpha: 0.04),
+      focusColor: c.ink.withValues(alpha: 0.06),
       dividerColor: c.divider,
       dividerTheme: DividerThemeData(color: c.divider, thickness: 1, space: 1),
       iconTheme: IconThemeData(color: c.ink, size: 20),
@@ -369,7 +373,7 @@ abstract final class AmpType {
       fontSize: 11,
       height: 1.3,
       fontWeight: FontWeight.w600,
-      letterSpacing: 1.1,
+      letterSpacing: 0.8,
       color: color ?? context.amp.inkSecondary,
     );
   }

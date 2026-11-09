@@ -3,10 +3,9 @@ import 'package:flutter/material.dart';
 import '../../../app/theme/amp_colors.dart';
 import '../../../app/theme/amp_theme.dart';
 import '../../../core/ui/strings.dart';
-import '../../../core/widgets/amp_badge.dart';
-import '../../../core/widgets/amp_icon.dart';
-import '../../../core/widgets/amp_illustration.dart';
 import '../../../core/widgets/amp_scaffold.dart';
+import '../../../core/widgets/eyebrow.dart';
+import '../../../core/widgets/hairline.dart';
 import '../../../data/models/models.dart';
 import 'sign_out_button.dart';
 
@@ -32,58 +31,30 @@ class BlockedScreen extends StatelessWidget {
           AmpTheme.spaceXxl,
         ),
         children: <Widget>[
-          const Center(
-            child: AmpIllustration(
-              AmpIllustrationKind.carQuestion,
-              width: 176,
-              height: 128,
-            ),
-          ),
-          const SizedBox(height: AmpTheme.spaceL),
-          const Center(
-            child: AmpBadge(
-              AmpStrings.blockedTitle,
-              tone: AmpBadgeTone.danger,
-              icon: AmpIconName.alert,
-            ),
-          ),
+          const Eyebrow(AmpStrings.blockedTitle),
           const SizedBox(height: AmpTheme.spaceM),
-          Text(
-            AmpStrings.blockedTitle,
-            textAlign: TextAlign.center,
-            style: text.displaySmall,
-          ),
+          Text(AmpStrings.blockedTitle, style: text.displaySmall),
           const SizedBox(height: AmpTheme.spaceS),
           Text(
             AmpStrings.blockedBody,
-            textAlign: TextAlign.center,
             style: text.bodyMedium?.copyWith(color: colors.inkSecondary),
           ),
           const SizedBox(height: AmpTheme.spaceL),
-          Container(
-            padding: const EdgeInsets.all(AmpTheme.spaceM),
-            decoration: BoxDecoration(
-              color: colors.surface,
-              borderRadius: BorderRadius.circular(AmpTheme.radiusCard),
-              border: Border.all(color: colors.divider),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(AmpStrings.authSignedInAs, style: text.labelLarge),
-                const SizedBox(height: 2),
-                Text(
-                  name.isEmpty ? AmpStrings.appName : name,
-                  style: text.titleMedium,
-                ),
-                if ((profile.email ?? '').trim().isNotEmpty) ...<Widget>[
-                  const SizedBox(height: 2),
-                  Text(profile.email!, style: text.bodySmall),
-                ],
-              ],
-            ),
+          const Hairline(),
+          const SizedBox(height: AmpTheme.spaceM),
+          const Eyebrow(AmpStrings.authSignedInAs),
+          const SizedBox(height: 4),
+          Text(
+            name.isEmpty ? AmpStrings.appName : name,
+            style: text.titleMedium,
           ),
-          const SizedBox(height: AmpTheme.spaceL),
+          if ((profile.email ?? '').trim().isNotEmpty) ...<Widget>[
+            const SizedBox(height: 2),
+            Text(profile.email!.trim(), style: text.bodySmall),
+          ],
+          const SizedBox(height: AmpTheme.spaceM),
+          const Hairline(),
+          const SizedBox(height: AmpTheme.spaceS),
           const SignOutButton(label: AmpStrings.blockedSignOut),
         ],
       ),

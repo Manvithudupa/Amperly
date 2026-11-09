@@ -4,26 +4,28 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../app/theme/amp_colors.dart';
 import '../../../app/theme/amp_theme.dart';
 import '../../../core/errors/user_messages.dart';
 import '../../../core/formatting/amp_format.dart';
 import '../../../core/ui/strings.dart';
-import '../../../core/widgets/amp_badge.dart';
 import '../../../core/widgets/amp_button.dart';
-import '../../../core/widgets/amp_chip.dart';
 import '../../../core/widgets/amp_icon.dart';
 import '../../../core/widgets/amp_scaffold.dart';
 import '../../../core/widgets/amp_snackbar.dart';
+import '../../../core/widgets/departure_row.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/error_state.dart';
+import '../../../core/widgets/hairline.dart';
 import '../../../core/widgets/skeleton.dart';
+import '../../../core/widgets/status_dot_label.dart';
+import '../../../core/widgets/text_action.dart';
 import '../../../data/models/models.dart';
 import '../../../data/repositories/repository_result.dart';
 import '../../../domain/policy.dart';
 import '../application/booking_providers.dart';
 import '../application/chat_providers.dart';
 import 'booking_actions.dart';
+import 'consumer_tab_bar.dart';
 
 /// The consumer's real reservations, confirmed by the server.
 class BookingsScreen extends ConsumerWidget {
@@ -38,6 +40,7 @@ class BookingsScreen extends ConsumerWidget {
     return AmpScaffold(
       title: AmpStrings.bookingListTitle,
       subtitle: AmpStrings.bookingListSubtitle,
+      tabBar: const ConsumerTabBar(currentIndex: 2),
       body: bookings.when(
         loading: () => const _BookingsLoading(),
         error: (Object error, StackTrace stack) => ErrorState(
@@ -74,11 +77,9 @@ class _BookingsBody extends ConsumerWidget {
       },
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(
-          AmpTheme.screenPadding,
-          AmpTheme.spaceM,
-          AmpTheme.screenPadding,
-          AmpTheme.spaceXxl,
+        padding: const EdgeInsets.only(
+          top: AmpTheme.spaceXs,
+          bottom: AmpTheme.spaceXxl,
         ),
         children: <Widget>[
           if (reservations.isEmpty)
@@ -93,8 +94,8 @@ class _BookingsBody extends ConsumerWidget {
               ),
             )
           else
-            for (final Reservation reservation in reservations) ...<Widget>[
-              _ReservationCard(
+            for (final Reservation reservation in reservations)
+              _ReservationRow(
                 reservation: reservation,
                 onShowCode: () => context.push('/bookings/${reservation.id}'),
                 onSession:
@@ -113,8 +114,6 @@ class _BookingsBody extends ConsumerWidget {
                     ? null
                     : () => _openChat(context, ref, reservation.id),
               ),
-              const SizedBox(height: AmpTheme.spaceM),
-            ],
         ],
       ),
     );
@@ -164,8 +163,8 @@ Future<void> _openChat(
   unawaited(context.push('/messages/${thread.id}'));
 }
 
-class _ReservationCard extends StatelessWidget {
-  const _ReservationCard({
+class _ReservationRow extends StatelessWidget {
+  const _ReservationRow({
     required this.reservation,
     required this.onShowCode,
     required this.onSession,
@@ -183,132 +182,95 @@ class _ReservationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final AmpColors colors = context.amp;
-    final TextTheme text = Theme.of(context).textTheme;
     final String stationName = (reservation.stationName ?? '').trim();
     final String portLabel = (reservation.portLabel ?? '').trim();
     final String code = (reservation.bookingCode ?? '').trim();
     final String status = AmpFormat.bookingStatus(reservation.status);
-    final String payment = reservation.isPaid
-        ? AmpStrings.bookingTariffLine(
-            AmpFormat.rupees(reservation.pricePerKwh),
-            AmpFormat.rupees(reservation.serviceFee),
-            AmpFormat.rupees(reservation.gatewayFee),
-          )
-        : AmpStrings.bookingNoPayment;
+    final DateTime? start = reservation.startTimeMs > 0
+        ? DateTime.fromMillisecondsSinceEpoch(reservation.startTimeMs)
+        : null;
+    final String metric = start == null ? '—' : AmpFormat.dayNumber(start);
+    final String metricUnit = start == null
+        ? AmpStrings.labelUnknown
+        : AmpFormat.monthShort(start);
+    final String slot = reservation.startTimeMs > 0
+        ? '${AmpFormat.dayLabel(start!)}, '
+              '${AmpFormat.timeRange(reservation.startTimeMs, reservation.endTimeMs)}'
+        : AmpStrings.availabilityUnknown;
+    final String detail = portLabel.isEmpty ? slot : '$slot · $portLabel';
+    final String? price = reservation.pricePerKwh > 0
+        ? AmpFormat.rupees(reservation.pricePerKwh)
+        : null;
 
-    return Material(
-      color: colors.surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AmpTheme.radiusCard),
-        side: BorderSide(color: colors.divider),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onShowCode,
-        child: Padding(
-          padding: const EdgeInsets.all(AmpTheme.spaceM),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        DepartureRow(
+          title: stationName.isEmpty
+              ? AmpStrings.bookingStationFallback
+              : stationName,
+          metric: metric,
+          metricUnit: metricUnit,
+          detail: detail,
+          statusLabel: status.isEmpty ? AmpStrings.labelUnknown : status,
+          statusDetail: code.isEmpty ? null : code,
+          statusTone: _statusTone(reservation.status),
+          price: price,
+          priceUnit: AmpStrings.perKwh,
+          onTap: onShowCode,
+          showHairline: false,
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AmpTheme.screenPadding - 4,
+            0,
+            AmpTheme.screenPadding,
+            10,
+          ),
+          child: Wrap(
+            spacing: 10,
+            runSpacing: 0,
             children: <Widget>[
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Expanded(
-                    child: Text(
-                      stationName.isEmpty
-                          ? AmpStrings.bookingStationFallback
-                          : stationName,
-                      style: text.titleMedium,
-                    ),
-                  ),
-                  const SizedBox(width: AmpTheme.spaceS),
-                  AmpBadge(
-                    status.isEmpty ? AmpStrings.labelUnknown : status,
-                    tone: _statusTone(reservation.status),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              Text(
-                reservation.startTimeMs > 0
-                    ? '${AmpFormat.dayLabel(DateTime.fromMillisecondsSinceEpoch(reservation.startTimeMs))}, '
-                          '${AmpFormat.timeRange(reservation.startTimeMs, reservation.endTimeMs)}'
-                    : AmpStrings.availabilityUnknown,
-                style: text.bodyMedium,
-              ),
-              if (portLabel.isNotEmpty) ...<Widget>[
-                const SizedBox(height: 2),
-                Text(portLabel, style: text.bodySmall),
-              ],
-              if (code.isNotEmpty) ...<Widget>[
-                const SizedBox(height: AmpTheme.spaceS),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: AmpChip(
-                    label: code,
-                    icon: AmpIconName.qr,
-                    selected: true,
-                    onTap: onShowCode,
-                  ),
+              TextAction(AmpStrings.bookingShowCode, onPressed: onShowCode),
+              if (onSession != null)
+                TextAction(
+                  reservation.status == AmpPolicy.statusCompleted
+                      ? AmpStrings.sessionViewReceipt
+                      : reservation.status == AmpPolicy.statusReserved
+                      ? AmpStrings.sessionOpenAction
+                      : AmpStrings.sessionContinueAction,
+                  onPressed: onSession,
                 ),
-              ],
-              const SizedBox(height: AmpTheme.spaceS),
-              Text(payment, style: text.bodySmall),
-              const Divider(height: AmpTheme.spaceL),
-              Wrap(
-                spacing: AmpTheme.spaceS,
-                runSpacing: 2,
-                children: <Widget>[
-                  TextButton(
-                    onPressed: onShowCode,
-                    child: const Text(AmpStrings.bookingShowCode),
-                  ),
-                  if (onSession != null)
-                    TextButton(
-                      onPressed: onSession,
-                      child: Text(
-                        reservation.status == AmpPolicy.statusCompleted
-                            ? AmpStrings.sessionViewReceipt
-                            : reservation.status == AmpPolicy.statusReserved
-                            ? AmpStrings.sessionOpenAction
-                            : AmpStrings.sessionContinueAction,
-                      ),
-                    ),
-                  if (onMessageHost != null)
-                    TextButton(
-                      onPressed: onMessageHost,
-                      child: const Text(AmpStrings.chatMessageHost),
-                    ),
-                  if (onViewCharger != null)
-                    TextButton(
-                      onPressed: onViewCharger,
-                      child: const Text(AmpStrings.bookingViewCharger),
-                    ),
-                  if (onCancel != null)
-                    TextButton(
-                      style: TextButton.styleFrom(
-                        foregroundColor: colors.error,
-                      ),
-                      onPressed: onCancel,
-                      child: const Text(AmpStrings.bookingCancelAction),
-                    ),
-                ],
-              ),
+              if (onMessageHost != null)
+                TextAction(
+                  AmpStrings.chatMessageHost,
+                  onPressed: onMessageHost,
+                ),
+              if (onViewCharger != null)
+                TextAction(
+                  AmpStrings.bookingViewCharger,
+                  onPressed: onViewCharger,
+                ),
+              if (onCancel != null)
+                TextAction(
+                  AmpStrings.bookingCancelAction,
+                  tone: TextActionTone.danger,
+                  onPressed: onCancel,
+                ),
             ],
           ),
         ),
-      ),
+        const Hairline(),
+      ],
     );
   }
 }
 
-AmpBadgeTone _statusTone(String? status) {
+StatusDotTone _statusTone(String? status) {
   return switch ((status ?? '').toUpperCase()) {
-    'RESERVED' => AmpBadgeTone.info,
-    'CHECKED_IN' || 'CHARGING' => AmpBadgeTone.success,
-    'DISPUTED' || 'REFUNDED' => AmpBadgeTone.warning,
-    _ => AmpBadgeTone.neutral,
+    'CHECKED_IN' || 'CHARGING' || 'COMPLETED' => StatusDotTone.available,
+    'DISPUTED' || 'REFUNDED' => StatusDotTone.busy,
+    _ => StatusDotTone.neutral,
   };
 }
 
@@ -318,18 +280,58 @@ class _BookingsLoading extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: const EdgeInsets.fromLTRB(
-        AmpTheme.screenPadding,
-        AmpTheme.spaceM,
-        AmpTheme.screenPadding,
-        AmpTheme.spaceXxl,
-      ),
-      children: const <Widget>[
-        Skeleton(height: 158, radius: AmpTheme.radiusCard),
-        SizedBox(height: AmpTheme.spaceM),
-        Skeleton(height: 158, radius: AmpTheme.radiusCard),
-        SizedBox(height: AmpTheme.spaceM),
-        Skeleton(height: 158, radius: AmpTheme.radiusCard),
+      padding: const EdgeInsets.only(top: AmpTheme.spaceXs),
+      children: <Widget>[
+        for (int index = 0; index < 3; index++) ...<Widget>[
+          const Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: AmpTheme.screenPadding,
+              vertical: 14,
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                SizedBox(
+                  width: 48,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Skeleton(width: 30, height: 26),
+                      SizedBox(height: 3),
+                      Skeleton(width: 24, height: 9),
+                    ],
+                  ),
+                ),
+                SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Skeleton(width: 170, height: 14),
+                      SizedBox(height: AmpTheme.spaceS),
+                      Skeleton(width: 220, height: 10),
+                      SizedBox(height: AmpTheme.spaceS),
+                      Skeleton(width: 128, height: 10),
+                    ],
+                  ),
+                ),
+                SizedBox(width: 12),
+                SizedBox(
+                  width: 54,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: <Widget>[
+                      Skeleton(width: 42, height: 18),
+                      SizedBox(height: 4),
+                      Skeleton(width: 24, height: 9),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Hairline(),
+        ],
       ],
     );
   }

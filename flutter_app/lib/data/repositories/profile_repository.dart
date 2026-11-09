@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/errors/user_messages.dart';
 import '../../domain/policy.dart';
 import '../models/models.dart';
 import 'repository_result.dart';
@@ -31,6 +32,38 @@ final class ProfileRepository {
           .insert(
             newUserProfileRow(id: authUserId, email: email, displayName: name),
           )
+          .select()
+          .single();
+      return RepositorySuccess<AppUser>(AppUser.fromJson(row));
+    } on Object catch (error) {
+      return RepositoryFailure<AppUser>.from(error);
+    }
+  }
+
+  /// Updates the one profile field the account owns. The server row is the
+  /// source of truth, so the caller refreshes the profile provider afterwards.
+  Future<RepositoryResult<AppUser>> updateDisplayName({
+    required String userId,
+    required String name,
+  }) async {
+    final String trimmed = name.trim();
+    if (userId.trim().isEmpty) {
+      return RepositoryFailure<AppUser>(
+        kind: UserMessageKind.sessionExpired,
+        message: 'Your session has ended. Sign in again to continue.',
+      );
+    }
+    if (trimmed.isEmpty) {
+      return RepositoryFailure<AppUser>(
+        kind: UserMessageKind.validation,
+        message: 'Enter a name before saving.',
+      );
+    }
+    try {
+      final Map<String, dynamic> row = await _client
+          .from('users')
+          .update(<String, Object?>{'name': trimmed})
+          .eq('id', userId)
           .select()
           .single();
       return RepositorySuccess<AppUser>(AppUser.fromJson(row));

@@ -27,6 +27,7 @@ class AmpField extends StatefulWidget {
     this.textCapitalization = TextCapitalization.none,
     this.obscure = false,
     this.enabled = true,
+    this.autofocus = false,
     this.maxLines = 1,
     this.minLines,
     this.autofillHints,
@@ -54,6 +55,7 @@ class AmpField extends StatefulWidget {
   final TextCapitalization textCapitalization;
   final bool obscure;
   final bool enabled;
+  final bool autofocus;
   final int maxLines;
   final int? minLines;
   final Iterable<String>? autofillHints;
@@ -101,6 +103,7 @@ class _AmpFieldState extends State<AmpField> {
           initialValue: widget.initialValue,
           validator: widget.validator,
           enabled: widget.enabled,
+          autofocus: widget.autofocus,
           keyboardType: widget.keyboardType,
           textInputAction: widget.textInputAction,
           textCapitalization: widget.textCapitalization,

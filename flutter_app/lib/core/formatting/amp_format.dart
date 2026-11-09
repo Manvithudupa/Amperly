@@ -14,6 +14,8 @@ abstract final class AmpFormat {
   static final NumberFormat _compact = NumberFormat('0.##', 'en_IN');
   static final DateFormat _slotTime = DateFormat('h:mm a');
   static final DateFormat _shortDay = DateFormat('EEE d MMM');
+  static final DateFormat _dayNumber = DateFormat('d');
+  static final DateFormat _shortMonth = DateFormat('MMM');
 
   /// Rupees, with the symbol always attached to the number.
   ///
@@ -54,6 +56,12 @@ abstract final class AmpFormat {
     }
     return _shortDay.format(target);
   }
+
+  /// The day number used as a booking's left-hand metric.
+  static String dayNumber(DateTime day) => _dayNumber.format(day);
+
+  /// The short month beside [dayNumber], without forcing its case.
+  static String monthShort(DateTime day) => _shortMonth.format(day);
 
   /// One clock time, e.g. `6:30 pm`.
   static String clock(int epochMs) {

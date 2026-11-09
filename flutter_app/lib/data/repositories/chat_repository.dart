@@ -39,6 +39,29 @@ final class ChatRepository {
     }
   }
 
+  Future<RepositoryResult<List<CommunicationThread>>> threadsForHost(
+    String hostId,
+  ) async {
+    try {
+      final List<dynamic> rows = await _client
+          .from('communication_threads')
+          .select()
+          .eq('hostId', hostId)
+          .order('createdAtMs', ascending: false);
+      return RepositorySuccess<List<CommunicationThread>>(
+        rows
+            .whereType<Map<String, dynamic>>()
+            .map(
+              (Map<String, dynamic> row) =>
+                  CommunicationThread.fromJson(Map<String, dynamic>.from(row)),
+            )
+            .toList(growable: false),
+      );
+    } on Object catch (error) {
+      return RepositoryFailure<List<CommunicationThread>>.from(error);
+    }
+  }
+
   Future<RepositoryResult<CommunicationThread?>> thread(String threadId) async {
     try {
       final Map<String, dynamic>? row = await _client
@@ -167,6 +190,98 @@ final class ChatRepository {
       return RepositorySuccess<CommunicationThread>(thread);
     } on Object catch (error) {
       return RepositoryFailure<CommunicationThread>.from(error);
+    }
+  }
+
+  /// Finds or opens the host's conversation with the driver on a booking.
+  ///
+  /// Host profiles cannot read the driver's account row, so the thread is keyed
+  /// by the reservation's consumer id and the display name stays a neutral
+  /// "Driver" rather than inventing personal data.
+  Future<RepositoryResult<CommunicationThread>> ensureHostThread({
+    required AppUser host,
+    required Reservation reservation,
+  }) async {
+    final String consumerId = (reservation.consumerId ?? '').trim();
+    if (consumerId.isEmpty) {
+      return RepositoryFailure<CommunicationThread>(
+        kind: UserMessageKind.validation,
+        message: AmpStrings.hostChatUnavailable,
+      );
+    }
+
+    try {
+      final List<dynamic> rows = await _client
+          .from('communication_threads')
+          .select()
+          .eq('consumerId', consumerId)
+          .eq('hostId', host.id)
+          .order('createdAtMs')
+          .limit(1);
+
+      final AppUser consumer = AppUser(
+        id: consumerId,
+        name: AmpStrings.hostDriverFallback,
+      );
+
+      CommunicationThread thread;
+      final dynamic first = rows.isEmpty ? null : rows.first;
+      if (first is Map<String, dynamic>) {
+        final CommunicationThread existing = CommunicationThread.fromJson(
+          Map<String, dynamic>.from(first),
+        );
+        thread =
+            ChatManager.reuseForReservation(
+              thread: existing,
+              reservation: reservation,
+              consumer: consumer,
+              host: host,
+            ) ??
+            existing;
+      } else {
+        thread = ChatManager.createThread(
+          reservation: reservation,
+          consumer: consumer,
+          host: host,
+        );
+      }
+
+      final Map<String, dynamic> row = thread.toJson()
+        ..remove('serverUpdatedAt');
+      await _client.from('communication_threads').upsert(row);
+      return RepositorySuccess<CommunicationThread>(thread);
+    } on Object catch (error) {
+      return RepositoryFailure<CommunicationThread>.from(error);
+    }
+  }
+
+  /// Marks a conversation reported or blocked for both participants.
+  ///
+  /// The thread row is the authority: the composer asks `isBlocked` before it
+  /// offers a field, so a blocked conversation cannot be reopened from the app.
+  Future<RepositoryResult<bool>> setThreadFlags({
+    required String threadId,
+    bool? isReported,
+    bool? isBlocked,
+  }) async {
+    if (isReported == null && isBlocked == null) {
+      return const RepositorySuccess<bool>(true);
+    }
+    final Map<String, Object?> updates = <String, Object?>{};
+    if (isReported != null) {
+      updates['isReported'] = isReported;
+    }
+    if (isBlocked != null) {
+      updates['isBlocked'] = isBlocked;
+    }
+    try {
+      await _client
+          .from('communication_threads')
+          .update(updates)
+          .eq('id', threadId);
+      return const RepositorySuccess<bool>(true);
+    } on Object catch (error) {
+      return RepositoryFailure<bool>.from(error);
     }
   }
 

@@ -38,6 +38,7 @@ class TripRouteMap extends StatefulWidget {
     this.routePoints = const <GeoPoint>[],
     this.origin,
     this.destination,
+    this.current,
     this.stops = const <TripMapStop>[],
     this.onTap,
     this.height = 280,
@@ -47,6 +48,7 @@ class TripRouteMap extends StatefulWidget {
   final List<GeoPoint> routePoints;
   final GeoPoint? origin;
   final GeoPoint? destination;
+  final GeoPoint? current;
   final List<TripMapStop> stops;
   final ValueChanged<LatLng>? onTap;
   final double height;
@@ -93,6 +95,8 @@ class _TripRouteMapState extends State<TripRouteMap> {
     final List<String> parts = <String>[
       if (widget.origin != null)
         'o:${widget.origin!.lat},${widget.origin!.lng}',
+      if (widget.current != null)
+        'c:${widget.current!.lat},${widget.current!.lng}',
       if (widget.destination != null)
         'd:${widget.destination!.lat},${widget.destination!.lng}',
       for (final TripMapStop stop in widget.stops)
@@ -159,7 +163,19 @@ class _TripRouteMapState extends State<TripRouteMap> {
     final AmpColors colors = context.amp;
 
     final List<Marker> markers = <Marker>[
-      if (widget.origin != null)
+      if (widget.current != null)
+        Marker(
+          point: LatLng(widget.current!.lat, widget.current!.lng),
+          width: 38,
+          height: 38,
+          child: _MarkerDot(
+            color: colors.energy,
+            borderColor: colors.surface,
+            icon: AmpIconName.arrowRight,
+            iconColor: colors.onEnergy,
+          ),
+        ),
+      if (widget.origin != null && widget.current == null)
         Marker(
           point: LatLng(widget.origin!.lat, widget.origin!.lng),
           width: 34,

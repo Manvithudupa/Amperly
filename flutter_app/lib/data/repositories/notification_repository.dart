@@ -52,4 +52,17 @@ final class NotificationRepository {
       return RepositoryFailure<bool>.from(error);
     }
   }
+
+  Future<RepositoryResult<bool>> markAllRead(String userId) async {
+    try {
+      await _client
+          .from('notifications')
+          .update(<String, Object?>{'isRead': true})
+          .eq('userId', userId)
+          .eq('isRead', false);
+      return const RepositorySuccess<bool>(true);
+    } on Object catch (error) {
+      return RepositoryFailure<bool>.from(error);
+    }
+  }
 }

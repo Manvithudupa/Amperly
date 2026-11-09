@@ -30,6 +30,11 @@ abstract final class AmpStrings {
       'the Supabase URL and publishable key to local.properties and rebuild.';
 
   // ---------------------------------------------------------- navigation
+  static const String navDiscover = 'Discover';
+  static const String navTrips = 'Trips';
+  static const String navBookings = 'Bookings';
+  static const String navMessages = 'Messages';
+  static const String navProfile = 'Profile';
   static const String routeNotFoundTitle = 'Page not found';
   static const String routeNotFoundBody =
       'That link does not lead anywhere in Amperly.';
@@ -139,23 +144,48 @@ abstract final class AmpStrings {
   static const String discoverSubtitle =
       'Approved chargers from the live catalogue.';
   static String discoverVehicleLine(String vehicle, String connector) =>
-      'Planning for $vehicle · $connector';
-  static const String discoverNoVehicle =
-      'No vehicle saved — showing every connector.';
+      connector.trim().isEmpty ? vehicle : '$vehicle · $connector';
+  static const String discoverNoVehicle = 'No vehicle saved';
+  static String discoverNearby(int count) => 'Chargers near you · $count';
   static String discoverCount(int count) =>
       count == 1 ? '1 charger' : '$count chargers';
+  static const String discoverChange = 'Change';
+  static const String discoverAddVehicle = 'Add';
+  static const String discoverBatteryUnset =
+      'Set your battery for range and charging checks.';
+  static String discoverBatteryLevel(int percent) => 'Battery $percent%';
+  static const String discoverBatteryAdd = 'Set battery';
+  static const String discoverBatteryUpdate = 'Update';
+  static const String discoverBatteryTitle = 'Set your battery';
+  static const String discoverBatteryBody =
+      'Take the reading from the dashboard. Amperly uses it for range checks '
+      'and trip planning; it does not estimate the reading for you.';
+  static const String discoverBatteryHint = 'Current battery (%)';
+  static const String discoverBatteryInvalid =
+      'Enter a battery reading between 0 and 100.';
+  static String discoverBatterySaved(int percent) =>
+      'Battery set to $percent%.';
+  static const String discoverSearchHint = 'Where to?';
+  static const String discoverAvailable = 'Available';
+  static const String discoverBusy = 'Busy';
+  static const String discoverMapMissingTitle = 'Map needs a Geoapify key';
+  static const String discoverMapMissingBody =
+      'Set GEOAPIFY_API_KEY in local.properties to draw chargers on the map.';
+  static const String discoverHandleLabel = 'Drag to resize the charger list';
   static const String unnamedCharger = 'Unnamed charger';
   static const String addressNotPublished = 'Address not published';
   static const String connectorNotPublished = 'Connector not published';
   static const String powerNotPublished = 'Power not published';
   static const String priceNotPublished = 'Price not published';
-  static const String discoverEmptyTitle = 'No chargers published yet';
+  static const String discoverEmptyTitle = 'No chargers published yet.';
   static const String discoverEmptyBody =
       'When a host publishes a charger and an admin approves it, it appears '
       'here.';
+  static const String discoverNoMatchesTitle = 'No chargers match.';
   static const String discoverNoMatchesBody =
       'Clear the filter to see every approved charger.';
   static const String discoverShowAll = 'Show all chargers';
+  static const String discoverEmptyAction = 'Refresh the catalogue';
   static const String filterAll = 'All';
   static const String filterCompatible = 'Compatible';
   static const String filterDc = 'DC fast';
@@ -170,6 +200,13 @@ abstract final class AmpStrings {
 
   // -------------------------------------------------------- charger details
   static const String detailsTitle = 'Charger';
+  static const String detailsDirectionsMode = 'Directions';
+  static const String detailsDrive = 'Drive';
+  static const String detailsWalk = 'Walk';
+  static const String detailsNavigate = 'Navigate to this charger';
+  static const String detailsLocating = 'Finding your location…';
+  static const String detailsRouteFailed =
+      'A route to this charger could not be planned. Try again.';
   static const String detailsAvailability = 'Availability now';
   static const String detailsAvailabilityNote =
       'Port status is reported by the host, not live charger hardware.';
@@ -214,6 +251,20 @@ abstract final class AmpStrings {
   static const String accountAdmin = 'Administrator';
   static const String accountPending = 'Pending';
   static const String accountUnverified = 'Unverified';
+  static const String accountToolsTitle = 'Your surfaces';
+  static const String accountEditName = 'Edit name';
+  static const String accountEditNameTitle = 'Your display name';
+  static const String accountEditNameBody =
+      'Hosts and drivers see this name on bookings and messages.';
+  static const String accountEditNameHint = 'Display name';
+  static const String accountEditNameEmpty = 'Enter a name before saving.';
+  static const String accountEditNameSaved = 'Name updated.';
+  static const String accountEditNameFailed =
+      'Your name was not updated. Check your connection and try again.';
+  static const String accountDetailsTitle = 'Personal details';
+  static const String accountOrganization = 'Organization';
+  static const String accountIdLabel = 'Account ID';
+  static const String accountChargingHistory = 'Charging history';
 
   // ---------------------------------------------------------------- vehicles
   static const String vehicleGarageTitle = 'My vehicles';
@@ -254,6 +305,11 @@ abstract final class AmpStrings {
   static const String vehicleSave = 'Save vehicle';
   static const String vehicleSaving = 'Saving';
   static const String vehicleSaved = 'Vehicle saved.';
+  static const String vehicleUnsavedTitle = 'Discard your changes?';
+  static const String vehicleUnsavedBody =
+      'This vehicle has edits that have not been saved.';
+  static const String vehicleKeepEditing = 'Keep editing';
+  static const String vehicleDiscard = 'Discard';
   static const String vehicleSaveFailed =
       'Could not save your vehicle. Please try again.';
   static const String vehicleSwitchFailed =
@@ -306,6 +362,10 @@ abstract final class AmpStrings {
       '${efficiency.toStringAsFixed(1)} km/kWh · about $rangeKm km';
   static String vehicleCardMeta(String plate, String connector) =>
       '$plate · $connector';
+  static const String vehicleRangeLabel = 'Estimated range';
+  static const String vehicleUsableLabel = 'Usable battery';
+  static String vehicleRangeNote(int rangeKm) =>
+      'About $rangeKm km of range from your figures.';
 
   // ------------------------------------------------------------------- trips
   static const String tripsTitle = 'Plan a trip';
@@ -374,6 +434,10 @@ abstract final class AmpStrings {
   static const String tripPlanFailed =
       'The route plan did not finish. Try again.';
   static const String tripTotalJourney = 'Total journey';
+  static const String tripJourneyUnit = 'min';
+  static const String tripRoadTitle = 'The road';
+  static const String tripHowWeGotThis = 'How we got this';
+  static const String tripHideDetails = 'Hide planning details';
   static const String tripRouteProvider = 'Geoapify';
   static const String tripLoadingVehicle = 'Loading your vehicle…';
   static String tripDepartSoc(int soc) => 'Depart $soc%';
@@ -441,6 +505,28 @@ abstract final class AmpStrings {
   static const String tripRecommendedStop = 'Recommended stop';
   static const String tripNoChargingStops =
       'No charging stop is part of this plan.';
+  static const String tripStartNavigation = 'Start navigation';
+
+  // ------------------------------------------------------------- navigation
+  static const String navigationTitle = 'Navigation';
+  static String navigationWalkingTo(String label) => 'Walking to $label';
+  static const String navigationNextInstruction = 'Next instruction';
+  static const String navigationNoSteps =
+      'Follow the road route on the map to your destination.';
+  static const String navigationArrivedTitle = 'You have arrived.';
+  static const String navigationArrivedBody =
+      'Navigation has ended at the destination. You can close this screen.';
+  static const String navigationRemaining = 'Remaining';
+  static const String navigationEta = 'Time left';
+  static const String navigationStop = 'End navigation';
+  static const String navigationDone = 'Done';
+  static const String navigationArriveNow = 'I have arrived';
+  static const String navigationSimulationNote =
+      'Progress is simulated on the planned road route. This build does not '
+      'track live GPS while navigating.';
+  static String navigationStep(int step, int total) => 'Step $step of $total';
+  static String navigationStopLine(int sequence, String name) =>
+      'Stop $sequence · $name';
 
   // --------------------------------------------------------------- sessions
   static const String sessionHistoryTitle = 'Charging history';
@@ -491,6 +577,10 @@ abstract final class AmpStrings {
   static const String sessionFinishing = 'Settling…';
   static const String sessionStartedLabel = 'Session started';
   static const String sessionElapsedLabel = 'Elapsed';
+  static const String sessionDeliveredLabel = 'Delivered';
+  static const String sessionMeterStartLabel = 'Meter start';
+  static const String sessionReadEndForEnergy =
+      'Read the end meter to see energy.';
   static const String sessionNoSessionTitle = 'Session not open';
   static const String sessionNoSessionBody =
       'This booking is not active. Open a current booking to check in.';
@@ -570,6 +660,20 @@ abstract final class AmpStrings {
       'Keep the message under $max characters.';
   static const String chatBlocked =
       'This conversation is blocked. You cannot send messages.';
+  static const String chatReportThread = 'Report conversation';
+  static const String chatBlockThread = 'Block this host';
+  static const String chatReportTitle = 'Report this conversation?';
+  static const String chatReportBody =
+      'Amperly records the conversation for review. The thread stays open.';
+  static const String chatReportConfirm = 'Report';
+  static const String chatReported = 'Conversation reported.';
+  static const String chatBlockTitle = 'Block this conversation?';
+  static const String chatBlockBody =
+      'Neither side can send messages in this thread after you block it.';
+  static const String chatBlockConfirm = 'Block';
+  static const String chatBlockedToast = 'Conversation blocked.';
+  static const String chatFlagFailed =
+      'That change was not saved. Check your connection and try again.';
   static const String chatDisabled = 'The host has closed this conversation.';
   static const String chatExpired =
       'This conversation has expired. Book with this host again to reopen it.';
@@ -586,6 +690,8 @@ abstract final class AmpStrings {
   static const String chatNoMessagesPreview = 'No messages yet.';
   static const String chatQuickQuestionsTitle = 'Common questions';
   static const String chatClosedBadge = 'Closed';
+  static const String chatOpen = 'Open';
+  static const String chatYou = 'You';
 
   // --------------------------------------------------------------- bookings
   static const String bookingListTitle = 'Your bookings';
@@ -810,4 +916,394 @@ abstract final class AmpStrings {
   static const String receiptStartReading = 'Start reading';
   static const String receiptEndReading = 'End reading';
   static const String receiptVerifiedKwh = 'Verified energy';
+
+  // ------------------------------------------------------------ host workspace
+  static const String hostTitle = 'Hosting';
+  static const String hostSubtitle =
+      'Your chargers, their bookings and the money they earned.';
+  static const String hostTabDashboard = 'Dashboard';
+  static const String hostTabStations = 'Stations';
+  static const String hostTabBookings = 'Bookings';
+  static const String hostGreeting = 'Hosting as';
+  static const String hostIncomeLabel = 'Income';
+  static const String hostDisputesLabel = 'Disputes';
+  static const String hostReservationsLabel = 'Reservations';
+  static const String hostUtilizationLabel = 'Utilisation';
+  static const String hostAnalyticsTitle = 'Performance';
+  static const String hostSessionsTitle = 'Recent sessions';
+  static const String hostNoSessions = 'No sessions have been settled yet.';
+  static const String hostNoStationsTitle = 'No chargers yet';
+  static const String hostNoStationsBody =
+      'Register an existing charger. It stays pending until an administrator '
+      'verifies it, so nothing is promised to drivers before then.';
+  static const String hostAddStation = 'Register a charger';
+  static const String hostStationFormTitle = 'Register a charger';
+  static const String hostStationFormSubtitle =
+      'The listing is submitted for verification.';
+  static const String hostStationIntro =
+      'Add the charger exactly as drivers will find it. Coordinates place it '
+      'on the map; the listing is not published until it is approved.';
+  static const String hostStationName = 'Charger name';
+  static const String hostStationAddress = 'Address';
+  static const String hostStationLatitude = 'Latitude';
+  static const String hostStationLongitude = 'Longitude';
+  static const String hostUseCurrentLocation = 'Use my current location';
+  static const String hostLocating = 'Finding your location…';
+  static const String hostLocationFailed =
+      'Could not get a location fix. Enter the coordinates or tap the map in '
+      'the native app, then try again.';
+  static const String hostLocationRequired =
+      'A charger needs a real latitude and longitude before it can be listed.';
+  static const String hostLocationType = 'Location type';
+  static const String hostMeterLevel = 'Meter level';
+  static const String hostMeterLevel1 = 'Level 1 — visible meter';
+  static const String hostMeterLevel2 = 'Level 2 — smart meter';
+  static const String hostMeterLevel3 = 'Level 3 — discovery only';
+  static const String hostOperatingHours = 'Published hours';
+  static const String hostPriceLabel = 'Your price per kWh';
+  static const String hostAccessRules = 'Access rules';
+  static const String hostAccessHint = 'Contact the host on arrival.';
+  static const String hostPortsTitle = 'Ports';
+  static const String hostPortsBody =
+      'Name the connector standards at this address. Each row keeps its own '
+      'count, power and AC/DC type.';
+  static const String hostConnectorLabel = 'Connector';
+  static const String hostPortCountLabel = 'Ports';
+  static const String hostPowerLabel = 'Power (kW)';
+  static const String hostCurrentTypeLabel = 'Current';
+  static const String hostAcLabel = 'AC';
+  static const String hostDcLabel = 'DC';
+  static const String hostAddPortType = 'Add another connector';
+  static const String hostRemovePortType = 'Remove';
+  static const String hostPlatformFees =
+      'Amperly adds the service and gateway fees. They are fixed and shown to '
+      'drivers before booking.';
+  static const String hostSaveStation = 'Submit for verification';
+  static const String hostSavingStation = 'Submitting…';
+  static const String hostStationSaved =
+      'Charger submitted. It appears here as pending review.';
+  static const String hostStationSaveFailed =
+      'The charger could not be saved. Nothing was published.';
+  static const String hostNameRequired = 'Enter a charger name.';
+  static const String hostAddressRequired = 'Enter the charger address.';
+  static const String hostPriceInvalid =
+      'Enter a price greater than zero per kWh.';
+  static const String hostPortPowerInvalid =
+      'Enter a power greater than zero for every port type.';
+  static const String hostPortCountInvalid = 'Use at least one port.';
+  static const String hostUnsavedTitle = 'Discard this listing?';
+  static const String hostUnsavedBody =
+      'The charger has not been submitted. Anything typed here will be lost.';
+  static const String hostDiscard = 'Discard';
+  static const String hostStationPending = 'Pending review';
+  static const String hostStationApproved = 'Approved';
+  static const String hostStationRejected = 'Rejected';
+  static const String hostStationPaused = 'Paused';
+  static const String hostStationLive = 'Live';
+  static const String hostStationPause = 'Pause listings';
+  static const String hostStationReopen = 'Reopen listing';
+  static const String hostStationPausedToast = 'Listing paused.';
+  static const String hostStationReopenedToast = 'Listing reopened.';
+  static const String hostStationPauseFailed =
+      'The listing could not be changed. Try again.';
+  static const String hostMeterEvidence = 'Record meter reading';
+  static const String hostMeterEvidenceTitle = 'Meter evidence';
+  static const String hostMeterEvidenceBody =
+      'Enter the start and end values from the station meter. This records '
+      'evidence for a dispute; it does not bill a driver by itself.';
+  static const String hostMeterStart = 'Start reading (kWh)';
+  static const String hostMeterEnd = 'End reading (kWh)';
+  static const String hostMeterSave = 'Save reading';
+  static const String sessionInvalidReading =
+      'Enter a valid reading. The ending value cannot be lower than the '
+      'starting value.';
+  static const String hostMeterSaved = 'Meter reading recorded.';
+  static const String hostMeterSaveFailed =
+      'The meter reading was not recorded. Check the values and try again.';
+  static const String hostDeleteStation = 'Delete this charger';
+  static const String hostDeleteStationTitle = 'Delete this charger?';
+  static String hostDeleteStationBody(String name) =>
+      '$name and its ports are removed permanently. This cannot be undone.';
+  static String hostDeleteStationDone(String name) => '$name was deleted.';
+  static String hostDeleteBlocked(String name) =>
+      '$name still has an active booking, so it was not deleted.';
+  static const String hostDeleteStationFailed =
+      'The charger was not deleted. Nothing changed.';
+  static const String hostPausedReason = 'Paused by the host';
+  static const String hostDeleteBlockedTitle = 'Charger not deleted';
+  static const String hostPortMeta = 'Ports';
+  static const String hostPortAvailable = 'available';
+  static const String hostPortSingular = 'port';
+  static const String hostPortPlural = 'ports';
+  static const String hostNoBookings = 'No bookings yet.';
+  static const String hostNoBookingsBody =
+      'A reservation made at one of your chargers will appear here.';
+  static const String hostDriverFallback = 'Driver';
+  static const String hostBookingShowCode = 'Show booking code';
+  static const String hostBookingMessageDriver = 'Message driver';
+  static const String hostBookingRequestReceipt = 'View receipt';
+  static const String hostBookingCodeMissing =
+      'No code was issued for this booking.';
+  static const String hostBookingCodeTitle = 'Driver booking code';
+  static const String hostChatOpeningFailed =
+      'The conversation with this driver could not be opened.';
+  static const String hostChatUnavailable =
+      'This booking has no driver account to message.';
+  static const String hostReportDriver = 'Report driver';
+  static const String hostStatusLabel = 'Status';
+  static const String hostRevenueValue = 'Revenue';
+  static const String hostRepeatConsumers = 'Repeat drivers';
+  static const String hostCancellationRate = 'Cancellation rate';
+  static const String hostAverageSession = 'Average session';
+  static const String hostRefunds = 'Refunds and adjustments';
+  static const String hostActiveReservations = 'Active reservations';
+  static const String hostPortsReported = 'Ports';
+  static const String hostUtilizationNote =
+      'Utilisation is estimated from recorded session time over a 12-hour '
+      'bookable day per port. Amperly has no live charger telemetry.';
+  static const String hostRevenueShort = 'Income';
+  static const String hostSessionCount = 'Sessions completed';
+  static const String hostEnergyDelivered = 'Energy delivered';
+  static const String hostOpenDisputes = 'open';
+  static const String hostNotAllowed =
+      'Only the owner of this charger can manage it.';
+
+  // ------------------------------------------------------------- admin desk
+  static const String adminTitle = 'Admin desk';
+  static const String adminSubtitle =
+      'Verification, disputes and account reports.';
+  static const String adminTabQueue = 'Queue';
+  static const String adminTabReports = 'Reports';
+  static const String adminQueueTitle = 'Listings to verify';
+  static const String adminQueueEmpty = 'No listings are waiting for review.';
+  static const String adminApprove = 'Approve';
+  static const String adminDecline = 'Decline';
+  static String adminApproved(String name) => '$name is approved and live.';
+  static String adminDeclined(String name) => '$name was declined.';
+  static const String adminDecisionFailed =
+      'The decision was not recorded. Try again.';
+  static const String adminPlatformSummary = 'Platform';
+  static const String adminPendingCount = 'Pending listings';
+  static const String adminDisputeCount = 'Disputes';
+  static const String adminReportCount = 'Reports';
+  static const String adminSessionsCount = 'Settled sessions';
+  static const String adminEnergyCount = 'Energy delivered';
+  static const String adminRevenueCount = 'Revenue';
+  static const String adminRefundTotal = 'Refunds';
+  static const String adminUtilizationCount = 'Utilisation';
+  static const String adminNoticeLabel = 'Operations';
+  static const String adminDisputesTitle = 'Disputes';
+  static const String adminDisputesEmpty = 'No disputes are open.';
+  static const String adminDisputeRefund = 'Refund energy charge';
+  static const String adminDisputeFreeze = 'Hold payout';
+  static const String adminDisputeWarning = 'Warning';
+  static const String adminDisputeFine = 'Fine';
+  static const String adminDisputeSuspend = 'Suspend';
+  static const String adminDisputeBan = 'Ban';
+  static const String adminConfirmRefundTitle = 'Refund this dispute?';
+  static const String adminConfirmRefundBody =
+      'The server refunds the invoice energy charge, resolves the consumer '
+      'side and holds the host payout. This cannot be undone.';
+  static const String adminRefundAction = 'Refund';
+  static const String adminRefunded = 'Refund recorded.';
+  static const String adminRefundFailed =
+      'The refund was not recorded. Nothing changed.';
+  static const String adminPayoutHeld = 'Host payout held.';
+  static const String adminPayoutHoldFailed =
+      'The payout could not be held. Try again.';
+  static const String adminConfirmFreezeTitle = 'Hold this payout?';
+  static const String adminConfirmFreezeBody =
+      'The host payout stays frozen while the dispute is reviewed.';
+  static const String adminHoldAction = 'Hold payout';
+  static const String adminConfirmWarningTitle = 'Record a warning?';
+  static const String adminConfirmWarningBody =
+      'This records a warning against the host and resolves the dispute.';
+  static const String adminConfirmFineTitle = 'Record a fine?';
+  static String adminConfirmFineBody(String amount) =>
+      'This records a $amount fine against the host and resolves the dispute.';
+  static const String adminConfirmSuspendTitle = 'Suspend this host?';
+  static const String adminConfirmSuspendBody =
+      'This records a suspension and pauses the host engine on the server.';
+  static const String adminConfirmBanTitle = 'Ban this host?';
+  static const String adminConfirmBanBody =
+      'This records a permanent ban, holds the payout and pauses the station. '
+      'It cannot be undone from this screen.';
+  static const String adminWarningAction = 'Warning';
+  static const String adminFineAction = 'Fine';
+  static const String adminSuspendAction = 'Suspend';
+  static const String adminBanAction = 'Ban';
+  static const String adminEnforcementRecorded = 'Enforcement recorded.';
+  static const String adminEnforcementFailed =
+      'The enforcement action was not recorded. Nothing changed.';
+  static const String adminEnforcementNotePrefix = 'Admin decision';
+  static const String adminFineLabel = 'Fine';
+  static const String adminReportsTitle = 'Reports from consumers';
+  static const String adminHostReportsTitle = 'Reports from hosts';
+  static const String adminReportsEmpty = 'No reports filed.';
+  static const String adminReportBy = 'Reported by';
+  static const String adminReportAbout = 'About';
+  static const String adminReportNoDetails = 'No details provided.';
+  static const String adminReportWarning = 'Warn';
+  static const String adminReportSuspend = 'Suspend';
+  static const String adminReportBan = 'Ban';
+  static const String adminReportResolved = 'Resolved';
+  static const String adminReportOpen = 'Open';
+  static const String adminReportResolutionFailed =
+      'The report decision was not recorded. Try again.';
+  static const String adminNoTarget = 'No account could be resolved';
+  static const String adminNoTargetBody =
+      'This report does not identify a host or driver the desk can act against.';
+  static const String adminUnknownAccount = 'Unknown account';
+  static const String adminSuspendTitle = 'Suspend this account';
+  static const String adminSuspendBody =
+      'Choose how long the suspension lasts. The account is notified.';
+  static String adminSuspendSuggested(String option) =>
+      'Suggested from the account’s history: $option.';
+  static const String adminSuspend1d = '1 day';
+  static const String adminSuspend7d = '7 days';
+  static const String adminSuspend30d = '30 days';
+  static const String adminActionRecorded = 'Decision recorded.';
+  static const String adminNoticeSuspendTitle = 'Your account is suspended';
+  static String adminNoticeSuspendBody(String type, String until) =>
+      'A $type report was upheld. Your account is suspended until $until.';
+  static const String adminNoticeBanTitle = 'Your account is blocked';
+  static String adminNoticeBanBody(String type) =>
+      'A $type report was upheld. Your account has been permanently blocked.';
+  static const String adminNoticeWarningTitle = 'You received a warning';
+  static String adminNoticeWarningBody(String type) =>
+      'A $type report was upheld. This is a formal warning.';
+  static const String adminReportNotePrefix = 'Report';
+  static String adminReportNote(String action, String reportType) =>
+      '$adminReportNotePrefix: $reportType ($action)';
+  static const String adminNotAllowed =
+      'This desk is only available to platform administrators.';
+  static const String adminNotAllowedTitle = 'Administrator access only';
+  static const String adminEvidenceTitle = 'Meter evidence';
+  static const String adminEvidenceNone = 'No meter evidence uploaded.';
+  static const String adminRefundAmount = 'Refund amount';
+  static const String adminPayoutFrozen = 'Payout held';
+  static const String adminDisputeReason = 'Reason';
+  static const String adminDisputeResolution = 'Resolution';
+  static const String adminDisputeHost = 'Host';
+  static const String adminDisputeConsumer = 'Driver';
+  static const String adminStationFallback = 'Charger';
+  static const String adminApproveBody =
+      'Approving makes an eligible charger visible in Discover.';
+  static const String adminDeclineBody =
+      'Declining keeps the charger out of the catalogue.';
+  static const String adminNoQueueAction = 'No review action available';
+
+  // ------------------------------------------------------------ notifications
+  static const String notificationsTitle = 'Notifications';
+  static const String notificationsSubtitle =
+      'Booking, report and account updates.';
+  static const String notificationsEmptyTitle = 'No notifications';
+  static const String notificationsEmptyBody =
+      'Updates about your bookings and account appear here.';
+  static const String notificationsMarkAll = 'Mark all as read';
+  static const String notificationsAllRead = 'All notifications are read.';
+  static const String notificationsMarkedAll = 'All notifications marked read.';
+  static const String notificationsMarkFailed =
+      'Notifications could not be marked read. Try again.';
+  static const String notificationsUnread = 'Unread';
+  static const String notificationsOpen = 'Open';
+  static const String notificationsActionFailed =
+      'That notification could not be opened.';
+
+  // ------------------------------------------------------------------ reports
+  static const String reportTitle = 'Report an issue';
+  static const String reportSubtitle =
+      'Reports go to the Amperly desk for review.';
+  static const String reportTypeLabel = 'What happened?';
+  static const String reportDetailsLabel = 'Details (optional)';
+  static const String reportDetailsHint =
+      'Add anything that helps the desk review this.';
+  static const String reportSubmit = 'Submit report';
+  static const String reportSubmitting = 'Submitting…';
+  static const String reportSubmitted = 'Report submitted.';
+  static const String reportFailed = 'The report was not submitted. Try again.';
+  static const String reportNoDetails = 'No details provided.';
+  static const String reportHostContext = 'Report a driver';
+  static const String reportConsumerContext = 'Report a charger or host';
+  static const String reportAboutCharger = 'About this charger';
+  static const String reportAboutDriver = 'About this driver';
+  static const String reportMissingTarget =
+      'This report does not name a charger or booking.';
+  static const String reportTypeOther = 'Something else';
+  static const String reportTypeUnsafe = 'Safety concern';
+  static const String reportTypeNoShow = 'Driver did not arrive';
+  static const String reportTypeDamage = 'Equipment damage';
+  static const String reportTypeAbuse = 'Abusive behaviour';
+  static const String reportTypePayment = 'Payment outside the app';
+  static const String reportTypeMeter = 'Meter or billing issue';
+  static const String reportTypeAccess = 'Access problem';
+  static const String reportTypeCleanliness = 'Cleanliness';
+  static const String reportTypeStation = 'Charger not as listed';
+  static const String reportTypeHostConduct = 'Host conduct';
+
+  // ------------------------------------------------------------ safety / SOS
+  static const String safetyTitle = 'Session safety';
+  static const String safetySubtitle =
+      'Trusted contacts and a record of safety events.';
+  static const String safetyDemoNotice =
+      'Amperly is not an emergency service. In an emergency, call local '
+      'emergency services. SOS here records an event for your account only.';
+  static const String safetySosTitle = 'Record an SOS';
+  static const String safetySosBody =
+      'This records an SOS event on your account. It does not call anyone and '
+      'does not dispatch help.';
+  static const String safetySosConfirm = 'Record SOS';
+  static const String safetySosButton = 'Record SOS';
+  static const String safetySosRecorded = 'SOS event recorded.';
+  static const String safetySosFailed =
+      'The SOS event was not recorded. Try again.';
+  static const String safetyTrustedTitle = 'Trusted contacts';
+  static const String safetyTrustedEmpty =
+      'Add someone you would want to share a charging stop with.';
+  static const String safetyAddContact = 'Add contact';
+  static const String safetyContactName = 'Name';
+  static const String safetyContactPhone = 'Phone';
+  static const String safetyContactInvalid =
+      'Enter a name and a phone number with at least 6 digits.';
+  static const String safetyContactSaved = 'Trusted contact added.';
+  static const String safetyContactSaveFailed =
+      'The contact could not be added. Try again.';
+  static const String safetyContactRemoved = 'Trusted contact removed.';
+  static const String safetyContactRemoveFailed =
+      'The contact could not be removed. Try again.';
+  static const String safetyDeleteContactTitle = 'Remove this contact?';
+  static String safetyDeleteContactBody(String name) =>
+      '$name will no longer be able to receive a shared location from you.';
+  static const String safetyRemove = 'Remove';
+  static const String safetyCall = 'Call';
+  static const String safetyCallFailed =
+      'This device could not open the phone app for that number.';
+  static const String safetyShareTitle = 'Share a charging stop';
+  static const String safetyShareBody =
+      'This records a one-hour live-location sharing window for the first '
+      'trusted contact. Amperly does not transmit GPS in this build.';
+  static const String safetyShareStart = 'Start one-hour sharing';
+  static const String safetyShareStop = 'Stop sharing';
+  static const String safetyShareStarted = 'Sharing window started.';
+  static const String safetyShareStopped = 'Sharing window stopped.';
+  static const String safetyShareFailed =
+      'The sharing window could not be changed. Try again.';
+  static const String safetyShareNeedsContact =
+      'Add a trusted contact before sharing a stop.';
+  static String safetyShareActive(String phone, String until) =>
+      'One-hour sharing is active with $phone until $until.';
+  static const String safetyShareInactive =
+      'No live-location sharing window is active.';
+  static const String safetyShareActiveLabel = 'Live-location sharing is on.';
+  static const String safetyHistoryTitle = 'Safety history';
+  static const String safetyHistoryEmpty = 'No safety events recorded.';
+  static String safetyHistoryLine(String type, String date) => '$type · $date';
+  static const String safetyHistoryActiveSuffix = ' · sharing active';
+  static const String safetyHistoryEndedSuffix = ' · sharing ended';
+  static const String safetyNoStation =
+      'This is not tied to a charger. Open it from a booking to include the '
+      'charger.';
+  static const String safetyContactCount = 'contacts';
+  static const String safetyEventSos = 'SOS';
+  static const String safetyEventSharing = 'Live location';
 }

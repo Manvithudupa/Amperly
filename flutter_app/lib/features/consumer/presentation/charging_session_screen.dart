@@ -9,15 +9,19 @@ import '../../../core/errors/user_messages.dart';
 import '../../../core/formatting/amp_format.dart';
 import '../../../core/ids.dart';
 import '../../../core/ui/strings.dart';
-import '../../../core/widgets/amp_badge.dart';
 import '../../../core/widgets/amp_button.dart';
 import '../../../core/widgets/amp_field.dart';
 import '../../../core/widgets/amp_icon.dart';
 import '../../../core/widgets/amp_scaffold.dart';
 import '../../../core/widgets/amp_snackbar.dart';
+import '../../../core/widgets/big_number.dart';
 import '../../../core/widgets/error_state.dart';
-import '../../../core/widgets/receipt_row.dart';
+import '../../../core/widgets/eyebrow.dart';
+import '../../../core/widgets/hairline.dart';
+import '../../../core/widgets/receipt_rows.dart';
 import '../../../core/widgets/skeleton.dart';
+import '../../../core/widgets/status_dot_label.dart';
+import '../../../core/widgets/text_action.dart';
 import '../../../data/models/models.dart';
 import '../../../data/repositories/repository_providers.dart';
 import '../../../data/repositories/repository_result.dart';
@@ -77,7 +81,6 @@ class _ChargingSessionScreenState extends ConsumerState<ChargingSessionScreen> {
 
     return AmpScaffold(
       title: AmpStrings.sessionTitle,
-      subtitle: AmpStrings.sessionSubtitle,
       body: async.when(
         loading: () => const _SessionLoading(),
         error: (Object error, StackTrace stack) => ErrorState(
@@ -122,7 +125,6 @@ class _ChargingSessionScreenState extends ConsumerState<ChargingSessionScreen> {
         label: _busy
             ? AmpStrings.sessionCheckingIn
             : AmpStrings.sessionCheckInAction,
-        icon: AmpIconName.plug,
         loading: _busy,
         onPressed: _busy ? null : () => _checkIn(data),
       );
@@ -132,7 +134,6 @@ class _ChargingSessionScreenState extends ConsumerState<ChargingSessionScreen> {
         label: _busy
             ? AmpStrings.sessionStarting
             : AmpStrings.sessionStartChargingAction,
-        icon: AmpIconName.bolt,
         loading: _busy,
         onPressed: _busy ? null : () => _startCharging(data),
       );
@@ -142,7 +143,6 @@ class _ChargingSessionScreenState extends ConsumerState<ChargingSessionScreen> {
         label: _busy
             ? AmpStrings.sessionFinishing
             : AmpStrings.sessionFinishAction,
-        icon: AmpIconName.bolt,
         loading: _busy,
         onPressed: _busy ? null : () => _finish(data),
       );
@@ -150,8 +150,6 @@ class _ChargingSessionScreenState extends ConsumerState<ChargingSessionScreen> {
     if (completed) {
       return AmpButton(
         label: AmpStrings.sessionHistoryTitle,
-        icon: AmpIconName.clock,
-        variant: AmpButtonVariant.tonal,
         onPressed: () => context.go('/sessions'),
       );
     }
@@ -200,24 +198,14 @@ class _ChargingSessionScreenState extends ConsumerState<ChargingSessionScreen> {
         AmpTheme.spaceXxl + 96,
       ),
       children: <Widget>[
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Expanded(child: Text(stationName, style: text.displaySmall)),
-            const SizedBox(width: AmpTheme.spaceS),
-            AmpBadge(
-              status.isEmpty ? AmpStrings.labelUnknown : status,
-              tone: _statusTone(session?.status ?? data.reservation.status),
-            ),
-          ],
-        ),
-        const SizedBox(height: 2),
-        Text(slot, style: text.bodyMedium),
-        const SizedBox(height: AmpTheme.spaceS),
-        AmpBadge(
-          AmpFormat.meterLevel(data.station.verificationLevel),
-          tone: _meterTone(data.station),
-          icon: AmpIconName.shield,
+        Eyebrow(slot),
+        const SizedBox(height: 4),
+        Text(stationName, style: text.displaySmall),
+        const SizedBox(height: 6),
+        StatusDotLabel(
+          status.isEmpty ? AmpStrings.labelUnknown : status,
+          detail: AmpFormat.meterLevel(data.station.verificationLevel),
+          tone: _statusTone(session?.status ?? data.reservation.status),
         ),
         const SizedBox(height: AmpTheme.spaceM),
         _summaryCard(context, data, slot: slot),
@@ -339,75 +327,110 @@ class _ChargingSessionScreenState extends ConsumerState<ChargingSessionScreen> {
     SessionData data, {
     required String slot,
   }) {
-    final AmpColors colors = context.amp;
     final Reservation reservation = data.reservation;
     final String portLabel = (reservation.portLabel ?? '').trim();
     final String code = (reservation.bookingCode ?? '').trim();
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AmpTheme.spaceM),
-      decoration: BoxDecoration(
-        color: colors.surface,
-        borderRadius: BorderRadius.circular(AmpTheme.radiusCard),
-        border: Border.all(color: colors.divider),
-      ),
-      child: Column(
-        children: <Widget>[
-          _DetailLine(
-            label: AmpStrings.sessionStationLabel,
-            value: _stationName(data),
+    return Column(
+      children: <Widget>[
+        const Hairline(),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: ReceiptRows(
+            lines: <ReceiptLine>[
+              ReceiptLine(
+                label: AmpStrings.sessionPortLabel,
+                value: portLabel.isEmpty ? AmpStrings.labelUnknown : portLabel,
+              ),
+              ReceiptLine(label: AmpStrings.sessionSlotLabel, value: slot),
+              if (code.isNotEmpty)
+                ReceiptLine(label: AmpStrings.sessionCodeLabel, value: code),
+            ],
           ),
-          _DetailLine(
-            label: AmpStrings.sessionPortLabel,
-            value: portLabel.isEmpty ? AmpStrings.labelUnknown : portLabel,
-          ),
-          _DetailLine(label: AmpStrings.sessionSlotLabel, value: slot),
-          if (code.isNotEmpty)
-            _DetailLine(label: AmpStrings.sessionCodeLabel, value: code),
-        ],
-      ),
+        ),
+        const Hairline(),
+      ],
     );
   }
 
   Widget _activeFacts(BuildContext context, ChargingSession session) {
     final AmpColors colors = context.amp;
     final int nowMs = DateTime.now().millisecondsSinceEpoch;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AmpTheme.spaceM),
-      decoration: BoxDecoration(
-        color: colors.surface,
-        borderRadius: BorderRadius.circular(AmpTheme.radiusCard),
-        border: Border.all(color: colors.divider),
-      ),
-      child: Column(
-        children: <Widget>[
-          _DetailLine(
-            label: AmpStrings.receiptStartReading,
-            value: AmpFormat.kWh(session.startingMeterKwh),
-          ),
-          if (session.startTimeMs > 0)
-            _DetailLine(
-              label: AmpStrings.sessionStartedLabel,
-              value: AmpFormat.clock(session.startTimeMs),
-            ),
-          _DetailLine(
-            label: AmpStrings.sessionElapsedLabel,
-            value: AmpFormat.duration(
-              Duration(
-                minutes: SessionRules.elapsedMinutes(
-                  session.startTimeMs,
-                  session.endTimeMs,
-                  nowMs,
-                ),
-              ),
-            ),
-          ),
-        ],
+    final bool charging =
+        (session.status ?? '').toUpperCase() == AmpPolicy.statusCharging;
+    final double? delivered = charging ? _deliveredKwh(session) : null;
+    final String elapsed = AmpFormat.duration(
+      Duration(
+        minutes: SessionRules.elapsedMinutes(
+          session.startTimeMs,
+          session.endTimeMs,
+          nowMs,
+        ),
       ),
     );
+    final String started = session.startTimeMs > 0
+        ? AmpFormat.clock(session.startTimeMs)
+        : '—';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        if (charging)
+          BigNumber(
+            value: delivered == null ? '—' : delivered.toStringAsFixed(1),
+            unit: delivered == null ? null : AmpStrings.kwh,
+            label: delivered == null
+                ? AmpStrings.sessionReadEndForEnergy
+                : AmpStrings.sessionDeliveredLabel,
+            size: 60,
+          )
+        else
+          BigNumber(
+            value: session.startingMeterKwh.toStringAsFixed(1),
+            unit: AmpStrings.kwh,
+            label: AmpStrings.sessionMeterStartLabel,
+            size: 56,
+          ),
+        const SizedBox(height: AmpTheme.spaceM),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Expanded(
+              child: _Metric(
+                label: AmpStrings.sessionElapsedLabel,
+                value: elapsed,
+              ),
+            ),
+            Container(width: 1, height: 36, color: colors.divider),
+            const SizedBox(width: AmpTheme.spaceM),
+            Expanded(
+              child: _Metric(
+                label: AmpStrings.sessionStartedLabel,
+                value: started,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: AmpTheme.spaceM),
+        const Hairline(),
+      ],
+    );
+  }
+
+  double? _deliveredKwh(ChargingSession session) {
+    final String? readingError = SessionRules.endReadingError(
+      _endController.text,
+      session.startingMeterKwh,
+    );
+    if (readingError != null) {
+      return null;
+    }
+    final double? end = SessionRules.parseReading(_endController.text);
+    if (end == null) {
+      return null;
+    }
+    final double delivered = end - session.startingMeterKwh;
+    return delivered > 0 ? delivered : null;
   }
 
   Widget? _previewCard(SessionData data, ChargingSession session) {
@@ -427,49 +450,45 @@ class _ChargingSessionScreenState extends ConsumerState<ChargingSessionScreen> {
       );
     }
 
-    final AmpColors colors = context.amp;
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AmpTheme.spaceM),
-      decoration: BoxDecoration(
-        color: colors.surface,
-        borderRadius: BorderRadius.circular(AmpTheme.radiusCard),
-        border: Border.all(color: colors.divider),
-      ),
-      child: Column(
-        children: <Widget>[
-          ReceiptRow(
-            label: AmpStrings.receiptVerifiedKwh,
-            value: AmpFormat.kWh(preview.verifiedKwh),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        const Hairline(),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: ReceiptRows(
+            lines: <ReceiptLine>[
+              ReceiptLine(
+                label: AmpStrings.receiptVerifiedKwh,
+                value: AmpFormat.kWh(preview.verifiedKwh),
+              ),
+              ReceiptLine(
+                label: AmpStrings.receiptEnergy,
+                value: AmpFormat.rupees(preview.energyCharge),
+              ),
+              ReceiptLine(
+                label: AmpStrings.receiptServiceFee,
+                value: AmpFormat.rupees(preview.serviceFee),
+              ),
+              ReceiptLine(
+                label: AmpStrings.receiptGatewayFee,
+                value: AmpFormat.rupees(preview.gatewayFee),
+              ),
+              ReceiptLine(
+                label: AmpStrings.receiptTotal,
+                value: AmpFormat.rupees(preview.finalTotal),
+                emphasis: true,
+              ),
+            ],
           ),
-          ReceiptRow(
-            label: AmpStrings.receiptEnergy,
-            value: AmpFormat.rupees(preview.energyCharge),
-          ),
-          ReceiptRow(
-            label: AmpStrings.receiptServiceFee,
-            value: AmpFormat.rupees(preview.serviceFee),
-          ),
-          ReceiptRow(
-            label: AmpStrings.receiptGatewayFee,
-            value: AmpFormat.rupees(preview.gatewayFee),
-          ),
-          const Divider(height: AmpTheme.spaceL),
-          ReceiptRow(
-            label: AmpStrings.receiptTotal,
-            value: AmpFormat.rupees(preview.finalTotal),
-            emphasis: true,
-          ),
-          const SizedBox(height: AmpTheme.spaceS),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              AmpStrings.sessionReadingNote,
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ),
-        ],
-      ),
+        ),
+        const Hairline(),
+        const SizedBox(height: AmpTheme.spaceS),
+        Text(
+          AmpStrings.sessionReadingNote,
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+      ],
     );
   }
 
@@ -478,93 +497,88 @@ class _ChargingSessionScreenState extends ConsumerState<ChargingSessionScreen> {
     SessionData data,
     ChargingSession session,
   ) {
-    final AmpColors colors = context.amp;
     final TextTheme text = Theme.of(context).textTheme;
     final Invoice? invoice = data.invoice;
     final double adjustment = invoice?.adjustment ?? 0;
-    final String invoiceCode = (invoice?.status ?? '').toUpperCase();
-    final String invoiceLabel = switch (invoiceCode) {
-      AmpPolicy.invoicePaid => AmpStrings.sessionInvoicePaid,
-      AmpPolicy.invoiceRefunded ||
-      AmpPolicy.invoicePartiallyRefunded => AmpStrings.sessionInvoiceRefunded,
-      _ => AmpStrings.receiptIssued,
-    };
-    final bool paid = invoiceCode == AmpPolicy.invoicePaid;
     final double total = invoice?.finalTotal ?? session.totalPaid;
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AmpTheme.spaceM),
-      decoration: BoxDecoration(
-        color: colors.surface,
-        borderRadius: BorderRadius.circular(AmpTheme.radiusCard),
-        border: Border.all(color: colors.divider),
-      ),
-      child: Column(
-        children: <Widget>[
-          ReceiptRow(
-            label: AmpStrings.receiptStartReading,
-            value: AmpFormat.kWh(session.startingMeterKwh),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        const Hairline(),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: ReceiptRows(
+            lines: <ReceiptLine>[
+              ReceiptLine(
+                label: AmpStrings.receiptStartReading,
+                value: AmpFormat.kWh(session.startingMeterKwh),
+              ),
+              ReceiptLine(
+                label: AmpStrings.receiptEndReading,
+                value: AmpFormat.kWh(session.endingMeterKwh),
+              ),
+              ReceiptLine(
+                label: AmpStrings.receiptVerifiedKwh,
+                value: AmpFormat.kWh(session.verifiedKwhConsumed),
+              ),
+            ],
           ),
-          ReceiptRow(
-            label: AmpStrings.receiptEndReading,
-            value: AmpFormat.kWh(session.endingMeterKwh),
-          ),
-          ReceiptRow(
-            label: AmpStrings.receiptVerifiedKwh,
-            value: AmpFormat.kWh(session.verifiedKwhConsumed),
-          ),
-          const Divider(height: AmpTheme.spaceL),
-          ReceiptRow(
-            label: AmpStrings.receiptEnergy,
-            value: AmpFormat.rupees(session.energyCharge),
-          ),
-          ReceiptRow(
-            label: AmpStrings.receiptServiceFee,
-            value: AmpFormat.rupees(session.serviceFee),
-          ),
-          ReceiptRow(
-            label: AmpStrings.receiptGatewayFee,
-            value: AmpFormat.rupees(session.gatewayFee),
-          ),
-          if (adjustment > 0)
-            ReceiptRow(
-              label: AmpStrings.receiptAdjustment,
-              value: '-${AmpFormat.rupees(adjustment)}',
+        ),
+        const Hairline(),
+        const SizedBox(height: AmpTheme.spaceS),
+        ReceiptRows(
+          lines: <ReceiptLine>[
+            ReceiptLine(
+              label: AmpStrings.receiptEnergy,
+              value: AmpFormat.rupees(session.energyCharge),
             ),
-          const Divider(height: AmpTheme.spaceL),
-          ReceiptRow(
-            label: AmpStrings.receiptTotal,
-            value: AmpFormat.rupees(total),
-            emphasis: true,
-          ),
-          const SizedBox(height: AmpTheme.spaceS),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Text(AmpStrings.sessionMeterNote, style: text.bodySmall),
-          ),
-          if (invoice != null) ...<Widget>[
-            const SizedBox(height: AmpTheme.spaceS),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                AmpBadge(
-                  invoiceLabel,
-                  tone: paid ? AmpBadgeTone.success : AmpBadgeTone.neutral,
-                  icon: paid ? AmpIconName.check : AmpIconName.info,
-                ),
-                const SizedBox(width: AmpTheme.spaceS),
-                Expanded(
-                  child: Text(
-                    AmpStrings.sessionNoPayment,
-                    style: text.bodySmall,
-                  ),
-                ),
-              ],
+            ReceiptLine(
+              label: AmpStrings.receiptServiceFee,
+              value: AmpFormat.rupees(session.serviceFee),
             ),
+            ReceiptLine(
+              label: AmpStrings.receiptGatewayFee,
+              value: AmpFormat.rupees(session.gatewayFee),
+            ),
+            if (adjustment > 0)
+              ReceiptLine(
+                label: AmpStrings.receiptAdjustment,
+                value: '-${AmpFormat.rupees(adjustment)}',
+              ),
           ],
-        ],
-      ),
+        ),
+        const Hairline(),
+        const SizedBox(height: AmpTheme.spaceM),
+        BigNumber(
+          value: AmpFormat.rupees(total),
+          label: AmpStrings.receiptTotal,
+          size: 56,
+        ),
+        const SizedBox(height: AmpTheme.spaceS),
+        const StatusDotLabel(AmpStrings.receiptIssued),
+        const SizedBox(height: 4),
+        Text(AmpStrings.sessionNoPayment, style: text.bodySmall),
+        const SizedBox(height: AmpTheme.spaceS),
+        Text(AmpStrings.sessionMeterNote, style: text.bodySmall),
+        const SizedBox(height: AmpTheme.spaceM),
+        const Hairline(),
+        const SizedBox(height: AmpTheme.spaceS),
+        TextAction(
+          AmpStrings.reportTitle,
+          onPressed: () => context.push(
+            Uri(
+              path: '/report',
+              queryParameters: <String, String>{
+                'stationId': data.station.id,
+                'hostId': data.station.hostId ?? '',
+                'sessionId': session.id,
+                'stationName': _stationName(data),
+              },
+            ).toString(),
+          ),
+        ),
+      ],
     );
   }
 
@@ -826,41 +840,36 @@ class _ChargingSessionScreenState extends ConsumerState<ChargingSessionScreen> {
   }
 }
 
-AmpBadgeTone _meterTone(ChargerStation station) {
-  return station.supportsPaidEnergyBilling
-      ? AmpBadgeTone.success
-      : AmpBadgeTone.warning;
-}
-
-AmpBadgeTone _statusTone(String? status) {
+StatusDotTone _statusTone(String? status) {
   return switch ((status ?? '').toUpperCase()) {
-    'CHECKED_IN' => AmpBadgeTone.info,
-    'CHARGING' => AmpBadgeTone.success,
-    'COMPLETED' => AmpBadgeTone.success,
-    'CANCELLED' || 'EXPIRED' => AmpBadgeTone.warning,
-    _ => AmpBadgeTone.neutral,
+    AmpPolicy.statusCompleted ||
+    AmpPolicy.statusCharging => StatusDotTone.available,
+    AmpPolicy.statusCheckedIn => StatusDotTone.neutral,
+    AmpPolicy.statusCancelled || AmpPolicy.statusExpired => StatusDotTone.busy,
+    _ => StatusDotTone.neutral,
   };
 }
 
-class _DetailLine extends StatelessWidget {
-  const _DetailLine({required this.label, required this.value});
+class _Metric extends StatelessWidget {
+  const _Metric({required this.label, required this.value});
 
   final String label;
   final String value;
 
   @override
   Widget build(BuildContext context) {
-    final TextTheme text = Theme.of(context).textTheme;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AmpTheme.spaceS),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Text(label, style: text.labelLarge),
-          const SizedBox(height: 2),
-          Text(value, style: text.bodyMedium),
-        ],
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Eyebrow(label),
+        const SizedBox(height: 3),
+        Text(
+          value,
+          style: AmpType.tabular(
+            Theme.of(context).textTheme.titleMedium ?? const TextStyle(),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -881,7 +890,7 @@ class _Callout extends StatelessWidget {
       padding: const EdgeInsets.all(AmpTheme.spaceM),
       decoration: BoxDecoration(
         color: background,
-        borderRadius: BorderRadius.circular(AmpTheme.radiusCard),
+        borderRadius: BorderRadius.circular(AmpTheme.radiusField),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -914,7 +923,7 @@ class _SectionTitle extends StatelessWidget {
         top: AmpTheme.spaceL,
         bottom: AmpTheme.spaceS,
       ),
-      child: Text(label, style: Theme.of(context).textTheme.titleMedium),
+      child: Eyebrow(label),
     );
   }
 }
@@ -927,15 +936,25 @@ class _SessionLoading extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(AmpTheme.screenPadding),
       children: const <Widget>[
-        SkeletonLine(widthFactor: 0.65, height: 26),
+        SkeletonLine(widthFactor: 0.28, height: 9),
         SizedBox(height: AmpTheme.spaceS),
-        SkeletonLine(widthFactor: 0.45),
-        SizedBox(height: AmpTheme.spaceL),
-        Skeleton(height: 150, radius: AmpTheme.radiusCard),
-        SizedBox(height: AmpTheme.spaceL),
-        Skeleton(height: 180, radius: AmpTheme.radiusCard),
-        SizedBox(height: AmpTheme.spaceL),
-        Skeleton(height: 220, radius: AmpTheme.radiusCard),
+        SkeletonLine(widthFactor: 0.68, height: 30),
+        SizedBox(height: AmpTheme.spaceS),
+        SkeletonLine(widthFactor: 0.42),
+        SizedBox(height: AmpTheme.spaceM),
+        Hairline(),
+        SizedBox(height: AmpTheme.spaceM),
+        SkeletonLine(widthFactor: 0.5, height: 44),
+        SizedBox(height: AmpTheme.spaceM),
+        Row(
+          children: <Widget>[
+            Expanded(child: SkeletonLine(widthFactor: 0.55)),
+            SizedBox(width: AmpTheme.spaceM),
+            Expanded(child: SkeletonLine(widthFactor: 0.55)),
+          ],
+        ),
+        SizedBox(height: AmpTheme.spaceM),
+        Hairline(),
       ],
     );
   }

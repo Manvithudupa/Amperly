@@ -7,15 +7,15 @@ import '../../../app/theme/amp_theme.dart';
 import '../../../core/errors/user_messages.dart';
 import '../../../core/formatting/amp_format.dart';
 import '../../../core/ui/strings.dart';
-import '../../../core/widgets/amp_badge.dart';
 import '../../../core/widgets/amp_button.dart';
-import '../../../core/widgets/amp_icon.dart';
-import '../../../core/widgets/amp_illustration.dart';
 import '../../../core/widgets/amp_scaffold.dart';
 import '../../../core/widgets/amp_snackbar.dart';
-import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/error_state.dart';
+import '../../../core/widgets/eyebrow.dart';
+import '../../../core/widgets/hairline.dart';
 import '../../../core/widgets/skeleton.dart';
+import '../../../core/widgets/status_dot_label.dart';
+import '../../../core/widgets/text_action.dart';
 import '../../../data/models/models.dart';
 import '../../../data/repositories/repository_providers.dart';
 import '../../../data/repositories/repository_result.dart';
@@ -152,17 +152,7 @@ class _GarageBody extends ConsumerWidget {
           ),
           const SizedBox(height: AmpTheme.spaceM),
           if (vehicles.isEmpty)
-            EmptyState(
-              title: AmpStrings.vehicleEmptyTitle,
-              message: AmpStrings.vehicleEmptyBody,
-              illustration: AmpIllustrationKind.carQuestion,
-              action: AmpButton(
-                label: AmpStrings.vehicleAdd,
-                icon: AmpIconName.plus,
-                expand: false,
-                onPressed: () => context.push('/vehicles/new'),
-              ),
-            )
+            const _GarageEmpty()
           else ...<Widget>[
             for (final Vehicle vehicle in vehicles) ...<Widget>[
               _GarageCard(
@@ -175,10 +165,41 @@ class _GarageBody extends ConsumerWidget {
             ],
             AmpButton(
               label: AmpStrings.vehicleAdd,
-              icon: AmpIconName.plus,
               onPressed: () => context.push('/vehicles/new'),
             ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+class _GarageEmpty extends StatelessWidget {
+  const _GarageEmpty();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: AmpTheme.spaceL),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          const Eyebrow(AmpStrings.vehicleGarageTitle),
+          const SizedBox(height: AmpTheme.spaceM),
+          Text(
+            AmpStrings.vehicleEmptyTitle,
+            style: Theme.of(context).textTheme.displaySmall,
+          ),
+          const SizedBox(height: AmpTheme.spaceS),
+          Text(
+            AmpStrings.vehicleEmptyBody,
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          const SizedBox(height: AmpTheme.spaceM),
+          TextAction(
+            AmpStrings.vehicleAdd,
+            onPressed: () => context.push('/vehicles/new'),
+          ),
         ],
       ),
     );
@@ -231,63 +252,54 @@ class _GarageCard extends StatelessWidget {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  Container(
-                    width: 42,
-                    height: 42,
-                    decoration: BoxDecoration(
-                      color: colors.primaryTint,
-                      borderRadius: BorderRadius.circular(AmpTheme.radiusField),
-                    ),
-                    child: Center(
-                      child: AmpIcon(
-                        AmpIconName.bolt,
-                        size: 21,
-                        color: colors.onPrimaryTint,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: AmpTheme.spaceM),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
-                        Text(vehicle.displayName, style: text.titleMedium),
+                        if (vehicle.isActive) ...<Widget>[
+                          const StatusDotLabel(
+                            AmpStrings.vehicleActiveBadge,
+                            tone: StatusDotTone.available,
+                          ),
+                          const SizedBox(height: 4),
+                        ],
+                        Text(vehicle.displayName, style: text.titleLarge),
                         const SizedBox(height: 2),
                         Text(meta, style: text.bodySmall),
                       ],
                     ),
                   ),
-                  if (vehicle.isActive) ...<Widget>[
-                    const SizedBox(width: AmpTheme.spaceS),
-                    const AmpBadge(
-                      AmpStrings.vehicleActiveBadge,
-                      tone: AmpBadgeTone.success,
-                      icon: AmpIconName.check,
-                    ),
-                  ] else
-                    AmpIcon(
-                      AmpIconName.chevronRight,
-                      size: 18,
-                      color: colors.inkSecondary,
-                    ),
+                  const SizedBox(width: AmpTheme.spaceS),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: <Widget>[
+                      Text('$range', style: AmpType.metric(context, size: 28)),
+                      const SizedBox(height: 1),
+                      Eyebrow(AmpStrings.km),
+                    ],
+                  ),
                 ],
               ),
               const SizedBox(height: AmpTheme.spaceM),
+              const Hairline(),
+              const SizedBox(height: AmpTheme.spaceS),
               Text(
                 AmpStrings.vehicleCardStats(capacity, efficiency, range),
-                style: text.labelLarge,
+                style: text.bodySmall,
               ),
-              if (!vehicle.isActive) ...<Widget>[
-                const SizedBox(height: AmpTheme.spaceS),
-                AmpButton(
-                  label: AmpStrings.vehicleUseThis,
-                  variant: AmpButtonVariant.quiet,
-                  loading: busy,
-                  expand: false,
-                  height: 40,
-                  onPressed: busy ? null : onSwitch,
-                ),
-              ],
+              const SizedBox(height: 2),
+              Wrap(
+                spacing: AmpTheme.spaceL,
+                runSpacing: 0,
+                children: <Widget>[
+                  TextAction(AmpStrings.vehicleEditTitle, onPressed: onTap),
+                  if (!vehicle.isActive)
+                    TextAction(
+                      AmpStrings.vehicleUseThis,
+                      onPressed: busy ? null : onSwitch,
+                    ),
+                ],
+              ),
             ],
           ),
         ),
@@ -309,11 +321,25 @@ class _GarageLoading extends StatelessWidget {
         AmpTheme.spaceXxl,
       ),
       children: const <Widget>[
-        SkeletonLine(widthFactor: 0.7),
+        SkeletonLine(widthFactor: 0.72),
         SizedBox(height: AmpTheme.spaceM),
-        Skeleton(height: 138, radius: AmpTheme.radiusCard),
-        SizedBox(height: AmpTheme.spaceM),
-        Skeleton(height: 138, radius: AmpTheme.radiusCard),
+        SkeletonLine(widthFactor: 0.28, height: 9),
+        SizedBox(height: 8),
+        SkeletonLine(widthFactor: 0.58, height: 24),
+        SizedBox(height: 8),
+        SkeletonLine(widthFactor: 0.42),
+        SizedBox(height: 14),
+        Hairline(),
+        SizedBox(height: 14),
+        SkeletonLine(widthFactor: 0.66),
+        SizedBox(height: AmpTheme.spaceL),
+        SkeletonLine(widthFactor: 0.28, height: 9),
+        SizedBox(height: 8),
+        SkeletonLine(widthFactor: 0.5, height: 24),
+        SizedBox(height: 8),
+        SkeletonLine(widthFactor: 0.38),
+        SizedBox(height: 14),
+        Hairline(),
       ],
     );
   }

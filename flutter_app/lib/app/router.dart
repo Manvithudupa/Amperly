@@ -6,9 +6,11 @@ import 'package:go_router/go_router.dart';
 import '../core/ui/strings.dart';
 import '../core/widgets/amp_scaffold.dart';
 import '../core/widgets/error_state.dart';
+import '../features/admin/presentation/admin_desk_screen.dart';
 import '../features/auth/application/session_controller.dart';
 import '../features/auth/presentation/account_screen.dart';
 import '../features/auth/presentation/sign_in_screen.dart';
+import '../features/common/presentation/notifications_screen.dart';
 import '../features/consumer/presentation/booking_code_screen.dart';
 import '../features/consumer/presentation/booking_screen.dart';
 import '../features/consumer/presentation/bookings_screen.dart';
@@ -17,11 +19,16 @@ import '../features/consumer/presentation/charging_history_screen.dart';
 import '../features/consumer/presentation/charging_session_screen.dart';
 import '../features/consumer/presentation/chat_screen.dart';
 import '../features/consumer/presentation/messages_screen.dart';
+import '../features/consumer/presentation/navigation_screen.dart';
+import '../features/consumer/presentation/report_screen.dart';
+import '../features/consumer/presentation/safety_screen.dart';
 import '../features/consumer/presentation/trip_planner_screen.dart';
 import '../features/consumer/presentation/vehicle_form_screen.dart';
 import '../features/consumer/presentation/vehicle_garage_screen.dart';
 import '../features/gallery/component_gallery_screen.dart';
 import '../features/home/presentation/home_screen.dart';
+import '../features/host/presentation/host_station_form_screen.dart';
+import '../features/host/presentation/host_workspace_screen.dart';
 
 /// The route table and the one redirect that protects every private screen.
 ///
@@ -73,6 +80,44 @@ final Provider<GoRouter> routerProvider = Provider<GoRouter>((Ref ref) {
             const AccountScreen(),
       ),
       GoRoute(
+        path: '/host',
+        builder: (BuildContext context, GoRouterState state) =>
+            const HostWorkspaceScreen(),
+      ),
+      GoRoute(
+        path: '/host/stations/new',
+        builder: (BuildContext context, GoRouterState state) =>
+            const HostStationFormScreen(),
+      ),
+      GoRoute(
+        path: '/admin',
+        builder: (BuildContext context, GoRouterState state) =>
+            const AdminDeskScreen(),
+      ),
+      GoRoute(
+        path: '/notifications',
+        builder: (BuildContext context, GoRouterState state) =>
+            const NotificationsScreen(),
+      ),
+      GoRoute(
+        path: '/safety',
+        builder: (BuildContext context, GoRouterState state) =>
+            SafetyScreen(stationId: state.uri.queryParameters['stationId']),
+      ),
+      GoRoute(
+        path: '/report',
+        builder: (BuildContext context, GoRouterState state) {
+          final Map<String, String> query = state.uri.queryParameters;
+          return ReportScreen(
+            stationId: query['stationId'],
+            hostId: query['hostId'],
+            sessionId: query['sessionId'],
+            stationName: query['stationName'],
+            hostMode: query['host'] == '1',
+          );
+        },
+      ),
+      GoRoute(
         path: '/vehicles',
         builder: (BuildContext context, GoRouterState state) =>
             const VehicleGarageScreen(),
@@ -91,6 +136,23 @@ final Provider<GoRouter> routerProvider = Provider<GoRouter>((Ref ref) {
         path: '/trips',
         builder: (BuildContext context, GoRouterState state) =>
             const TripPlannerScreen(),
+      ),
+      GoRoute(
+        path: '/navigation',
+        builder: (BuildContext context, GoRouterState state) {
+          final Object? extra = state.extra;
+          if (extra is! NavigationTrip) {
+            return AmpScaffold(
+              title: AmpStrings.navigationTitle,
+              padded: true,
+              body: const ErrorState(
+                title: AmpStrings.routeNotFoundTitle,
+                message: AmpStrings.routeNotFoundBody,
+              ),
+            );
+          }
+          return NavigationScreen(trip: extra);
+        },
       ),
       GoRoute(
         path: '/sessions',

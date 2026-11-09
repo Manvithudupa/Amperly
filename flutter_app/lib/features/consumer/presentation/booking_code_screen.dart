@@ -8,14 +8,18 @@ import '../../../app/theme/amp_theme.dart';
 import '../../../core/errors/user_messages.dart';
 import '../../../core/formatting/amp_format.dart';
 import '../../../core/ui/strings.dart';
-import '../../../core/widgets/amp_badge.dart';
 import '../../../core/widgets/amp_button.dart';
 import '../../../core/widgets/amp_icon.dart';
 import '../../../core/widgets/amp_scaffold.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/error_state.dart';
-import '../../../core/widgets/receipt_row.dart';
+import '../../../core/widgets/eyebrow.dart';
+import '../../../core/widgets/hairline.dart';
+import '../../../core/widgets/receipt_rows.dart';
 import '../../../core/widgets/skeleton.dart';
+import '../../../core/widgets/status_dot_label.dart';
+import '../../../core/widgets/text_action.dart';
+import '../../../core/widgets/ticket_card.dart';
 import '../../../data/models/models.dart';
 import '../../../data/repositories/repository_result.dart';
 import '../../../domain/engines/reservation_engine.dart';
@@ -98,14 +102,14 @@ class BookingCodeScreen extends ConsumerWidget {
       return AmpButton(
         label: AmpStrings.sessionViewReceipt,
         icon: AmpIconName.ticket,
-        variant: AmpButtonVariant.tonal,
+        variant: AmpButtonVariant.quiet,
         onPressed: () => context.push('/sessions/${reservation.id}'),
       );
     }
     return AmpButton(
       label: AmpStrings.bookingViewBookings,
       icon: AmpIconName.ticket,
-      variant: AmpButtonVariant.tonal,
+      variant: AmpButtonVariant.quiet,
       onPressed: () => context.go('/bookings'),
     );
   }
@@ -137,85 +141,94 @@ class _BookingCodeBody extends StatelessWidget {
     final String status = AmpFormat.bookingStatus(reservation.status);
     final int nowMs = DateTime.now().millisecondsSinceEpoch;
     final bool freeCancellation = reservation.isInFreeCancellationWindow(nowMs);
+    final String resolvedStation = stationName.isEmpty
+        ? AmpStrings.bookingStationFallback
+        : stationName;
+    final String slot = reservation.startTimeMs > 0
+        ? '${AmpFormat.dayLabel(DateTime.fromMillisecondsSinceEpoch(reservation.startTimeMs))}, '
+              '${AmpFormat.timeRange(reservation.startTimeMs, reservation.endTimeMs)}'
+        : AmpStrings.availabilityUnknown;
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(
         AmpTheme.screenPadding,
-        AmpTheme.spaceL,
+        AmpTheme.spaceS,
         AmpTheme.screenPadding,
         AmpTheme.spaceXxl,
       ),
       children: <Widget>[
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Expanded(
-              child: Text(
-                reservation.isActive
-                    ? AmpStrings.bookingSuccessTitle
-                    : AmpStrings.bookingCodeTitle,
-                style: text.displaySmall,
-              ),
-            ),
-            const SizedBox(width: AmpTheme.spaceS),
-            AmpBadge(
-              status.isEmpty ? AmpStrings.labelUnknown : status,
-              tone: _statusTone(reservation.status),
-            ),
-          ],
+        StatusDotLabel(
+          status.isEmpty ? AmpStrings.labelUnknown : status,
+          tone: _statusTone(reservation.status),
         ),
-        const SizedBox(height: AmpTheme.spaceS),
+        const SizedBox(height: 10),
         Text(
-          stationName.isEmpty ? AmpStrings.bookingStationFallback : stationName,
-          style: text.titleMedium,
+          reservation.isActive
+              ? AmpStrings.bookingSuccessTitle
+              : AmpStrings.bookingCodeTitle,
+          style: text.displayMedium,
         ),
-        const SizedBox(height: 2),
-        Text(
-          reservation.startTimeMs > 0
-              ? '${AmpFormat.dayLabel(DateTime.fromMillisecondsSinceEpoch(reservation.startTimeMs))}, '
-                    '${AmpFormat.timeRange(reservation.startTimeMs, reservation.endTimeMs)}'
-              : AmpStrings.availabilityUnknown,
-          style: text.bodyMedium,
-        ),
+        const SizedBox(height: AmpTheme.spaceM),
         if (code.isEmpty)
-          Padding(
-            padding: const EdgeInsets.only(top: AmpTheme.spaceM),
-            child: Text(AmpStrings.bookingCodeHint, style: text.bodySmall),
-          )
+          Text(AmpStrings.bookingCodeHint, style: text.bodyMedium)
         else ...<Widget>[
-          const SizedBox(height: AmpTheme.spaceL),
-          Text(AmpStrings.bookingCodeLabel, style: text.labelLarge),
-          const SizedBox(height: AmpTheme.spaceS),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(AmpTheme.spaceM),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(AmpTheme.radiusCard),
-            ),
+          TicketCard(
+            notchOffset: 0.5,
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
-                Semantics(
-                  image: true,
-                  label: AmpStrings.bookingQrHint,
-                  child: QrImageView(
-                    data: ReservationEngine.bookingQrPayload(reservation),
-                    size: 200,
-                    backgroundColor: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: AmpTheme.spaceS),
+                const Eyebrow(AmpStrings.bookingStationDetail),
+                const SizedBox(height: 4),
                 Text(
-                  code,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontFamily: AmpTheme.uiFont,
-                    fontSize: 24,
-                    height: 1.2,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 4,
-                    color: Colors.black,
-                  ),
+                  resolvedStation,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: text.displaySmall,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  portLabel.isEmpty ? AmpStrings.labelUnknown : portLabel,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: text.bodySmall,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  slot,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: text.bodySmall,
+                ),
+                const SizedBox(height: 28),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: <Widget>[
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          const Eyebrow(AmpStrings.bookingCodeLabel),
+                          const SizedBox(height: 6),
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              code,
+                              maxLines: 1,
+                              style: AmpType.metric(
+                                context,
+                                size: 32,
+                              ).copyWith(letterSpacing: 1.2),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: AmpTheme.spaceM),
+                    _QrPanel(
+                      payload: ReservationEngine.bookingQrPayload(reservation),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -225,99 +238,39 @@ class _BookingCodeBody extends StatelessWidget {
           const SizedBox(height: 2),
           Text(AmpStrings.bookingQrHint, style: text.bodySmall),
         ],
-        _SectionTitle(AmpStrings.bookingTimeDetail),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(AmpTheme.spaceM),
-          decoration: BoxDecoration(
-            color: colors.surface,
-            borderRadius: BorderRadius.circular(AmpTheme.radiusCard),
-            border: Border.all(color: colors.divider),
-          ),
-          child: Column(
-            children: <Widget>[
-              _DetailLine(
-                label: AmpStrings.bookingStationDetail,
-                value: stationName.isEmpty
-                    ? AmpStrings.bookingStationFallback
-                    : stationName,
-              ),
-              _DetailLine(
-                label: AmpStrings.bookingPortDetail,
-                value: portLabel.isEmpty ? AmpStrings.labelUnknown : portLabel,
-              ),
-              _DetailLine(
-                label: AmpStrings.bookingTimeDetail,
-                value: reservation.startTimeMs > 0
-                    ? '${AmpFormat.dayLabel(DateTime.fromMillisecondsSinceEpoch(reservation.startTimeMs))}, '
-                          '${AmpFormat.timeRange(reservation.startTimeMs, reservation.endTimeMs)}'
-                    : AmpStrings.availabilityUnknown,
-              ),
-            ],
-          ),
-        ),
-        _SectionTitle(AmpStrings.bookingPriceTitle),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(AmpTheme.spaceM),
-          decoration: BoxDecoration(
-            color: colors.surface,
-            borderRadius: BorderRadius.circular(AmpTheme.radiusCard),
-            border: Border.all(color: colors.divider),
-          ),
-          child: Column(
-            children: <Widget>[
-              ReceiptRow(
-                label: AmpStrings.bookingTariffDetail,
-                value: '${AmpFormat.rupees(reservation.pricePerKwh)}/kWh',
-              ),
-              ReceiptRow(
-                label: AmpStrings.bookingServiceDetail,
-                value: AmpFormat.rupees(reservation.serviceFee),
-              ),
-              ReceiptRow(
-                label: AmpStrings.bookingGatewayDetail,
-                value: AmpFormat.rupees(reservation.gatewayFee),
-              ),
-            ],
-          ),
+        const _SectionHeading(AmpStrings.bookingPriceTitle),
+        ReceiptRows(
+          lines: <ReceiptLine>[
+            ReceiptLine(
+              label: AmpStrings.bookingTariffDetail,
+              value: '${AmpFormat.rupees(reservation.pricePerKwh)}/kWh',
+            ),
+            ReceiptLine(
+              label: AmpStrings.bookingServiceDetail,
+              value: AmpFormat.rupees(reservation.serviceFee),
+            ),
+            ReceiptLine(
+              label: AmpStrings.bookingGatewayDetail,
+              value: AmpFormat.rupees(reservation.gatewayFee),
+            ),
+          ],
         ),
         const SizedBox(height: AmpTheme.spaceS),
         Text(AmpStrings.bookingPriceNote, style: text.bodySmall),
         if (reservation.status == AmpPolicy.statusReserved) ...<Widget>[
-          _SectionTitle(AmpStrings.bookingPolicyTitle),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(AmpTheme.spaceM),
-            decoration: BoxDecoration(
-              color: freeCancellation ? colors.availableTint : colors.busyTint,
-              borderRadius: BorderRadius.circular(AmpTheme.radiusCard),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                AmpIcon(
-                  freeCancellation ? AmpIconName.check : AmpIconName.alert,
-                  size: 18,
-                  color: freeCancellation ? colors.available : colors.busyInk,
-                ),
-                const SizedBox(width: AmpTheme.spaceS),
-                Expanded(
-                  child: Text(
-                    freeCancellation
-                        ? AmpStrings.bookingFreeCancellation
-                        : AmpStrings.bookingLateCancellation,
-                    style: text.bodySmall,
-                  ),
-                ),
-              ],
-            ),
+          const _SectionHeading(AmpStrings.bookingPolicyTitle),
+          _PolicyLine(
+            message: freeCancellation
+                ? AmpStrings.bookingFreeCancellation
+                : AmpStrings.bookingLateCancellation,
+            free: freeCancellation,
+            colors: colors,
           ),
           if (onCancel != null) ...<Widget>[
-            const SizedBox(height: AmpTheme.spaceL),
-            AmpButton(
-              label: AmpStrings.bookingCancelAction,
-              variant: AmpButtonVariant.danger,
+            const SizedBox(height: AmpTheme.spaceS),
+            TextAction(
+              AmpStrings.bookingCancelAction,
+              tone: TextActionTone.danger,
               onPressed: onCancel,
             ),
           ],
@@ -327,52 +280,101 @@ class _BookingCodeBody extends StatelessWidget {
   }
 }
 
-class _DetailLine extends StatelessWidget {
-  const _DetailLine({required this.label, required this.value});
+class _QrPanel extends StatelessWidget {
+  const _QrPanel({required this.payload});
 
-  final String label;
-  final String value;
+  final String payload;
 
   @override
   Widget build(BuildContext context) {
-    final TextTheme text = Theme.of(context).textTheme;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AmpTheme.spaceS),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Text(label, style: text.labelLarge),
-          const SizedBox(height: 2),
-          Text(value, style: text.bodyMedium),
-        ],
+    return Semantics(
+      image: true,
+      label: AmpStrings.bookingQrHint,
+      child: ExcludeSemantics(
+        child: Container(
+          width: 96,
+          height: 96,
+          padding: const EdgeInsets.all(6),
+          color: Colors.white,
+          child: QrImageView(
+            data: payload,
+            size: 84,
+            backgroundColor: Colors.white,
+          ),
+        ),
       ),
     );
   }
 }
 
-class _SectionTitle extends StatelessWidget {
-  const _SectionTitle(this.label);
+class _PolicyLine extends StatelessWidget {
+  const _PolicyLine({
+    required this.message,
+    required this.free,
+    required this.colors,
+  });
+
+  final String message;
+  final bool free;
+  final AmpColors colors;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color dot = free ? colors.available : colors.busy;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Padding(
+          padding: const EdgeInsets.only(top: 7),
+          child: Container(
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(color: dot, shape: BoxShape.circle),
+          ),
+        ),
+        const SizedBox(width: AmpTheme.spaceS),
+        Expanded(
+          child: Text(
+            message,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: free ? colors.inkSecondary : colors.busyInk,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SectionHeading extends StatelessWidget {
+  const _SectionHeading(this.label);
 
   final String label;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(
-        top: AmpTheme.spaceL,
-        bottom: AmpTheme.spaceS,
-      ),
-      child: Text(label, style: Theme.of(context).textTheme.titleMedium),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        const SizedBox(height: AmpTheme.spaceL),
+        const Hairline(),
+        Padding(
+          padding: const EdgeInsets.only(
+            top: AmpTheme.spaceL,
+            bottom: AmpTheme.spaceS,
+          ),
+          child: Eyebrow(label),
+        ),
+      ],
     );
   }
 }
 
-AmpBadgeTone _statusTone(String? status) {
+StatusDotTone _statusTone(String? status) {
   return switch ((status ?? '').toUpperCase()) {
-    'RESERVED' => AmpBadgeTone.info,
-    'CHECKED_IN' || 'CHARGING' => AmpBadgeTone.success,
-    'DISPUTED' || 'REFUNDED' => AmpBadgeTone.warning,
-    _ => AmpBadgeTone.neutral,
+    'CHECKED_IN' || 'CHARGING' || 'COMPLETED' => StatusDotTone.available,
+    'DISPUTED' || 'REFUNDED' => StatusDotTone.busy,
+    _ => StatusDotTone.neutral,
   };
 }
 
@@ -384,11 +386,11 @@ class _BookingCodeLoading extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(AmpTheme.screenPadding),
       children: const <Widget>[
-        SkeletonLine(widthFactor: 0.7, height: 26),
+        SkeletonLine(widthFactor: 0.32, height: 12),
         SizedBox(height: AmpTheme.spaceS),
-        SkeletonLine(widthFactor: 0.45),
+        SkeletonLine(widthFactor: 0.7, height: 26),
         SizedBox(height: AmpTheme.spaceL),
-        Skeleton(height: 260, radius: AmpTheme.radiusCard),
+        Skeleton(height: 270, radius: AmpTheme.radiusCard),
         SizedBox(height: AmpTheme.spaceL),
         Skeleton(height: 120, radius: AmpTheme.radiusCard),
       ],

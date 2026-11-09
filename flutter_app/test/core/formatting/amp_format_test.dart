@@ -35,6 +35,14 @@ void main() {
     });
   });
 
+  group('calendar metrics', () {
+    test('booking day and month are separate tabular pieces', () {
+      final DateTime day = DateTime(2026, 11, 7);
+      expect(AmpFormat.dayNumber(day), '7');
+      expect(AmpFormat.monthShort(day), 'Nov');
+    });
+  });
+
   group('freshness', () {
     final DateTime now = DateTime(2026, 11, 7, 12);
 

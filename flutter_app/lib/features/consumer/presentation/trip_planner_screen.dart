@@ -11,14 +11,18 @@ import '../../../app/theme/amp_theme.dart';
 import '../../../core/formatting/amp_format.dart';
 import '../../../core/location/device_location.dart';
 import '../../../core/ui/strings.dart';
-import '../../../core/widgets/amp_badge.dart';
 import '../../../core/widgets/amp_button.dart';
-import '../../../core/widgets/amp_chip.dart';
 import '../../../core/widgets/amp_field.dart';
 import '../../../core/widgets/amp_icon.dart';
 import '../../../core/widgets/amp_scaffold.dart';
+import '../../../core/widgets/big_number.dart';
+import '../../../core/widgets/eyebrow.dart';
+import '../../../core/widgets/hairline.dart';
+import '../../../core/widgets/milestone_line.dart';
 import '../../../core/widgets/skeleton.dart';
-import '../../../core/widgets/timeline_node.dart';
+import '../../../core/widgets/status_dot_label.dart';
+import '../../../core/widgets/text_action.dart';
+import '../../../core/widgets/text_filter_row.dart';
 import '../../../data/geoapify/geoapify_client.dart';
 import '../../../data/geoapify/geoapify_models.dart';
 import '../../../data/geoapify/geoapify_tiles.dart';
@@ -26,9 +30,12 @@ import '../../../data/models/models.dart';
 import '../../../data/repositories/repository_result.dart';
 import '../../../domain/engines/route_planner_engine.dart';
 import '../../../domain/policy.dart';
+import '../application/battery_providers.dart';
 import '../application/discovery_providers.dart';
 import '../application/trip_planner_rules.dart';
 import '../application/trip_providers.dart';
+import 'consumer_tab_bar.dart';
+import 'navigation_screen.dart';
 import 'widgets/trip_route_map.dart';
 
 /// The phone trip planner.
@@ -85,10 +92,15 @@ class _TripPlannerScreenState extends ConsumerState<TripPlannerScreen> {
   bool _planning = false;
   String? _plannedVehicleId;
   String? _plannedVehicleName;
+  bool _showPlanningDetails = false;
 
   @override
   void initState() {
     super.initState();
+    final int? storedBattery = ref.read(batterySocProvider);
+    if (storedBattery != null) {
+      _batteryController.text = '$storedBattery';
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) {
         return;
@@ -122,6 +134,7 @@ class _TripPlannerScreenState extends ConsumerState<TripPlannerScreen> {
         title: AmpStrings.tripsTitle,
         subtitle: AmpStrings.tripsSubtitle,
         body: _mapSetup(context),
+        tabBar: const ConsumerTabBar(currentIndex: 1),
       );
     }
 
@@ -136,10 +149,10 @@ class _TripPlannerScreenState extends ConsumerState<TripPlannerScreen> {
       ),
       bottomBar: AmpButton(
         label: _planning ? AmpStrings.tripPlanning : AmpStrings.tripPlanAction,
-        icon: AmpIconName.bolt,
         loading: _planning,
         onPressed: _planning ? null : _planTrip,
       ),
+      tabBar: const ConsumerTabBar(currentIndex: 1),
     );
   }
 
@@ -222,13 +235,8 @@ class _TripPlannerScreenState extends ConsumerState<TripPlannerScreen> {
         ],
         Row(
           children: <Widget>[
-            AmpButton(
-              label: AmpStrings.tripUseLocation,
-              variant: AmpButtonVariant.tonal,
-              icon: AmpIconName.pin,
-              expand: false,
-              height: 40,
-              loading: _locating,
+            TextAction(
+              AmpStrings.tripUseLocation,
               onPressed: _locating ? null : _useCurrentLocation,
             ),
             const SizedBox(width: AmpTheme.spaceS),
@@ -260,17 +268,7 @@ class _TripPlannerScreenState extends ConsumerState<TripPlannerScreen> {
         if (_searching)
           Padding(
             padding: const EdgeInsets.only(top: AmpTheme.spaceS),
-            child: Row(
-              children: <Widget>[
-                const SizedBox(
-                  width: 14,
-                  height: 14,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-                const SizedBox(width: AmpTheme.spaceS),
-                Text(AmpStrings.tripSearching, style: text.bodySmall),
-              ],
-            ),
+            child: Text(AmpStrings.tripSearching, style: text.bodySmall),
           )
         else if (_suggestions.isNotEmpty)
           Padding(
@@ -333,34 +331,29 @@ class _TripPlannerScreenState extends ConsumerState<TripPlannerScreen> {
         const SizedBox(height: AmpTheme.spaceM),
         _vehicleCard(context, vehicle, garageLoading),
         _SectionHeader(AmpStrings.tripPreferencesTitle),
-        Text(AmpStrings.tripCorridorLabel, style: text.labelLarge),
-        const SizedBox(height: AmpTheme.spaceS),
-        Wrap(
-          spacing: AmpTheme.spaceS,
-          runSpacing: AmpTheme.spaceS,
-          children: <Widget>[
+        Eyebrow(AmpStrings.tripCorridorLabel),
+        const SizedBox(height: 2),
+        TextFilterRow<double>(
+          options: <TextFilterOption<double>>[
             for (final double option in _corridorOptions)
-              AmpChip(
+              TextFilterOption<double>(
+                value: option,
                 label: AmpStrings.tripCorridorOption(option.round()),
-                selected: _corridorKm == option,
-                onTap: () => _selectCorridor(option),
               ),
           ],
+          selected: _corridorKm,
+          onSelected: _selectCorridor,
         ),
         const SizedBox(height: AmpTheme.spaceM),
-        Text(AmpStrings.tripPreferenceLabel, style: text.labelLarge),
-        const SizedBox(height: AmpTheme.spaceS),
-        Wrap(
-          spacing: AmpTheme.spaceS,
-          runSpacing: AmpTheme.spaceS,
-          children: <Widget>[
+        Eyebrow(AmpStrings.tripPreferenceLabel),
+        const SizedBox(height: 2),
+        TextFilterRow<String>(
+          options: <TextFilterOption<String>>[
             for (final (String value, String label) in _preferenceOptions)
-              AmpChip(
-                label: label,
-                selected: _preference == value,
-                onTap: () => _selectPreference(value),
-              ),
+              TextFilterOption<String>(value: value, label: label),
           ],
+          selected: _preference,
+          onSelected: _selectPreference,
         ),
         if (_planError != null) ...<Widget>[
           const SizedBox(height: AmpTheme.spaceM),
@@ -445,71 +438,39 @@ class _TripPlannerScreenState extends ConsumerState<TripPlannerScreen> {
     bool garageLoading,
   ) {
     final TextTheme text = Theme.of(context).textTheme;
-    final AmpColors colors = context.amp;
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AmpTheme.spaceM),
-      decoration: BoxDecoration(
-        color: colors.surfaceVariant,
-        borderRadius: BorderRadius.circular(AmpTheme.radiusCard),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        const Hairline(),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: colors.primaryTint,
-                  borderRadius: BorderRadius.circular(AmpTheme.radiusField),
-                ),
-                child: Center(
-                  child: AmpIcon(
-                    AmpIconName.bolt,
-                    size: 20,
-                    color: colors.onPrimaryTint,
-                  ),
-                ),
-              ),
-              const SizedBox(width: AmpTheme.spaceM),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text(
-                      AmpStrings.tripVehiclePlanningFor,
-                      style: text.labelLarge,
-                    ),
-                    const SizedBox(height: 2),
-                    if (garageLoading)
-                      Semantics(
-                        label: AmpStrings.tripLoadingVehicle,
-                        child: const SkeletonLine(widthFactor: 0.55),
-                      )
-                    else
-                      Text(_vehicleName(vehicle), style: text.titleSmall),
-                  ],
-                ),
+              Eyebrow(AmpStrings.tripVehiclePlanningFor),
+              const SizedBox(height: 3),
+              if (garageLoading)
+                Semantics(
+                  label: AmpStrings.tripLoadingVehicle,
+                  child: const SkeletonLine(widthFactor: 0.55),
+                )
+              else
+                Text(_vehicleName(vehicle), style: text.titleSmall),
+              if (!garageLoading && vehicle == null) ...<Widget>[
+                const SizedBox(height: 4),
+                Text(AmpStrings.tripNoVehicle, style: text.bodySmall),
+              ],
+              const SizedBox(height: 2),
+              TextAction(
+                AmpStrings.tripManageVehicles,
+                onPressed: () => context.push('/vehicles'),
               ),
             ],
           ),
-          if (!garageLoading && vehicle == null) ...<Widget>[
-            const SizedBox(height: AmpTheme.spaceS),
-            Text(AmpStrings.tripNoVehicle, style: text.bodySmall),
-          ],
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton(
-              onPressed: () => context.push('/vehicles'),
-              child: const Text(AmpStrings.tripManageVehicles),
-            ),
-          ),
-        ],
-      ),
+        ),
+        const Hairline(),
+      ],
     );
   }
 
@@ -535,6 +496,15 @@ class _TripPlannerScreenState extends ConsumerState<TripPlannerScreen> {
         const SizedBox(height: AmpTheme.spaceM),
       ],
       _summaryCard(context, plan, vehicle),
+      if (route != null) ...<Widget>[
+        const SizedBox(height: AmpTheme.spaceM),
+        AmpButton(
+          label: AmpStrings.tripStartNavigation,
+          icon: AmpIconName.pin,
+          variant: AmpButtonVariant.tonal,
+          onPressed: () => _startNavigation(plan, route),
+        ),
+      ],
       if (plan.noStopWarning != null) ...<Widget>[
         const SizedBox(height: AmpTheme.spaceM),
         _Callout(
@@ -542,36 +512,230 @@ class _TripPlannerScreenState extends ConsumerState<TripPlannerScreen> {
           message: plan.noStopWarning!,
           tone: _CalloutTone.warning,
           action: _corridorKm < _corridorOptions.last
-              ? AmpButton(
-                  label: AmpStrings.tripWiderSearch,
-                  variant: AmpButtonVariant.tonal,
-                  expand: false,
-                  height: 40,
+              ? TextAction(
+                  AmpStrings.tripWiderSearch,
                   onPressed: _widenCorridor,
                 )
               : null,
         ),
       ] else if (plan.plannedStops.isEmpty) ...<Widget>[
         const SizedBox(height: AmpTheme.spaceM),
-        const _Callout(
-          message: AmpStrings.tripNoChargingStops,
-          tone: _CalloutTone.success,
+        Text(AmpStrings.tripNoChargingStops, style: text.bodySmall),
+      ],
+      const SizedBox(height: AmpTheme.spaceM),
+      Eyebrow(AmpStrings.tripRoadTitle),
+      const SizedBox(height: AmpTheme.spaceM),
+      _timeline(context, plan),
+      const SizedBox(height: AmpTheme.spaceM),
+      const Hairline(),
+      Align(
+        alignment: Alignment.centerLeft,
+        child: TextAction(
+          _showPlanningDetails
+              ? AmpStrings.tripHideDetails
+              : AmpStrings.tripHowWeGotThis,
+          onPressed: () =>
+              setState(() => _showPlanningDetails = !_showPlanningDetails),
+          underline: false,
         ),
-      ],
-      if (plan.plannedStops.isNotEmpty) ...<Widget>[
-        _SectionHeader(AmpStrings.tripStopsTitle),
-        _timeline(context, plan),
-      ],
-      _SectionHeader(AmpStrings.tripBackupsTitle),
-      if (plan.backups.isEmpty)
-        Text(AmpStrings.tripNoBackups, style: text.bodySmall)
-      else
-        for (final PlannedStop stop in plan.backups) ...<Widget>[
-          _backupCard(context, stop),
-          const SizedBox(height: AmpTheme.spaceS),
+      ),
+      if (_showPlanningDetails) ..._planningDetails(context, plan, route),
+    ];
+  }
+
+  void _startNavigation(RoutePlanResult plan, DirectionsRoute route) {
+    context.push(
+      '/navigation',
+      extra: NavigationTrip(
+        label: plan.destination,
+        route: route,
+        stops: <NavigationStop>[
+          for (final PlannedStop stop in plan.plannedStops)
+            NavigationStop(
+              sequence: stop.sequence,
+              name: _stationName(stop.station),
+              latitude: stop.station.latitude,
+              longitude: stop.station.longitude,
+            ),
         ],
+      ),
+    );
+  }
+
+  Widget _summaryCard(
+    BuildContext context,
+    RoutePlanResult plan,
+    Vehicle? vehicle,
+  ) {
+    final TextTheme text = Theme.of(context).textTheme;
+
+    return Column(
+      children: <Widget>[
+        const Hairline(),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: AmpTheme.spaceM),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              BigNumber(
+                value: '${plan.totalJourneyMinutes}',
+                unit: AmpStrings.tripJourneyUnit,
+                label: AmpStrings.tripTotalJourney,
+                size: 54,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                AmpStrings.tripSummary(
+                  AmpFormat.km(plan.totalDistanceKm),
+                  AmpFormat.duration(Duration(minutes: plan.driveMinutes)),
+                  AmpFormat.duration(Duration(minutes: plan.chargingMinutes)),
+                  AmpFormat.duration(
+                    Duration(minutes: plan.totalJourneyMinutes),
+                  ),
+                ),
+                style: text.bodySmall,
+              ),
+              const SizedBox(height: AmpTheme.spaceM),
+              StatusDotLabel(
+                AmpStrings.tripConfidenceLabel(plan.confidence),
+                detail: '${plan.candidates.length} chargers considered',
+                tone: _confidenceTone(plan.confidence),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                AmpStrings.tripConfidenceLine(
+                  AmpStrings.tripConfidenceLabel(plan.confidence),
+                  plan.corridorKm.round(),
+                  plan.candidates.length,
+                  plan.excluded.length,
+                ),
+                style: text.bodySmall,
+              ),
+              const SizedBox(height: AmpTheme.spaceS),
+              Text(
+                '${AmpStrings.tripVehiclePlanningFor} · '
+                '${_vehicleName(vehicle)}',
+                style: text.labelLarge,
+              ),
+              const SizedBox(height: 4),
+              Text(AmpStrings.tripEstimateNotice, style: text.bodySmall),
+            ],
+          ),
+        ),
+        const Hairline(),
+      ],
+    );
+  }
+
+  Widget _timeline(BuildContext context, RoutePlanResult plan) {
+    final List<PlannedStop> markers =
+        <PlannedStop>[...plan.plannedStops, ...plan.backups]..sort(
+          (PlannedStop a, PlannedStop b) =>
+              a.distanceAlongRouteKm.compareTo(b.distanceAlongRouteKm),
+        );
+    final List<MilestoneStop> stops = <MilestoneStop>[
+      MilestoneStop(
+        distanceKm: 0,
+        title: plan.origin,
+        detail: AmpStrings.journeyStart,
+        batteryPercent: plan.startSoc,
+      ),
+      for (final PlannedStop stop in markers) _milestone(stop),
+      MilestoneStop(
+        distanceKm: plan.totalDistanceKm,
+        title: plan.destination,
+        detail: AmpStrings.journeyArrival,
+        batteryPercent: plan.arrivalTargetSoc,
+      ),
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        MilestoneLine(stops: stops, animate: true),
+        if (markers.isNotEmpty) ...<Widget>[
+          const SizedBox(height: 4),
+          Wrap(
+            spacing: AmpTheme.spaceL,
+            runSpacing: 0,
+            children: <Widget>[
+              for (final PlannedStop stop in markers)
+                TextAction(
+                  '${AmpStrings.tripViewCharger} · '
+                  '${_stationName(stop.station)}',
+                  onPressed: () => context.push('/chargers/${stop.station.id}'),
+                ),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+
+  MilestoneStop _milestone(PlannedStop stop) {
+    final String? address = _stationAddress(stop.station);
+    final String soc = AmpStrings.tripStopSoc(
+      stop.arrivalSoc,
+      stop.departureSoc,
+    );
+    final String detail = stop.backup
+        ? '${AmpStrings.journeyBackup} · $soc'
+        : '$soc · ${stop.chargingMinutes} min · '
+              '${AmpFormat.rupees(stop.estimatedCost)}';
+    return MilestoneStop(
+      distanceKm: stop.distanceAlongRouteKm,
+      title: _stationName(stop.station),
+      detail: address == null ? detail : '$detail\n$address',
+      batteryPercent: stop.arrivalSoc,
+      backup: stop.backup,
+    );
+  }
+
+  List<Widget> _planningDetails(
+    BuildContext context,
+    RoutePlanResult plan,
+    DirectionsRoute? route,
+  ) {
+    final TextTheme text = Theme.of(context).textTheme;
+    return <Widget>[
+      const SizedBox(height: AmpTheme.spaceM),
+      Eyebrow(AmpStrings.tripAssumptionsTitle),
+      const SizedBox(height: AmpTheme.spaceS),
+      for (final String assumption in plan.assumptions)
+        Padding(
+          padding: const EdgeInsets.only(bottom: AmpTheme.spaceS),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text('—', style: text.bodySmall),
+              const SizedBox(width: AmpTheme.spaceS),
+              Expanded(child: Text(assumption, style: text.bodySmall)),
+            ],
+          ),
+        ),
+      if (plan.excluded.isNotEmpty) ...<Widget>[
+        const SizedBox(height: AmpTheme.spaceS),
+        Eyebrow(AmpStrings.tripExcludedTitle),
+        const SizedBox(height: AmpTheme.spaceS),
+        for (final ExcludedStation excluded in plan.excluded.take(
+          _excludedLimit,
+        ))
+          Padding(
+            padding: const EdgeInsets.only(bottom: AmpTheme.spaceS),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(_stationName(excluded.station), style: text.titleSmall),
+                const SizedBox(height: 2),
+                Text(excluded.reason, style: text.bodySmall),
+              ],
+            ),
+          ),
+      ],
       if (route != null) ...<Widget>[
-        _SectionHeader(AmpStrings.tripDirectionsTitle),
+        const SizedBox(height: AmpTheme.spaceM),
+        Eyebrow(AmpStrings.tripDirectionsTitle),
+        const SizedBox(height: AmpTheme.spaceS),
         Text(
           AmpStrings.tripDirectionsMeta(
             AmpStrings.tripRouteProvider,
@@ -601,210 +765,7 @@ class _TripPlannerScreenState extends ConsumerState<TripPlannerScreen> {
           ),
         Text(AmpStrings.tripDirectionsNote, style: text.bodySmall),
       ],
-      _SectionHeader(AmpStrings.tripAssumptionsTitle),
-      for (final String assumption in plan.assumptions)
-        Padding(
-          padding: const EdgeInsets.only(bottom: AmpTheme.spaceS),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Text('•', style: text.bodySmall),
-              const SizedBox(width: AmpTheme.spaceS),
-              Expanded(child: Text(assumption, style: text.bodySmall)),
-            ],
-          ),
-        ),
-      if (plan.excluded.isNotEmpty) ...<Widget>[
-        _SectionHeader(AmpStrings.tripExcludedTitle),
-        for (final ExcludedStation excluded in plan.excluded.take(
-          _excludedLimit,
-        ))
-          Padding(
-            padding: const EdgeInsets.only(bottom: AmpTheme.spaceS),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(_stationName(excluded.station), style: text.titleSmall),
-                const SizedBox(height: 2),
-                Text(excluded.reason, style: text.bodySmall),
-              ],
-            ),
-          ),
-      ],
     ];
-  }
-
-  Widget _summaryCard(
-    BuildContext context,
-    RoutePlanResult plan,
-    Vehicle? vehicle,
-  ) {
-    final TextTheme text = Theme.of(context).textTheme;
-    final AmpColors colors = context.amp;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AmpTheme.spaceM),
-      decoration: BoxDecoration(
-        color: colors.surface,
-        borderRadius: BorderRadius.circular(AmpTheme.radiusCard),
-        border: Border.all(color: colors.divider),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Text(AmpStrings.tripTotalJourney, style: text.labelLarge),
-          Text(
-            AmpFormat.duration(Duration(minutes: plan.totalJourneyMinutes)),
-            style: AmpType.metric(context, size: 34),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            AmpStrings.tripSummary(
-              AmpFormat.km(plan.totalDistanceKm),
-              AmpFormat.duration(Duration(minutes: plan.driveMinutes)),
-              AmpFormat.duration(Duration(minutes: plan.chargingMinutes)),
-              AmpFormat.duration(Duration(minutes: plan.totalJourneyMinutes)),
-            ),
-            style: text.bodySmall,
-          ),
-          const SizedBox(height: AmpTheme.spaceM),
-          AmpBadge(
-            AmpStrings.tripConfidenceLabel(plan.confidence),
-            tone: _confidenceTone(plan.confidence),
-            icon: AmpIconName.shield,
-          ),
-          const SizedBox(height: AmpTheme.spaceS),
-          Text(
-            AmpStrings.tripConfidenceLine(
-              AmpStrings.tripConfidenceLabel(plan.confidence),
-              plan.corridorKm.round(),
-              plan.candidates.length,
-              plan.excluded.length,
-            ),
-            style: text.labelLarge,
-          ),
-          const SizedBox(height: AmpTheme.spaceS),
-          Row(
-            children: <Widget>[
-              AmpIcon(AmpIconName.bolt, size: 15, color: colors.inkSecondary),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(_vehicleName(vehicle), style: text.labelLarge),
-              ),
-            ],
-          ),
-          const SizedBox(height: AmpTheme.spaceS),
-          Text(AmpStrings.tripEstimateNotice, style: text.bodySmall),
-        ],
-      ),
-    );
-  }
-
-  Widget _timeline(BuildContext context, RoutePlanResult plan) {
-    return Column(
-      children: <Widget>[
-        TimelineNode(
-          kind: TimelineNodeKind.start,
-          isFirst: true,
-          title: plan.origin,
-          subtitle: AmpStrings.journeyStart,
-          detail: AmpStrings.tripDepartSoc(plan.startSoc),
-        ),
-        for (int index = 0; index < plan.plannedStops.length; index++)
-          _stopNode(context, plan.plannedStops[index], isFirstStop: index == 0),
-        TimelineNode(
-          kind: TimelineNodeKind.arrival,
-          isLast: true,
-          title: plan.destination,
-          subtitle: AmpStrings.journeyArrival,
-          detail: AmpStrings.tripArrivalReserve(plan.arrivalTargetSoc),
-        ),
-      ],
-    );
-  }
-
-  Widget _stopNode(
-    BuildContext context,
-    PlannedStop stop, {
-    required bool isFirstStop,
-  }) {
-    final ChargerStation station = stop.station;
-    return TimelineNode(
-      kind: TimelineNodeKind.chargingStop,
-      title: _stationName(station),
-      subtitle: _stationAddress(station),
-      trailing: isFirstStop
-          ? const AmpBadge(
-              AmpStrings.tripRecommendedStop,
-              tone: AmpBadgeTone.success,
-              icon: AmpIconName.check,
-            )
-          : null,
-      detail:
-          '${AmpStrings.tripStopDetail(AmpFormat.km(stop.distanceAlongRouteKm), AmpFormat.km(stop.detourKm), stop.detourMinutes, stop.chargingMinutes)}\n'
-          '${AmpStrings.tripStopSoc(stop.arrivalSoc, stop.departureSoc)}',
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: TextButton(
-          onPressed: () => context.push('/chargers/${station.id}'),
-          child: const Text(AmpStrings.tripViewCharger),
-        ),
-      ),
-    );
-  }
-
-  Widget _backupCard(BuildContext context, PlannedStop stop) {
-    final TextTheme text = Theme.of(context).textTheme;
-    final AmpColors colors = context.amp;
-    final ChargerStation station = stop.station;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AmpTheme.spaceM),
-      decoration: BoxDecoration(
-        color: colors.surface,
-        borderRadius: BorderRadius.circular(AmpTheme.radiusCard),
-        border: Border.all(color: colors.divider),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Expanded(
-                child: Text(_stationName(station), style: text.titleSmall),
-              ),
-              const SizedBox(width: AmpTheme.spaceS),
-              const AmpBadge(AmpStrings.journeyBackup),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Text(
-            AmpStrings.tripStopDetail(
-              AmpFormat.km(stop.distanceAlongRouteKm),
-              AmpFormat.km(stop.detourKm),
-              stop.detourMinutes,
-              stop.chargingMinutes,
-            ),
-            style: text.bodySmall,
-          ),
-          const SizedBox(height: 2),
-          Text(
-            AmpStrings.tripStopSoc(stop.arrivalSoc, stop.departureSoc),
-            style: text.bodySmall,
-          ),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton(
-              onPressed: () => context.push('/chargers/${station.id}'),
-              child: const Text(AmpStrings.tripViewCharger),
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   Widget _directionStep(BuildContext context, RouteStep step, int number) {
@@ -1078,6 +1039,7 @@ class _TripPlannerScreenState extends ConsumerState<TripPlannerScreen> {
     _planError = null;
     _plannedVehicleId = null;
     _plannedVehicleName = null;
+    _showPlanningDetails = false;
   }
 
   Future<void> _planTrip() async {
@@ -1225,11 +1187,11 @@ class _TripPlannerScreenState extends ConsumerState<TripPlannerScreen> {
     }
   }
 
-  AmpBadgeTone _confidenceTone(String confidence) {
+  StatusDotTone _confidenceTone(String confidence) {
     return switch (confidence.trim().toUpperCase()) {
-      RoutePlannerEngine.confidenceHigh => AmpBadgeTone.success,
-      RoutePlannerEngine.confidenceMedium => AmpBadgeTone.info,
-      _ => AmpBadgeTone.warning,
+      RoutePlannerEngine.confidenceHigh => StatusDotTone.available,
+      RoutePlannerEngine.confidenceMedium => StatusDotTone.neutral,
+      _ => StatusDotTone.busy,
     };
   }
 
@@ -1300,7 +1262,7 @@ class _Callout extends StatelessWidget {
       padding: const EdgeInsets.all(AmpTheme.spaceM),
       decoration: BoxDecoration(
         color: background,
-        borderRadius: BorderRadius.circular(AmpTheme.radiusCard),
+        borderRadius: BorderRadius.circular(AmpTheme.radiusField),
         border: Border.all(color: foreground.withValues(alpha: 0.3)),
       ),
       child: Column(
@@ -1353,7 +1315,7 @@ class _SectionHeader extends StatelessWidget {
         top: AmpTheme.spaceL,
         bottom: AmpTheme.spaceS,
       ),
-      child: Text(label, style: Theme.of(context).textTheme.titleMedium),
+      child: Eyebrow(label),
     );
   }
 }
