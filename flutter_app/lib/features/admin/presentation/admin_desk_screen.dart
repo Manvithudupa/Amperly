@@ -23,23 +23,19 @@ import '../../../data/repositories/repository_providers.dart';
 import '../../../data/repositories/repository_result.dart';
 import '../../../domain/policy.dart';
 import '../application/admin_providers.dart';
+import 'admin_tab_bar.dart';
 
-enum _AdminSection { queue, reports }
+enum AdminDeskSection { queue, reports }
 
 /// The administrator's two working queues: listing decisions and the reports
 /// and disputes that need a recorded outcome.
-class AdminDeskScreen extends ConsumerStatefulWidget {
-  const AdminDeskScreen({super.key});
+class AdminDeskScreen extends ConsumerWidget {
+  const AdminDeskScreen({this.section = AdminDeskSection.queue, super.key});
+
+  final AdminDeskSection section;
 
   @override
-  ConsumerState<AdminDeskScreen> createState() => _AdminDeskScreenState();
-}
-
-class _AdminDeskScreenState extends ConsumerState<AdminDeskScreen> {
-  _AdminSection _section = _AdminSection.queue;
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final AsyncValue<RepositoryResult<AdminDeskData>> async = ref.watch(
       adminDeskProvider,
     );
@@ -47,6 +43,9 @@ class _AdminDeskScreenState extends ConsumerState<AdminDeskScreen> {
     return AmpScaffold(
       title: AmpStrings.adminTitle,
       subtitle: AmpStrings.adminSubtitle,
+      tabBar: AdminTabBar(
+        currentIndex: section == AdminDeskSection.reports ? 1 : 0,
+      ),
       body: async.when(
         loading: () => const _AdminLoading(),
         error: (Object error, StackTrace stack) => ErrorState(
@@ -62,46 +61,14 @@ class _AdminDeskScreenState extends ConsumerState<AdminDeskScreen> {
               onRetry: () => ref.invalidate(adminDeskProvider),
             );
           }
-          return _body(result.valueOrNull!);
+          return switch (section) {
+            AdminDeskSection.queue => _QueueSection(data: result.valueOrNull!),
+            AdminDeskSection.reports => _ReportsSection(
+              data: result.valueOrNull!,
+            ),
+          };
         },
       ),
-    );
-  }
-
-  Widget _body(AdminDeskData data) {
-    return Column(
-      children: <Widget>[
-        Padding(
-          padding: const EdgeInsets.fromLTRB(
-            AmpTheme.screenPadding,
-            AmpTheme.spaceS,
-            AmpTheme.screenPadding,
-            0,
-          ),
-          child: TextFilterRow<_AdminSection>(
-            options: const <TextFilterOption<_AdminSection>>[
-              TextFilterOption<_AdminSection>(
-                value: _AdminSection.queue,
-                label: AmpStrings.adminTabQueue,
-              ),
-              TextFilterOption<_AdminSection>(
-                value: _AdminSection.reports,
-                label: AmpStrings.adminTabReports,
-              ),
-            ],
-            selected: _section,
-            onSelected: (_AdminSection section) =>
-                setState(() => _section = section),
-          ),
-        ),
-        const Hairline(),
-        Expanded(
-          child: switch (_section) {
-            _AdminSection.queue => _QueueSection(data: data),
-            _AdminSection.reports => _ReportsSection(data: data),
-          },
-        ),
-      ],
     );
   }
 }
@@ -170,16 +137,6 @@ class _QueueSection extends ConsumerWidget {
         else
           for (final ChargerStation station in data.pendingStations)
             _PendingStationCard(station: station),
-        const SizedBox(height: AmpTheme.spaceL),
-        const Hairline(),
-        const SizedBox(height: AmpTheme.spaceL),
-        const Eyebrow(AmpStrings.adminDisputesTitle),
-        const SizedBox(height: AmpTheme.spaceS),
-        if (data.disputes.isEmpty)
-          Text(AmpStrings.adminDisputesEmpty, style: text.bodySmall)
-        else
-          for (final AdminDisputeRow row in data.disputes)
-            _DisputeCard(row: row),
       ],
     );
   }
@@ -586,6 +543,16 @@ class _ReportsSection extends ConsumerWidget {
         AmpTheme.spaceXxl,
       ),
       children: <Widget>[
+        const Eyebrow(AmpStrings.adminDisputesTitle),
+        const SizedBox(height: AmpTheme.spaceS),
+        if (data.disputes.isEmpty)
+          Text(AmpStrings.adminDisputesEmpty, style: text.bodySmall)
+        else
+          for (final AdminDisputeRow row in data.disputes)
+            _DisputeCard(row: row),
+        const SizedBox(height: AmpTheme.spaceL),
+        const Hairline(),
+        const SizedBox(height: AmpTheme.spaceL),
         const Eyebrow(AmpStrings.adminReportsTitle),
         const SizedBox(height: AmpTheme.spaceS),
         if (data.consumerReports.isEmpty)

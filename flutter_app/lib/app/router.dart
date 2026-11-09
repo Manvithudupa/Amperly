@@ -95,6 +95,11 @@ final Provider<GoRouter> routerProvider = Provider<GoRouter>((Ref ref) {
             const AdminDeskScreen(),
       ),
       GoRoute(
+        path: '/admin/reports',
+        builder: (BuildContext context, GoRouterState state) =>
+            const AdminDeskScreen(section: AdminDeskSection.reports),
+      ),
+      GoRoute(
         path: '/notifications',
         builder: (BuildContext context, GoRouterState state) =>
             const NotificationsScreen(),

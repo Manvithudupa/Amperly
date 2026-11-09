@@ -9,6 +9,7 @@ import '../../../core/widgets/error_state.dart';
 import '../../../core/widgets/skeleton.dart';
 import '../../../data/models/models.dart';
 import '../../../data/repositories/repository_result.dart';
+import '../../admin/presentation/admin_desk_screen.dart';
 import '../../auth/application/profile_providers.dart';
 import '../../auth/presentation/blocked_screen.dart';
 import '../../consumer/presentation/discover_screen.dart';
@@ -50,6 +51,9 @@ class HomeScreen extends ConsumerWidget {
         final AppUser user = result.valueOrNull!;
         if (user.isBlocked) {
           return BlockedScreen(profile: user);
+        }
+        if (user.canActAsAdmin) {
+          return const AdminDeskScreen();
         }
         return const DiscoverScreen();
       },

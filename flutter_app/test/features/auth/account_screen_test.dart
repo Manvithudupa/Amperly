@@ -3,6 +3,7 @@ import 'package:amperly/core/ui/strings.dart';
 import 'package:amperly/core/widgets/amp_badge.dart';
 import 'package:amperly/data/models/models.dart';
 import 'package:amperly/data/repositories/repository_result.dart';
+import 'package:amperly/features/admin/presentation/admin_tab_bar.dart';
 import 'package:amperly/features/auth/application/profile_providers.dart';
 import 'package:amperly/features/auth/presentation/account_screen.dart';
 import 'package:amperly/features/consumer/application/vehicle_providers.dart';
@@ -109,5 +110,43 @@ void main() {
     // The tab bar reduces the viewport; sign-out stays reachable by scrolling.
     await tester.scrollUntilVisible(find.text(AmpStrings.authSignOut), 200);
     expect(find.text(AmpStrings.authSignOut), findsOneWidget);
+  });
+
+  testWidgets('an administrator sees only admin surfaces', (
+    WidgetTester tester,
+  ) async {
+    const AppUser admin = AppUser(
+      id: 'admin-1',
+      name: 'Admin',
+      email: 'admin@amperly.app',
+      role: 'ADMIN',
+      verificationStatus: 'VERIFIED',
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          currentProfileProvider.overrideWith(
+            (Ref ref) async => const RepositorySuccess<AppUser>(admin),
+          ),
+        ],
+        child: MaterialApp(
+          theme: AmpTheme.light(),
+          home: const AccountScreen(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AdminTabBar), findsOneWidget);
+    expect(find.text(AmpStrings.adminTabQueue), findsOneWidget);
+    expect(find.text(AmpStrings.adminTabReports), findsOneWidget);
+    expect(find.text(AmpStrings.accountAdmin), findsWidgets);
+    expect(find.text(AmpStrings.notificationsTitle), findsOneWidget);
+    expect(find.text(AmpStrings.vehicleManage), findsNothing);
+    expect(find.text(AmpStrings.hostTitle), findsNothing);
+    expect(find.text(AmpStrings.accountChargingHistory), findsNothing);
+    expect(find.text(AmpStrings.safetyTitle), findsNothing);
+    expect(find.text(AmpStrings.accountNoVehicle), findsNothing);
   });
 }

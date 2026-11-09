@@ -20,6 +20,7 @@ import '../../../data/models/models.dart';
 import '../../../data/repositories/repository_providers.dart';
 import '../../../data/repositories/repository_result.dart';
 import '../../../domain/policy.dart';
+import '../../admin/presentation/admin_tab_bar.dart';
 import '../../consumer/application/vehicle_providers.dart';
 import '../../consumer/presentation/consumer_tab_bar.dart';
 import '../application/profile_providers.dart';
@@ -34,10 +35,13 @@ class AccountScreen extends ConsumerWidget {
     final AsyncValue<RepositoryResult<AppUser>> profile = ref.watch(
       currentProfileProvider,
     );
+    final AppUser? user = profile.asData?.value.valueOrNull;
 
     return AmpScaffold(
       title: AmpStrings.accountTitle,
-      tabBar: const ConsumerTabBar(currentIndex: 4),
+      tabBar: user?.canActAsAdmin == true
+          ? const AdminTabBar(currentIndex: 2)
+          : const ConsumerTabBar(currentIndex: 4),
       body: profile.when(
         loading: () => const _ProfileLoading(),
         error: (Object error, StackTrace stack) => ErrorState(
@@ -122,9 +126,10 @@ class _AccountBody extends ConsumerWidget {
     final String? phone = (profile.phone ?? '').trim().isEmpty
         ? null
         : profile.phone!.trim();
-    final AsyncValue<RepositoryResult<Vehicle?>> vehicle = ref.watch(
-      activeVehicleProvider,
-    );
+    final bool isAdmin = profile.isPlatformAdmin;
+    final AsyncValue<RepositoryResult<Vehicle?>>? vehicle = isAdmin
+        ? null
+        : ref.watch(activeVehicleProvider);
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(
@@ -207,62 +212,65 @@ class _AccountBody extends ConsumerWidget {
           const SizedBox(height: AmpTheme.spaceM),
           const _BlockedNotice(),
         ],
-        const SizedBox(height: AmpTheme.spaceL),
-        const Hairline(),
-        const SizedBox(height: AmpTheme.spaceL),
-        const Eyebrow(AmpStrings.accountVehicleTitle),
-        const SizedBox(height: AmpTheme.spaceS),
-        vehicle.when(
-          loading: () => const _VehicleLoading(),
-          error: (Object error, StackTrace stack) =>
-              _VehicleNotice(message: UserMessages.from(error)),
-          data: (RepositoryResult<Vehicle?> result) {
-            final RepositoryFailure<Vehicle?>? failure = result.failureOrNull;
-            if (failure != null) {
-              return _VehicleNotice(message: failure.message);
-            }
-            final Vehicle? active = result.valueOrNull;
-            if (active == null) {
-              return const _VehicleNotice(
-                title: AmpStrings.accountNoVehicle,
-                message: AmpStrings.accountNoVehicleBody,
-              );
-            }
-            return _ActiveVehicle(vehicle: active);
-          },
-        ),
-        const SizedBox(height: AmpTheme.spaceS),
-        TextAction(
-          AmpStrings.vehicleManage,
-          onPressed: () => context.push('/vehicles'),
-        ),
+        if (!profile.isPlatformAdmin) ...<Widget>[
+          const SizedBox(height: AmpTheme.spaceL),
+          const Hairline(),
+          const SizedBox(height: AmpTheme.spaceL),
+          const Eyebrow(AmpStrings.accountVehicleTitle),
+          const SizedBox(height: AmpTheme.spaceS),
+          vehicle!.when(
+            loading: () => const _VehicleLoading(),
+            error: (Object error, StackTrace stack) =>
+                _VehicleNotice(message: UserMessages.from(error)),
+            data: (RepositoryResult<Vehicle?> result) {
+              final RepositoryFailure<Vehicle?>? failure = result.failureOrNull;
+              if (failure != null) {
+                return _VehicleNotice(message: failure.message);
+              }
+              final Vehicle? active = result.valueOrNull;
+              if (active == null) {
+                return const _VehicleNotice(
+                  title: AmpStrings.accountNoVehicle,
+                  message: AmpStrings.accountNoVehicleBody,
+                );
+              }
+              return _ActiveVehicle(vehicle: active);
+            },
+          ),
+          const SizedBox(height: AmpTheme.spaceS),
+          TextAction(
+            AmpStrings.vehicleManage,
+            onPressed: () => context.push('/vehicles'),
+          ),
+        ],
         const SizedBox(height: AmpTheme.spaceL),
         const Hairline(),
         const SizedBox(height: AmpTheme.spaceL),
         const Eyebrow(AmpStrings.accountToolsTitle),
         const SizedBox(height: AmpTheme.spaceS),
         if (!profile.isBlocked) ...<Widget>[
-          TextAction(
-            AmpStrings.hostTitle,
-            onPressed: () => context.push('/host'),
-          ),
-          if (profile.canActAsAdmin)
+          if (!profile.isPlatformAdmin) ...<Widget>[
             TextAction(
-              AmpStrings.adminTitle,
-              onPressed: () => context.push('/admin'),
+              AmpStrings.hostTitle,
+              onPressed: () => context.push('/host'),
             ),
-          TextAction(
-            AmpStrings.notificationsTitle,
-            onPressed: () => context.push('/notifications'),
-          ),
-          TextAction(
-            AmpStrings.accountChargingHistory,
-            onPressed: () => context.push('/sessions'),
-          ),
-          TextAction(
-            AmpStrings.safetyTitle,
-            onPressed: () => context.push('/safety'),
-          ),
+            TextAction(
+              AmpStrings.notificationsTitle,
+              onPressed: () => context.push('/notifications'),
+            ),
+            TextAction(
+              AmpStrings.accountChargingHistory,
+              onPressed: () => context.push('/sessions'),
+            ),
+            TextAction(
+              AmpStrings.safetyTitle,
+              onPressed: () => context.push('/safety'),
+            ),
+          ] else
+            TextAction(
+              AmpStrings.notificationsTitle,
+              onPressed: () => context.push('/notifications'),
+            ),
         ],
         const SizedBox(height: AmpTheme.spaceL),
         const Hairline(),
@@ -287,13 +295,10 @@ class _AccountBody extends ConsumerWidget {
   }
 
   static String _authorityLabel(AppUser profile) {
-    final StringBuffer label = StringBuffer(
-      '${AmpStrings.accountConsumer} + ${AmpStrings.accountHost}',
-    );
-    if (profile.canActAsAdmin) {
-      label.write(' + ${AmpStrings.accountAdmin}');
+    if (profile.isPlatformAdmin) {
+      return AmpStrings.accountAdmin;
     }
-    return label.toString();
+    return '${AmpStrings.accountConsumer} + ${AmpStrings.accountHost}';
   }
 
   static String _valueOrDash(String? value) {

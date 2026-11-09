@@ -8,6 +8,7 @@ import 'package:amperly/data/repositories/safety_repository.dart';
 import 'package:amperly/domain/engines/host_analytics_engine.dart';
 import 'package:amperly/features/admin/application/admin_providers.dart';
 import 'package:amperly/features/admin/presentation/admin_desk_screen.dart';
+import 'package:amperly/features/admin/presentation/admin_tab_bar.dart';
 import 'package:amperly/features/auth/application/profile_providers.dart';
 import 'package:amperly/features/common/application/notification_providers.dart';
 import 'package:amperly/features/common/presentation/notifications_screen.dart';
@@ -90,13 +91,49 @@ void main() {
       ],
     );
 
+    final Finder adminTabs = find.byType(AdminTabBar);
+
     expect(find.text(AmpStrings.adminTitle), findsOneWidget);
     expect(find.text('Pending Charger'), findsOneWidget);
     expect(find.text(AmpStrings.adminApprove), findsOneWidget);
+    expect(adminTabs, findsOneWidget);
+    expect(
+      find.descendant(
+        of: adminTabs,
+        matching: find.text(AmpStrings.adminTabQueue),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: adminTabs,
+        matching: find.text(AmpStrings.adminTabReports),
+      ),
+      findsOneWidget,
+    );
 
-    await tester.tap(find.text(AmpStrings.adminTabReports).first);
-    await tester.pumpAndSettle();
+    await _pump(
+      tester,
+      const AdminDeskScreen(section: AdminDeskSection.reports),
+      overrides: <Object>[
+        adminDeskProvider.overrideWith(
+          (Ref ref) async => RepositorySuccess<AdminDeskData>(data),
+        ),
+      ],
+    );
 
+    expect(find.text('Pending Charger'), findsNothing);
+    expect(
+      find.descendant(
+        of: find.byType(AdminTabBar),
+        matching: find.text(AmpStrings.adminTabReports),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.text(AmpStrings.adminDisputesTitle.toUpperCase()),
+      findsOneWidget,
+    );
     expect(
       find.text(AmpStrings.adminReportsTitle.toUpperCase()),
       findsOneWidget,
