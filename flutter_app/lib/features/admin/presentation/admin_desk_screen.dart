@@ -23,7 +23,14 @@ import '../../../data/repositories/repository_providers.dart';
 import '../../../data/repositories/repository_result.dart';
 import '../../../domain/policy.dart';
 import '../application/admin_providers.dart';
-import 'admin_tab_bar.dart';
+
+/// Actions already waiting on the server. The desk cards are stateless, so the
+/// in-flight set lives beside them and is released in `finally`.
+final Set<String> _deskActionsInFlight = <String>{};
+
+bool _beginDeskAction(String key) => _deskActionsInFlight.add(key);
+
+void _endDeskAction(String key) => _deskActionsInFlight.remove(key);
 
 enum AdminDeskSection { queue, reports }
 
@@ -43,9 +50,6 @@ class AdminDeskScreen extends ConsumerWidget {
     return AmpScaffold(
       title: AmpStrings.adminTitle,
       subtitle: AmpStrings.adminSubtitle,
-      tabBar: AdminTabBar(
-        currentIndex: section == AdminDeskSection.reports ? 1 : 0,
-      ),
       body: async.when(
         loading: () => const _AdminLoading(),
         error: (Object error, StackTrace stack) => ErrorState(
@@ -78,66 +82,77 @@ class _QueueSection extends ConsumerWidget {
 
   final AdminDeskData data;
 
+  Future<void> _refresh(WidgetRef ref) async {
+    ref.invalidate(adminDeskProvider);
+    await ref.read(adminDeskProvider.future);
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final TextTheme text = Theme.of(context).textTheme;
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(
-        AmpTheme.screenPadding,
-        AmpTheme.spaceL,
-        AmpTheme.screenPadding,
-        AmpTheme.spaceXxl,
-      ),
-      children: <Widget>[
-        const Eyebrow(AmpStrings.adminPlatformSummary),
-        const SizedBox(height: AmpTheme.spaceS),
-        ReceiptRows(
-          lines: <ReceiptLine>[
-            ReceiptLine(
-              label: AmpStrings.adminPendingCount,
-              value: data.pendingStations.length.toString(),
-            ),
-            ReceiptLine(
-              label: AmpStrings.adminDisputeCount,
-              value: data.disputes.length.toString(),
-            ),
-            ReceiptLine(
-              label: AmpStrings.adminReportCount,
-              value: data.reportCount.toString(),
-            ),
-            ReceiptLine(
-              label: AmpStrings.adminSessionsCount,
-              value: data.analytics.sessionsCompleted.toString(),
-            ),
-            ReceiptLine(
-              label: AmpStrings.adminEnergyCount,
-              value: AmpFormat.kWh(data.analytics.energyDeliveredKwh),
-            ),
-            ReceiptLine(
-              label: AmpStrings.adminRevenueCount,
-              value: AmpFormat.rupees(data.analytics.revenue),
-            ),
-            ReceiptLine(
-              label: AmpStrings.adminRefundTotal,
-              value: AmpFormat.rupees(data.analytics.refundsAndAdjustments),
-            ),
-            ReceiptLine(
-              label: AmpStrings.adminUtilizationCount,
-              value: AmpFormat.percent(data.analytics.utilizationPercent),
-            ),
-          ],
+    return RefreshIndicator(
+      onRefresh: () => _refresh(ref),
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(
+          AmpTheme.screenPadding,
+          AmpTheme.spaceL,
+          AmpTheme.screenPadding,
+          AmpTheme.spaceXxl,
         ),
-        const SizedBox(height: AmpTheme.spaceL),
-        const Hairline(),
-        const SizedBox(height: AmpTheme.spaceL),
-        const Eyebrow(AmpStrings.adminQueueTitle),
-        const SizedBox(height: AmpTheme.spaceS),
-        if (data.pendingStations.isEmpty)
-          Text(AmpStrings.adminQueueEmpty, style: text.bodySmall)
-        else
-          for (final ChargerStation station in data.pendingStations)
-            _PendingStationCard(station: station),
-      ],
+        children: <Widget>[
+          const Eyebrow(AmpStrings.adminPlatformSummary),
+          const SizedBox(height: AmpTheme.spaceS),
+          ReceiptRows(
+            lines: <ReceiptLine>[
+              ReceiptLine(
+                label: AmpStrings.adminPendingCount,
+                value: data.pendingStations.length.toString(),
+              ),
+              ReceiptLine(
+                label: AmpStrings.adminDisputeCount,
+                value: data.disputes.length.toString(),
+              ),
+              ReceiptLine(
+                label: AmpStrings.adminReportCount,
+                value: data.reportCount.toString(),
+              ),
+              ReceiptLine(
+                label: AmpStrings.adminSessionsCount,
+                value: data.analytics.sessionsCompleted.toString(),
+              ),
+              ReceiptLine(
+                label: AmpStrings.adminEnergyCount,
+                value: AmpFormat.kWh(data.analytics.energyDeliveredKwh),
+              ),
+              ReceiptLine(
+                label: AmpStrings.adminRevenueCount,
+                value: AmpFormat.rupees(data.analytics.revenue),
+              ),
+              ReceiptLine(
+                label: AmpStrings.adminRefundTotal,
+                value: AmpFormat.rupees(data.analytics.refundsAndAdjustments),
+              ),
+              ReceiptLine(
+                label: AmpStrings.adminUtilizationCount,
+                value: AmpFormat.percent(data.analytics.utilizationPercent),
+              ),
+            ],
+          ),
+          const SizedBox(height: AmpTheme.spaceL),
+          const Hairline(),
+          const SizedBox(height: AmpTheme.spaceL),
+          const Eyebrow(AmpStrings.adminQueueTitle),
+          const SizedBox(height: AmpTheme.spaceS),
+          if (data.pendingStations.isEmpty)
+            _AdminEmpty(
+              message: AmpStrings.adminQueueEmpty,
+              onRefresh: () => _refresh(ref),
+            )
+          else
+            for (final ChargerStation station in data.pendingStations)
+              _PendingStationCard(station: station),
+        ],
+      ),
     );
   }
 }
@@ -216,35 +231,56 @@ class _PendingStationCard extends ConsumerWidget {
     WidgetRef ref,
     bool approve,
   ) async {
-    final AdminRepository? repository = ref.read(adminRepositoryProvider);
-    if (repository == null) {
+    final String key = 'station:${station.id}:$approve';
+    if (!_beginDeskAction(key)) {
       return;
     }
-    final RepositoryResult<String> result = await repository.decideStation(
-      station: station,
-      approve: approve,
-    );
-    if (!context.mounted) {
-      return;
-    }
-    final RepositoryFailure<String>? failure = result.failureOrNull;
-    if (failure != null) {
+    try {
+      final String name = (station.name ?? '').trim().isEmpty
+          ? AmpStrings.unnamedCharger
+          : station.name!.trim();
+      if (!approve) {
+        final bool confirmed = await showAmpConfirmDialog(
+          context,
+          title: AmpStrings.adminConfirmDeclineTitle,
+          message: AmpStrings.adminConfirmDeclineBody(name),
+          confirmLabel: AmpStrings.adminDecline,
+        );
+        if (!confirmed || !context.mounted) {
+          return;
+        }
+      }
+      final AdminRepository? repository = ref.read(adminRepositoryProvider);
+      if (repository == null) {
+        return;
+      }
+      final RepositoryResult<String> result = await repository.decideStation(
+        station: station,
+        approve: approve,
+      );
+      if (!context.mounted) {
+        return;
+      }
+      final RepositoryFailure<String>? failure = result.failureOrNull;
+      if (failure != null) {
+        AmpSnackbar.show(
+          context,
+          AmpStrings.adminDecisionFailed,
+          tone: AmpSnackbarTone.error,
+        );
+        return;
+      }
+      ref.invalidate(adminDeskProvider);
       AmpSnackbar.show(
         context,
-        AmpStrings.adminDecisionFailed,
-        tone: AmpSnackbarTone.error,
+        approve
+            ? AmpStrings.adminApproved(name)
+            : AmpStrings.adminDeclined(name),
+        tone: AmpSnackbarTone.success,
       );
-      return;
+    } finally {
+      _endDeskAction(key);
     }
-    ref.invalidate(adminDeskProvider);
-    final String name = (station.name ?? '').trim().isEmpty
-        ? AmpStrings.unnamedCharger
-        : station.name!.trim();
-    AmpSnackbar.show(
-      context,
-      approve ? AmpStrings.adminApproved(name) : AmpStrings.adminDeclined(name),
-      tone: AmpSnackbarTone.success,
-    );
   }
 }
 
@@ -382,76 +418,92 @@ class _DisputeCard extends ConsumerWidget {
   }
 
   Future<void> _refund(BuildContext context, WidgetRef ref) async {
-    final bool confirmed = await showAmpConfirmDialog(
-      context,
-      title: AmpStrings.adminConfirmRefundTitle,
-      message: AmpStrings.adminConfirmRefundBody,
-      confirmLabel: AmpStrings.adminRefundAction,
-    );
-    if (!confirmed || !context.mounted) {
+    final String key = 'dispute:${row.dispute.id}:refund';
+    if (!_beginDeskAction(key)) {
       return;
     }
-    final AdminRepository? repository = ref.read(adminRepositoryProvider);
-    if (repository == null) {
-      return;
-    }
-    final RepositoryResult<String> result = await repository.refundDispute(
-      row.dispute,
-    );
-    if (!context.mounted) {
-      return;
-    }
-    final RepositoryFailure<String>? failure = result.failureOrNull;
-    if (failure != null) {
+    try {
+      final bool confirmed = await showAmpConfirmDialog(
+        context,
+        title: AmpStrings.adminConfirmRefundTitle,
+        message: AmpStrings.adminConfirmRefundBody,
+        confirmLabel: AmpStrings.adminRefundAction,
+      );
+      if (!confirmed || !context.mounted) {
+        return;
+      }
+      final AdminRepository? repository = ref.read(adminRepositoryProvider);
+      if (repository == null) {
+        return;
+      }
+      final RepositoryResult<String> result = await repository.refundDispute(
+        row.dispute,
+      );
+      if (!context.mounted) {
+        return;
+      }
+      final RepositoryFailure<String>? failure = result.failureOrNull;
+      if (failure != null) {
+        AmpSnackbar.show(
+          context,
+          AmpStrings.adminRefundFailed,
+          tone: AmpSnackbarTone.error,
+        );
+        return;
+      }
+      ref.invalidate(adminDeskProvider);
       AmpSnackbar.show(
         context,
-        AmpStrings.adminRefundFailed,
-        tone: AmpSnackbarTone.error,
+        AmpStrings.adminRefunded,
+        tone: AmpSnackbarTone.success,
       );
-      return;
+    } finally {
+      _endDeskAction(key);
     }
-    ref.invalidate(adminDeskProvider);
-    AmpSnackbar.show(
-      context,
-      AmpStrings.adminRefunded,
-      tone: AmpSnackbarTone.success,
-    );
   }
 
   Future<void> _freeze(BuildContext context, WidgetRef ref) async {
-    final bool confirmed = await showAmpConfirmDialog(
-      context,
-      title: AmpStrings.adminConfirmFreezeTitle,
-      message: AmpStrings.adminConfirmFreezeBody,
-      confirmLabel: AmpStrings.adminHoldAction,
-      destructive: false,
-    );
-    if (!confirmed || !context.mounted) {
+    final String key = 'dispute:${row.dispute.id}:freeze';
+    if (!_beginDeskAction(key)) {
       return;
     }
-    final AdminRepository? repository = ref.read(adminRepositoryProvider);
-    if (repository == null) {
-      return;
-    }
-    final RepositoryResult<String> result = await repository
-        .freezeDisputePayout(row.dispute);
-    if (!context.mounted) {
-      return;
-    }
-    if (result.failureOrNull != null) {
+    try {
+      final bool confirmed = await showAmpConfirmDialog(
+        context,
+        title: AmpStrings.adminConfirmFreezeTitle,
+        message: AmpStrings.adminConfirmFreezeBody,
+        confirmLabel: AmpStrings.adminHoldAction,
+        destructive: false,
+      );
+      if (!confirmed || !context.mounted) {
+        return;
+      }
+      final AdminRepository? repository = ref.read(adminRepositoryProvider);
+      if (repository == null) {
+        return;
+      }
+      final RepositoryResult<String> result = await repository
+          .freezeDisputePayout(row.dispute);
+      if (!context.mounted) {
+        return;
+      }
+      if (result.failureOrNull != null) {
+        AmpSnackbar.show(
+          context,
+          AmpStrings.adminPayoutHoldFailed,
+          tone: AmpSnackbarTone.error,
+        );
+        return;
+      }
+      ref.invalidate(adminDeskProvider);
       AmpSnackbar.show(
         context,
-        AmpStrings.adminPayoutHoldFailed,
-        tone: AmpSnackbarTone.error,
+        AmpStrings.adminPayoutHeld,
+        tone: AmpSnackbarTone.success,
       );
-      return;
+    } finally {
+      _endDeskAction(key);
     }
-    ref.invalidate(adminDeskProvider);
-    AmpSnackbar.show(
-      context,
-      AmpStrings.adminPayoutHeld,
-      tone: AmpSnackbarTone.success,
-    );
   }
 
   Future<void> _enforce(
@@ -460,70 +512,78 @@ class _DisputeCard extends ConsumerWidget {
     String action,
     double fine,
   ) async {
-    final String title;
-    final String body;
-    final String confirm;
-    final bool destructive;
-    switch (action) {
-      case AmpPolicy.enforcementWarning:
-        title = AmpStrings.adminConfirmWarningTitle;
-        body = AmpStrings.adminConfirmWarningBody;
-        confirm = AmpStrings.adminWarningAction;
-        destructive = false;
-      case AmpPolicy.enforcementFine:
-        title = AmpStrings.adminConfirmFineTitle;
-        body = AmpStrings.adminConfirmFineBody(AmpFormat.rupees(fine));
-        confirm = AmpStrings.adminFineAction;
-        destructive = false;
-      case AmpPolicy.enforcementSuspension:
-        title = AmpStrings.adminConfirmSuspendTitle;
-        body = AmpStrings.adminConfirmSuspendBody;
-        confirm = AmpStrings.adminSuspendAction;
-        destructive = true;
-      default:
-        title = AmpStrings.adminConfirmBanTitle;
-        body = AmpStrings.adminConfirmBanBody;
-        confirm = AmpStrings.adminBanAction;
-        destructive = true;
+    final String key = 'dispute:${row.dispute.id}:$action';
+    if (!_beginDeskAction(key)) {
+      return;
     }
+    try {
+      final String title;
+      final String body;
+      final String confirm;
+      final bool destructive;
+      switch (action) {
+        case AmpPolicy.enforcementWarning:
+          title = AmpStrings.adminConfirmWarningTitle;
+          body = AmpStrings.adminConfirmWarningBody;
+          confirm = AmpStrings.adminWarningAction;
+          destructive = false;
+        case AmpPolicy.enforcementFine:
+          title = AmpStrings.adminConfirmFineTitle;
+          body = AmpStrings.adminConfirmFineBody(AmpFormat.rupees(fine));
+          confirm = AmpStrings.adminFineAction;
+          destructive = false;
+        case AmpPolicy.enforcementSuspension:
+          title = AmpStrings.adminConfirmSuspendTitle;
+          body = AmpStrings.adminConfirmSuspendBody;
+          confirm = AmpStrings.adminSuspendAction;
+          destructive = true;
+        default:
+          title = AmpStrings.adminConfirmBanTitle;
+          body = AmpStrings.adminConfirmBanBody;
+          confirm = AmpStrings.adminBanAction;
+          destructive = true;
+      }
 
-    final bool confirmed = await showAmpConfirmDialog(
-      context,
-      title: title,
-      message: body,
-      confirmLabel: confirm,
-      destructive: destructive,
-    );
-    if (!confirmed || !context.mounted) {
-      return;
-    }
-    final AdminRepository? repository = ref.read(adminRepositoryProvider);
-    if (repository == null) {
-      return;
-    }
-    final RepositoryResult<String> result = await repository
-        .applyDisputeEnforcement(
-          dispute: row.dispute,
-          action: action,
-          fineAmount: fine,
+      final bool confirmed = await showAmpConfirmDialog(
+        context,
+        title: title,
+        message: body,
+        confirmLabel: confirm,
+        destructive: destructive,
+      );
+      if (!confirmed || !context.mounted) {
+        return;
+      }
+      final AdminRepository? repository = ref.read(adminRepositoryProvider);
+      if (repository == null) {
+        return;
+      }
+      final RepositoryResult<String> result = await repository
+          .applyDisputeEnforcement(
+            dispute: row.dispute,
+            action: action,
+            fineAmount: fine,
+          );
+      if (!context.mounted) {
+        return;
+      }
+      if (result.failureOrNull != null) {
+        AmpSnackbar.show(
+          context,
+          AmpStrings.adminEnforcementFailed,
+          tone: AmpSnackbarTone.error,
         );
-    if (!context.mounted) {
-      return;
-    }
-    if (result.failureOrNull != null) {
+        return;
+      }
+      ref.invalidate(adminDeskProvider);
       AmpSnackbar.show(
         context,
-        AmpStrings.adminEnforcementFailed,
-        tone: AmpSnackbarTone.error,
+        AmpStrings.adminEnforcementRecorded,
+        tone: AmpSnackbarTone.success,
       );
-      return;
+    } finally {
+      _endDeskAction(key);
     }
-    ref.invalidate(adminDeskProvider);
-    AmpSnackbar.show(
-      context,
-      AmpStrings.adminEnforcementRecorded,
-      tone: AmpSnackbarTone.success,
-    );
   }
 }
 
@@ -532,45 +592,62 @@ class _ReportsSection extends ConsumerWidget {
 
   final AdminDeskData data;
 
+  Future<void> _refresh(WidgetRef ref) async {
+    ref.invalidate(adminDeskProvider);
+    await ref.read(adminDeskProvider.future);
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final TextTheme text = Theme.of(context).textTheme;
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(
-        AmpTheme.screenPadding,
-        AmpTheme.spaceL,
-        AmpTheme.screenPadding,
-        AmpTheme.spaceXxl,
+    return RefreshIndicator(
+      onRefresh: () => _refresh(ref),
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(
+          AmpTheme.screenPadding,
+          AmpTheme.spaceL,
+          AmpTheme.screenPadding,
+          AmpTheme.spaceXxl,
+        ),
+        children: <Widget>[
+          const Eyebrow(AmpStrings.adminDisputesTitle),
+          const SizedBox(height: AmpTheme.spaceS),
+          if (data.disputes.isEmpty)
+            _AdminEmpty(
+              message: AmpStrings.adminDisputesEmpty,
+              onRefresh: () => _refresh(ref),
+            )
+          else
+            for (final AdminDisputeRow row in data.disputes)
+              _DisputeCard(row: row),
+          const SizedBox(height: AmpTheme.spaceL),
+          const Hairline(),
+          const SizedBox(height: AmpTheme.spaceL),
+          const Eyebrow(AmpStrings.adminReportsTitle),
+          const SizedBox(height: AmpTheme.spaceS),
+          if (data.consumerReports.isEmpty)
+            _AdminEmpty(
+              message: AmpStrings.adminReportsEmpty,
+              onRefresh: () => _refresh(ref),
+            )
+          else
+            for (final AdminReportRow row in data.consumerReports)
+              _ReportCard(row: row),
+          const SizedBox(height: AmpTheme.spaceL),
+          const Hairline(),
+          const SizedBox(height: AmpTheme.spaceL),
+          const Eyebrow(AmpStrings.adminHostReportsTitle),
+          const SizedBox(height: AmpTheme.spaceS),
+          if (data.hostReports.isEmpty)
+            _AdminEmpty(
+              message: AmpStrings.adminReportsEmpty,
+              onRefresh: () => _refresh(ref),
+            )
+          else
+            for (final AdminReportRow row in data.hostReports)
+              _ReportCard(row: row),
+        ],
       ),
-      children: <Widget>[
-        const Eyebrow(AmpStrings.adminDisputesTitle),
-        const SizedBox(height: AmpTheme.spaceS),
-        if (data.disputes.isEmpty)
-          Text(AmpStrings.adminDisputesEmpty, style: text.bodySmall)
-        else
-          for (final AdminDisputeRow row in data.disputes)
-            _DisputeCard(row: row),
-        const SizedBox(height: AmpTheme.spaceL),
-        const Hairline(),
-        const SizedBox(height: AmpTheme.spaceL),
-        const Eyebrow(AmpStrings.adminReportsTitle),
-        const SizedBox(height: AmpTheme.spaceS),
-        if (data.consumerReports.isEmpty)
-          Text(AmpStrings.adminReportsEmpty, style: text.bodySmall)
-        else
-          for (final AdminReportRow row in data.consumerReports)
-            _ReportCard(row: row),
-        const SizedBox(height: AmpTheme.spaceL),
-        const Hairline(),
-        const SizedBox(height: AmpTheme.spaceL),
-        const Eyebrow(AmpStrings.adminHostReportsTitle),
-        const SizedBox(height: AmpTheme.spaceS),
-        if (data.hostReports.isEmpty)
-          Text(AmpStrings.adminReportsEmpty, style: text.bodySmall)
-        else
-          for (final AdminReportRow row in data.hostReports)
-            _ReportCard(row: row),
-      ],
     );
   }
 }
@@ -647,59 +724,83 @@ class _ReportCard extends ConsumerWidget {
   }
 
   Future<void> _warning(BuildContext context, WidgetRef ref) async {
-    await _apply(context, ref, AmpPolicy.enforcementWarning, 0);
+    final String key = 'report:${row.report.id}:warning';
+    if (!_beginDeskAction(key)) {
+      return;
+    }
+    try {
+      await _apply(context, ref, AmpPolicy.enforcementWarning, 0);
+    } finally {
+      _endDeskAction(key);
+    }
   }
 
   Future<void> _suspend(BuildContext context, WidgetRef ref) async {
-    if (row.targetUserId == null || row.targetUserId!.isEmpty) {
-      AmpSnackbar.show(
-        context,
-        AmpStrings.adminNoTargetBody,
-        tone: AmpSnackbarTone.error,
+    final String key = 'report:${row.report.id}:suspend';
+    if (!_beginDeskAction(key)) {
+      return;
+    }
+    try {
+      if (row.targetUserId == null || row.targetUserId!.isEmpty) {
+        AmpSnackbar.show(
+          context,
+          AmpStrings.adminNoTargetBody,
+          tone: AmpSnackbarTone.error,
+        );
+        return;
+      }
+      final AdminRepository? repository = ref.read(adminRepositoryProvider);
+      if (repository == null) {
+        return;
+      }
+      final RepositoryResult<int> count = await repository.enforcementCountFor(
+        row.targetUserId,
       );
-      return;
+      if (!context.mounted) {
+        return;
+      }
+      final int prior = count.valueOrNull ?? 0;
+      final int suggested = repository.suggestedSuspensionDays(prior);
+      final int? days = await showAmpSheet<int>(
+        context: context,
+        title: AmpStrings.adminSuspendTitle,
+        builder: (BuildContext sheetContext) =>
+            _SuspensionSheet(suggested: suggested),
+      );
+      if (days == null || !context.mounted) {
+        return;
+      }
+      await _apply(
+        context,
+        ref,
+        AmpPolicy.enforcementSuspension,
+        days * AmpPolicy.suspensionDayMs,
+        confirm: false,
+      );
+    } finally {
+      _endDeskAction(key);
     }
-    final AdminRepository? repository = ref.read(adminRepositoryProvider);
-    if (repository == null) {
-      return;
-    }
-    final RepositoryResult<int> count = await repository.enforcementCountFor(
-      row.targetUserId,
-    );
-    if (!context.mounted) {
-      return;
-    }
-    final int prior = count.valueOrNull ?? 0;
-    final int suggested = repository.suggestedSuspensionDays(prior);
-    final int? days = await showAmpSheet<int>(
-      context: context,
-      title: AmpStrings.adminSuspendTitle,
-      builder: (BuildContext sheetContext) =>
-          _SuspensionSheet(suggested: suggested),
-    );
-    if (days == null || !context.mounted) {
-      return;
-    }
-    await _apply(
-      context,
-      ref,
-      AmpPolicy.enforcementSuspension,
-      days * AmpPolicy.suspensionDayMs,
-      confirm: false,
-    );
   }
 
   Future<void> _ban(BuildContext context, WidgetRef ref) async {
-    final bool confirmed = await showAmpConfirmDialog(
-      context,
-      title: AmpStrings.adminConfirmBanTitle,
-      message: AmpStrings.adminConfirmBanBody,
-      confirmLabel: AmpStrings.adminBanAction,
-    );
-    if (!confirmed || !context.mounted) {
+    final String key = 'report:${row.report.id}:ban';
+    if (!_beginDeskAction(key)) {
       return;
     }
-    await _apply(context, ref, AmpPolicy.enforcementBan, 0, confirm: false);
+    try {
+      final bool confirmed = await showAmpConfirmDialog(
+        context,
+        title: AmpStrings.adminConfirmBanTitle,
+        message: AmpStrings.adminConfirmBanBody,
+        confirmLabel: AmpStrings.adminBanAction,
+      );
+      if (!confirmed || !context.mounted) {
+        return;
+      }
+      await _apply(context, ref, AmpPolicy.enforcementBan, 0, confirm: false);
+    } finally {
+      _endDeskAction(key);
+    }
   }
 
   Future<void> _apply(
@@ -809,6 +910,33 @@ class _SuspensionSheetState extends State<_SuspensionSheet> {
       7 => AmpStrings.adminSuspend7d,
       _ => AmpStrings.adminSuspend30d,
     };
+  }
+}
+
+class _AdminEmpty extends StatelessWidget {
+  const _AdminEmpty({required this.message, required this.onRefresh});
+
+  final String message;
+  final VoidCallback onRefresh;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: AmpTheme.spaceS),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            AmpStrings.adminEmptyTitle,
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 2),
+          Text(message, style: Theme.of(context).textTheme.bodySmall),
+          const SizedBox(height: AmpTheme.spaceS),
+          TextAction(AmpStrings.adminRefreshAction, onPressed: onRefresh),
+        ],
+      ),
+    );
   }
 }
 

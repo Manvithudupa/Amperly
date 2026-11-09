@@ -48,6 +48,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
   late final List<int> _dayStarts;
   String? _selectedPortId;
   int _selectedDayIndex = 0;
+  bool _dayChosen = false;
   int? _selectedSlotStartMs;
   bool _submitting = false;
   String? _error;
@@ -76,16 +77,27 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
     List<Slot> slots = const <Slot>[];
     Slot? selectedSlot;
     bool hasSchedule = false;
+    int selectedDayIndex = _selectedDayIndex;
     if (data != null) {
       ports = BookingRules.availablePorts(data.entry.ports, vehicle);
       selectedPort = _pickPort(ports);
       if (selectedPort != null) {
+        if (!_dayChosen) {
+          selectedDayIndex = BookingRules.firstDayWithSlots(
+            station: data.entry.station,
+            port: selectedPort,
+            schedules: data.schedules,
+            reservations: data.reservations,
+            dayStarts: _dayStarts,
+            nowMs: nowMs,
+          );
+        }
         slots = BookingRules.slotsFor(
           station: data.entry.station,
           port: selectedPort,
           schedules: data.schedules,
           reservations: data.reservations,
-          dayStartMs: _dayStarts[_selectedDayIndex],
+          dayStartMs: _dayStarts[selectedDayIndex],
           nowMs: nowMs,
         );
         selectedSlot = _pickSlot(slots);
@@ -134,6 +146,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
             port: selectedPort,
             slots: slots,
             slot: selectedSlot,
+            selectedDayIndex: selectedDayIndex,
             hasSchedule: hasSchedule,
             bookable: bookable,
           );
@@ -190,6 +203,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
     required ChargerPort? port,
     required List<Slot> slots,
     required Slot? slot,
+    required int selectedDayIndex,
     required bool hasSchedule,
     required bool bookable,
   }) {
@@ -260,7 +274,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
             ),
           const _SectionHeading(AmpStrings.bookingDayLabel),
           TextFilterRow<int>(
-            selected: _selectedDayIndex,
+            selected: selectedDayIndex,
             onSelected: _selectDay,
             options: <TextFilterOption<int>>[
               for (int index = 0; index < _dayStarts.length; index++)
@@ -359,6 +373,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
 
   void _selectDay(int index) {
     setState(() {
+      _dayChosen = true;
       _selectedDayIndex = index;
       _selectedSlotStartMs = null;
       _error = null;
@@ -367,6 +382,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
 
   void _selectSlot(int startMs) {
     setState(() {
+      _dayChosen = true;
       _selectedSlotStartMs = startMs;
       _error = null;
     });
@@ -442,9 +458,13 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
     }
 
     setState(() => _submitting = false);
+    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
     ref.invalidate(consumerReservationsProvider);
     ref.invalidate(bookingDataProvider(widget.stationId));
     context.pushReplacement('/bookings/$id');
+    messenger.showSnackBar(
+      const SnackBar(content: Text(AmpStrings.bookingReservedSuccess)),
+    );
   }
 
   void _showError(String message) {

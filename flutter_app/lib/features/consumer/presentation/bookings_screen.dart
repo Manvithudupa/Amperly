@@ -25,7 +25,6 @@ import '../../../domain/policy.dart';
 import '../application/booking_providers.dart';
 import '../application/chat_providers.dart';
 import 'booking_actions.dart';
-import 'consumer_tab_bar.dart';
 
 /// The consumer's real reservations, confirmed by the server.
 class BookingsScreen extends ConsumerWidget {
@@ -40,7 +39,6 @@ class BookingsScreen extends ConsumerWidget {
     return AmpScaffold(
       title: AmpStrings.bookingListTitle,
       subtitle: AmpStrings.bookingListSubtitle,
-      tabBar: const ConsumerTabBar(currentIndex: 2),
       body: bookings.when(
         loading: () => const _BookingsLoading(),
         error: (Object error, StackTrace stack) => ErrorState(
@@ -106,6 +104,11 @@ class _BookingsBody extends ConsumerWidget {
                 onViewCharger: (reservation.stationId ?? '').trim().isEmpty
                     ? null
                     : () => context.push('/chargers/${reservation.stationId}'),
+                onNavigate: (reservation.stationId ?? '').trim().isEmpty
+                    ? null
+                    : () => context.push(
+                        '/chargers/${reservation.stationId}?directions=1',
+                      ),
                 onCancel: reservation.status == AmpPolicy.statusReserved
                     ? () =>
                           confirmBookingCancellation(context, ref, reservation)
@@ -169,6 +172,7 @@ class _ReservationRow extends StatelessWidget {
     required this.onShowCode,
     required this.onSession,
     required this.onViewCharger,
+    required this.onNavigate,
     required this.onCancel,
     this.onMessageHost,
   });
@@ -177,6 +181,7 @@ class _ReservationRow extends StatelessWidget {
   final VoidCallback onShowCode;
   final VoidCallback? onSession;
   final VoidCallback? onViewCharger;
+  final VoidCallback? onNavigate;
   final VoidCallback? onCancel;
   final VoidCallback? onMessageHost;
 
@@ -250,6 +255,11 @@ class _ReservationRow extends StatelessWidget {
                 TextAction(
                   AmpStrings.bookingViewCharger,
                   onPressed: onViewCharger,
+                ),
+              if (onNavigate != null)
+                TextAction(
+                  AmpStrings.bookingNavigateAction,
+                  onPressed: onNavigate,
                 ),
               if (onCancel != null)
                 TextAction(

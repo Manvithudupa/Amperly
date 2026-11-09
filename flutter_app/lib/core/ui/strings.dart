@@ -49,6 +49,40 @@ abstract final class AmpStrings {
   static const String dismiss = 'Dismiss';
   static const String show = 'Show';
   static const String hide = 'Hide';
+  static const String unsavedChangesTitle = 'Discard changes?';
+  static const String unsavedChangesBody =
+      'Anything you entered here has not been saved.';
+  static const String unsavedKeepEditing = 'Keep editing';
+  static const String unsavedDiscard = 'Discard';
+
+  // ------------------------------------------------------- fuel gauge
+  static String fuelGaugeYouSaid(int percent) => 'YOU SAID $percent%';
+  static String fuelGaugeEstimate(int percent) => 'ESTIMATE $percent%';
+  static String fuelGaugeReserve(int percent) => 'RESERVE $percent%';
+  static String fuelGaugeSemantics(int percent, int reserve, int? estimate) =>
+      <String>[
+        'Battery $percent percent',
+        if (estimate != null) 'estimated $estimate percent',
+        'reserve $reserve percent',
+      ].join(', ');
+
+  // -------------------------------------------------------------- location
+  static const String locationPermissionTitle = 'Use your location?';
+  static const String locationPermissionBody =
+      'Amperly uses your location only while it finds a starting point or '
+      'route. It does not track you in the background. You can set the point '
+      'on the map instead.';
+  static const String locationPermissionAllow = 'Use my location';
+  static const String locationPermissionNotNow = 'Not now';
+  static const String locationPermissionOpenSettings = 'Open settings';
+  static const String locationPermissionForever =
+      'Location permission is blocked for Amperly. Enable it in Settings, or '
+      'set the point on the map.';
+  static const String locationPermissionOff =
+      'Location permission is off. Enter the point yourself, or allow '
+      'location when ready.';
+  static const String locationServicesOff =
+      'Location services are off. Turn them on, or enter the point yourself.';
 
   // ---------------------------------------------------------- freshness
   static const String updatedJustNow = 'Updated just now';
@@ -156,6 +190,11 @@ abstract final class AmpStrings {
   static String discoverBatteryLevel(int percent) => 'Battery $percent%';
   static const String discoverBatteryAdd = 'Set battery';
   static const String discoverBatteryUpdate = 'Update';
+  static const String discoverAddVehiclePromptTitle =
+      'Add your car to see what you can reach.';
+  static const String discoverAddVehiclePromptBody =
+      'Your car sets connector compatibility and range checks. You can still '
+      'browse the catalogue without it.';
   static const String discoverBatteryTitle = 'Set your battery';
   static const String discoverBatteryBody =
       'Take the reading from the dashboard. Amperly uses it for range checks '
@@ -194,6 +233,7 @@ abstract final class AmpStrings {
       'A saved vehicle is needed for this filter.';
   static const String availabilityUnknown = 'Availability age not published';
   static const String portsNotPublished = 'No ports published';
+  static String portsFree(int free, int total) => '$free of $total free';
   static const String noPortsAvailable = 'No port available now';
   static String portsAvailable(int available, int total) =>
       '$available of $total ports available now';
@@ -232,6 +272,7 @@ abstract final class AmpStrings {
   static const String detailsNoHost = 'Host not published';
   static const String detailsNoPorts =
       'No ports have been published for this charger.';
+  static const String detailsPortsEmptyTitle = 'No ports published yet';
   static const String detailsPortStatus = 'Status';
   static String detailsReliability(int score, String rating, int incidents) =>
       'Reliability $score/100 · Rating $rating · $incidents reported '
@@ -265,6 +306,22 @@ abstract final class AmpStrings {
   static const String accountOrganization = 'Organization';
   static const String accountIdLabel = 'Account ID';
   static const String accountChargingHistory = 'Charging history';
+  static const String accountActingAs = 'Acting as';
+  static const String accountSwitchRole = 'Switch role';
+  static const String accountSwitchRoleTitle = 'Switch role';
+  static const String accountSwitchRoleBody =
+      'Your account can act in these roles. The choice changes the screens '
+      'and tools you see.';
+  static const String accountCurrentRole = 'Current';
+  static const String roleNotAllowedTitle = 'This role is not available';
+  static const String roleNotAllowedBody =
+      'This account is not entitled to that role. Switch to a role your '
+      'account can use.';
+  static const String activeJourneyOpen = 'Open';
+  static String activeJourneyCharging(String station, String energy) =>
+      'Charging at $station · $energy';
+  static String activeJourneyStarting(String station, String time) =>
+      'Starting soon at $station · $time';
 
   // ---------------------------------------------------------------- vehicles
   static const String vehicleGarageTitle = 'My vehicles';
@@ -372,12 +429,37 @@ abstract final class AmpStrings {
   static const String tripsSubtitle =
       'A real road route, the car in use, and charging stops that keep a '
       'reserve.';
+  static const String tripSavedTitle = 'Saved trip';
+  static const String tripSavedDestinationUnknown = 'Destination not named';
+  static String tripSavedRoute(String origin, String destination) =>
+      '$origin → $destination';
+  static String tripSavedSummary(String distance, String duration, int stops) =>
+      stops == 0
+      ? '$distance · $duration · no charging stops needed'
+      : '$distance · $duration · $stops charging stop'
+            '${stops == 1 ? '' : 's'}';
+  static const String tripSavedHint =
+      'Loads the saved starting point, destination and battery. Plan again '
+      'to refresh the route.';
+  static const String tripResumeAction = 'Resume trip';
+  static const String tripResumeReady =
+      'Saved trip loaded. Plan again to refresh the route.';
+  static const String tripSaveFailed =
+      'The route was planned, but it could not be saved. It will not appear '
+      'on the car.';
+  static const String tripBatteryRecordFailed =
+      'The trip was saved, but the battery reading was not recorded.';
+  static const String discoverBatteryNotRecorded =
+      'Battery set on this device, but it could not be saved to your account.';
   static const String tripStartSection = 'Starting point';
   static const String tripDestinationSection = 'Destination';
   static const String tripBatterySection = 'Battery';
   static const String tripLocating = 'Finding your current location…';
   static const String tripCurrentLocation = 'Your current location';
   static const String tripMapPin = 'Starting point on the map';
+  static const String tripMapDestination = 'Destination on the map';
+  static String milestoneSemantics(String distance, String title) =>
+      '$distance kilometres. $title.';
   static const String tripAddressLookup = 'Looking up the address…';
   static const String tripGpsOnly = 'GPS position · address unavailable';
   static const String tripLocationPermission =
@@ -616,6 +698,10 @@ abstract final class AmpStrings {
   static const String sessionReadingHint =
       'Readings are entered by hand from the station meter; the server '
       'recalculates the bill.';
+  static const String sessionReadingUnsavedTitle = 'Leave this reading?';
+  static const String sessionReadingUnsavedBody =
+      'The meter reading in this box has not been submitted. The charging '
+      'session stays open, and the active-session banner will bring you back.';
   static const String sessionReadingNote =
       'The server recomputes these lines from the two readings when the '
       'session is settled.';
@@ -704,8 +790,9 @@ abstract final class AmpStrings {
   static const String bookingNoPayment =
       'No payment is collected in this build.';
   static const String bookingStationFallback = 'Charger';
-  static const String bookingShowCode = 'Show code';
+  static const String bookingShowCode = 'Open ticket';
   static const String bookingViewCharger = 'View charger';
+  static const String bookingNavigateAction = 'Navigate';
   static const String bookingCancelAction = 'Cancel booking';
   static const String bookingKeep = 'Keep booking';
   static const String bookingCancelTitle = 'Cancel this booking?';
@@ -747,12 +834,17 @@ abstract final class AmpStrings {
   static const String bookingPolicyTitle = 'Cancellation policy';
   static const String bookingReserveAction = 'Reserve this slot';
   static const String bookingReserving = 'Reserving…';
+  static const String bookingReservedSuccess =
+      'Booked. Show this code at the charger.';
   static const String bookingSuccessTitle = 'Booking confirmed';
   static const String bookingCodeTitle = 'Booking code';
   static const String bookingCodeLabel = 'Booking code';
   static const String bookingCodeHint = 'Show this code at the station.';
   static const String bookingQrHint =
       'If the scanner cannot read the code, use the letters below.';
+  static String bookingTicketSemantics(String code, String station) =>
+      'Booking $code at $station.';
+  static String bookingQrSemantics(String code) => 'QR code for booking $code.';
   static const String bookingViewBookings = 'View my bookings';
   static const String bookingNotFoundTitle = 'Booking not found';
   static const String bookingNotFoundBody =
@@ -960,6 +1052,7 @@ abstract final class AmpStrings {
   static const String hostMeterLevel2 = 'Level 2 — smart meter';
   static const String hostMeterLevel3 = 'Level 3 — discovery only';
   static const String hostOperatingHours = 'Published hours';
+  static const String hostHoursRequired = 'Enter the charger opening hours.';
   static const String hostPriceLabel = 'Your price per kWh';
   static const String hostAccessRules = 'Access rules';
   static const String hostAccessHint = 'Contact the host on arrival.';
@@ -1078,6 +1171,10 @@ abstract final class AmpStrings {
   static const String adminQueueEmpty = 'No listings are waiting for review.';
   static const String adminApprove = 'Approve';
   static const String adminDecline = 'Decline';
+  static const String adminConfirmDeclineTitle = 'Decline this listing?';
+  static String adminConfirmDeclineBody(String name) =>
+      '$name will stay hidden from drivers. The host can submit a corrected '
+      'listing later.';
   static String adminApproved(String name) => '$name is approved and live.';
   static String adminDeclined(String name) => '$name was declined.';
   static const String adminDecisionFailed =
@@ -1192,6 +1289,8 @@ abstract final class AmpStrings {
   static const String adminDeclineBody =
       'Declining keeps the charger out of the catalogue.';
   static const String adminNoQueueAction = 'No review action available';
+  static const String adminEmptyTitle = 'Nothing needs attention';
+  static const String adminRefreshAction = 'Check again';
 
   // ------------------------------------------------------------ notifications
   static const String notificationsTitle = 'Notifications';
@@ -1206,6 +1305,8 @@ abstract final class AmpStrings {
   static const String notificationsMarkFailed =
       'Notifications could not be marked read. Try again.';
   static const String notificationsUnread = 'Unread';
+  static String notificationsUnreadCount(int count) =>
+      count == 1 ? '1 unread notification' : '$count unread notifications';
   static const String notificationsOpen = 'Open';
   static const String notificationsActionFailed =
       'That notification could not be opened.';
@@ -1258,17 +1359,25 @@ abstract final class AmpStrings {
   static const String safetySosFailed =
       'The SOS event was not recorded. Try again.';
   static const String safetyTrustedTitle = 'Trusted contacts';
+  static const String safetyTrustedEmptyTitle = 'No trusted contacts yet';
   static const String safetyTrustedEmpty =
       'Add someone you would want to share a charging stop with.';
   static const String safetyAddContact = 'Add contact';
   static const String safetyContactName = 'Name';
   static const String safetyContactPhone = 'Phone';
+  static const String safetyContactNameRequired = 'Enter the contact name.';
+  static const String safetyContactPhoneInvalid =
+      'Enter a phone number with at least 6 digits.';
   static const String safetyContactInvalid =
       'Enter a name and a phone number with at least 6 digits.';
+  static const String safetySavingContact = 'Adding…';
   static const String safetyContactSaved = 'Trusted contact added.';
   static const String safetyContactSaveFailed =
       'The contact could not be added. Try again.';
   static const String safetyContactRemoved = 'Trusted contact removed.';
+  static const String safetyContactRestored = 'Trusted contact restored.';
+  static const String safetyContactRestoreFailed =
+      'The contact could not be restored. Add it again to try once more.';
   static const String safetyContactRemoveFailed =
       'The contact could not be removed. Try again.';
   static const String safetyDeleteContactTitle = 'Remove this contact?';

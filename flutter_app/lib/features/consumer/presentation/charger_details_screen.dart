@@ -9,6 +9,7 @@ import '../../../app/theme/amp_theme.dart';
 import '../../../core/errors/user_messages.dart';
 import '../../../core/formatting/amp_format.dart';
 import '../../../core/location/device_location.dart';
+import '../../../core/location/location_flow.dart';
 import '../../../core/ui/strings.dart';
 import '../../../core/widgets/amp_button.dart';
 import '../../../core/widgets/amp_icon.dart';
@@ -41,9 +42,17 @@ import 'navigation_screen.dart';
 /// Reserve opens the real booking form. It is hidden for stations without a
 /// verified meter, because those cannot bill energy.
 class ChargerDetailsScreen extends ConsumerStatefulWidget {
-  const ChargerDetailsScreen({required this.stationId, super.key});
+  const ChargerDetailsScreen({
+    required this.stationId,
+    super.key,
+    this.autoDirections = false,
+  });
 
   final String stationId;
+
+  /// Used by one-tap Navigate from a booking. The screen still explains
+  /// location access before the system prompt; it never invents a start point.
+  final bool autoDirections;
 
   @override
   ConsumerState<ChargerDetailsScreen> createState() =>
@@ -52,6 +61,7 @@ class ChargerDetailsScreen extends ConsumerStatefulWidget {
 
 class _ChargerDetailsScreenState extends ConsumerState<ChargerDetailsScreen> {
   TravelMode _mode = TravelMode.driving;
+  bool _autoDirectionsStarted = false;
 
   @override
   Widget build(BuildContext context) {
@@ -83,12 +93,24 @@ class _ChargerDetailsScreenState extends ConsumerState<ChargerDetailsScreen> {
                   ref.invalidate(stationDetailProvider(widget.stationId)),
             );
           }
+          final StationCatalogueEntry entry = result.valueOrNull!;
+          if (widget.autoDirections && !_autoDirectionsStarted) {
+            _autoDirectionsStarted = true;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                unawaited(_navigate(context, ref, entry, _mode));
+              }
+            });
+          }
           return _DetailsBody(
-            entry: result.valueOrNull!,
+            entry: entry,
             mode: _mode,
             onModeChanged: (TravelMode value) => setState(() => _mode = value),
-            onNavigate: () =>
-                _navigate(context, ref, result.valueOrNull!, _mode),
+            onNavigate: () => _navigate(context, ref, entry, _mode),
+            onRefresh: () async {
+              ref.invalidate(stationDetailProvider(widget.stationId));
+              await ref.read(stationDetailProvider(widget.stationId).future);
+            },
           );
         },
       ),
@@ -123,22 +145,34 @@ class _ChargerDetailsScreenState extends ConsumerState<ChargerDetailsScreen> {
       AmpStrings.detailsLocating,
       tone: AmpSnackbarTone.info,
     );
-    final DeviceLocationFix fix = await ref
-        .read(deviceLocationServiceProvider)
-        .current();
+    final DeviceLocationService service = ref.read(
+      deviceLocationServiceProvider,
+    );
+    final DeviceLocationFix fix = await requestDeviceLocation(context, service);
     if (!context.mounted) {
       return;
     }
     if (!fix.hasPosition) {
+      final bool needsSettings =
+          fix.status == DeviceLocationStatus.permissionDeniedForever;
       final String message = switch (fix.status) {
+        DeviceLocationStatus.permissionDeniedForever =>
+          AmpStrings.locationPermissionForever,
         DeviceLocationStatus.permissionDenied =>
-          AmpStrings.tripLocationPermission,
-        DeviceLocationStatus.servicesDisabled =>
-          AmpStrings.tripLocationServices,
+          AmpStrings.locationPermissionOff,
+        DeviceLocationStatus.servicesDisabled => AmpStrings.locationServicesOff,
         DeviceLocationStatus.unavailable ||
         DeviceLocationStatus.found => AmpStrings.tripLocationUnavailable,
       };
-      AmpSnackbar.show(context, message, tone: AmpSnackbarTone.error);
+      AmpSnackbar.show(
+        context,
+        message,
+        tone: AmpSnackbarTone.error,
+        actionLabel: needsSettings
+            ? AmpStrings.locationPermissionOpenSettings
+            : null,
+        onAction: needsSettings ? service.openSettings : null,
+      );
       return;
     }
 
@@ -180,12 +214,14 @@ class _DetailsBody extends StatelessWidget {
     required this.mode,
     required this.onModeChanged,
     required this.onNavigate,
+    required this.onRefresh,
   });
 
   final StationCatalogueEntry entry;
   final TravelMode mode;
   final ValueChanged<TravelMode> onModeChanged;
   final VoidCallback onNavigate;
+  final Future<void> Function() onRefresh;
 
   @override
   Widget build(BuildContext context) {
@@ -218,171 +254,205 @@ class _DetailsBody extends StatelessWidget {
         ? AmpStrings.portsAvailable(available, totalPorts)
         : null;
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(
-        AmpTheme.screenPadding,
-        AmpTheme.spaceS,
-        AmpTheme.screenPadding,
-        AmpTheme.spaceXxl,
-      ),
-      children: <Widget>[
-        Text(name, style: text.displayMedium),
-        const SizedBox(height: 4),
-        Text(address, style: text.bodySmall),
-        const SizedBox(height: 10),
-        Eyebrow(AmpStrings.detailsDirectionsMode),
-        const SizedBox(height: 2),
-        TextFilterRow<TravelMode>(
-          options: const <TextFilterOption<TravelMode>>[
-            TextFilterOption<TravelMode>(
-              value: TravelMode.driving,
-              label: AmpStrings.detailsDrive,
-            ),
-            TextFilterOption<TravelMode>(
-              value: TravelMode.walking,
-              label: AmpStrings.detailsWalk,
-            ),
-          ],
-          selected: mode,
-          onSelected: onModeChanged,
+    return RefreshIndicator(
+      onRefresh: onRefresh,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(
+          AmpTheme.screenPadding,
+          AmpTheme.spaceS,
+          AmpTheme.screenPadding,
+          AmpTheme.spaceXxl,
         ),
-        const SizedBox(height: 2),
-        TextAction(AmpStrings.detailsNavigate, onPressed: onNavigate),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 14,
-          runSpacing: 6,
-          children: <Widget>[
-            if (station.isDcCapable) const Eyebrow(AmpStrings.filterDc),
-            Eyebrow(AmpFormat.meterLevel(station.verificationLevel)),
-          ],
-        ),
-        const SizedBox(height: 18),
-        const Hairline(),
-        const _SectionHeading(AmpStrings.detailsAvailability, rule: false),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Expanded(
-              child: StatusDotLabel(
-                availability,
-                detail: availabilityDetail,
-                tone: !hasPorts
-                    ? StatusDotTone.neutral
-                    : available > 0
-                    ? StatusDotTone.available
-                    : StatusDotTone.busy,
-              ),
-            ),
-            if (hasPorts) ...<Widget>[
-              const SizedBox(width: AmpTheme.spaceM),
-              Padding(
-                padding: const EdgeInsets.only(top: 2),
-                child: PortDots(available: available, total: totalPorts),
-              ),
-            ],
-          ],
-        ),
-        if (station.lastUpdatedMs > 0) ...<Widget>[
-          const SizedBox(height: 7),
-          FreshnessLabel(
-            updatedAt: DateTime.fromMillisecondsSinceEpoch(
-              station.lastUpdatedMs,
-            ),
-          ),
-        ] else ...<Widget>[
-          const SizedBox(height: 7),
-          Text(AmpStrings.availabilityUnknown, style: text.bodySmall),
-        ],
-        const SizedBox(height: AmpTheme.spaceS),
-        Text(AmpStrings.detailsAvailabilityNote, style: text.bodySmall),
-        if (!station.supportsPaidEnergyBilling) ...<Widget>[
-          const SizedBox(height: AmpTheme.spaceM),
-          const _PaperNotice(message: AmpStrings.detailsMeterGating),
-        ],
-        const _SectionHeading(AmpStrings.detailsPorts),
-        if (!hasPorts)
-          Text(AmpStrings.detailsNoPorts, style: text.bodySmall)
-        else
-          for (int index = 0; index < entry.ports.length; index++) ...<Widget>[
-            _PortLine(port: entry.ports[index]),
-            if (index < entry.ports.length - 1) const Hairline(),
-          ],
-        const _SectionHeading(AmpStrings.detailsPrice),
-        if (totalPerKwh > 0) ...<Widget>[
-          BigNumber(
-            value: AmpFormat.rupees(totalPerKwh),
-            unit: AmpStrings.perKwh,
-            label: AmpStrings.detailsTotal,
-          ),
-          const SizedBox(height: AmpTheme.spaceS),
-          ReceiptRows(
-            lines: <ReceiptLine>[
-              ReceiptLine(
-                label: AmpStrings.detailsEnergyPrice,
-                value: AmpFormat.rupees(station.pricePerKwh),
-              ),
-              ReceiptLine(
-                label: AmpStrings.detailsServiceFee,
-                value: AmpFormat.rupees(station.serviceFee),
-              ),
-              ReceiptLine(
-                label: AmpStrings.detailsGatewayFee,
-                value: AmpFormat.rupees(station.gatewayFee),
-              ),
-            ],
-          ),
-        ] else
-          Text(AmpStrings.priceNotPublished, style: text.bodySmall),
-        const SizedBox(height: AmpTheme.spaceS),
-        Text(AmpStrings.detailsBillingNote, style: text.bodySmall),
-        if (hours != null) ...<Widget>[
-          const SizedBox(height: AmpTheme.spaceL),
-          const Eyebrow(AmpStrings.detailsOperatingHours),
+        children: <Widget>[
+          Text(name, style: text.displayMedium),
           const SizedBox(height: 4),
-          Text(hours, style: text.bodyMedium),
-        ],
-        const _SectionHeading(AmpStrings.detailsAccess),
-        Text(
-          (station.accessRules ?? '').trim().isEmpty
-              ? AmpStrings.detailsNoAccess
-              : station.accessRules!.trim(),
-          style: text.bodyMedium,
-        ),
-        const _SectionHeading(AmpStrings.detailsHost),
-        Text(
-          (station.hostName ?? '').trim().isEmpty
-              ? AmpStrings.detailsNoHost
-              : station.hostName!.trim(),
-          style: text.bodyMedium,
-        ),
-        const SizedBox(height: 6),
-        Text(
-          showReliability
-              ? AmpStrings.detailsReliability(
-                  station.reliabilityScore.round(),
-                  station.rating.toStringAsFixed(1),
-                  station.incidentCount,
-                )
-              : AmpStrings.detailsReliabilityUnknown,
-          style: text.bodySmall,
-        ),
-        const SizedBox(height: AmpTheme.spaceL),
-        const Hairline(),
-        const SizedBox(height: AmpTheme.spaceS),
-        TextAction(
-          AmpStrings.reportTitle,
-          onPressed: () => context.push(
-            Uri(
-              path: '/report',
-              queryParameters: <String, String>{
-                'stationId': station.id,
-                'hostId': station.hostId ?? '',
-                'stationName': name,
-              },
-            ).toString(),
+          Text(address, style: text.bodySmall),
+          const SizedBox(height: 10),
+          Eyebrow(AmpStrings.detailsDirectionsMode),
+          const SizedBox(height: 2),
+          TextFilterRow<TravelMode>(
+            options: const <TextFilterOption<TravelMode>>[
+              TextFilterOption<TravelMode>(
+                value: TravelMode.driving,
+                label: AmpStrings.detailsDrive,
+              ),
+              TextFilterOption<TravelMode>(
+                value: TravelMode.walking,
+                label: AmpStrings.detailsWalk,
+              ),
+            ],
+            selected: mode,
+            onSelected: onModeChanged,
           ),
+          const SizedBox(height: 2),
+          TextAction(AmpStrings.detailsNavigate, onPressed: onNavigate),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 14,
+            runSpacing: 6,
+            children: <Widget>[
+              if (station.isDcCapable) const Eyebrow(AmpStrings.filterDc),
+              Eyebrow(AmpFormat.meterLevel(station.verificationLevel)),
+            ],
+          ),
+          const SizedBox(height: 18),
+          const Hairline(),
+          const _SectionHeading(AmpStrings.detailsAvailability, rule: false),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Expanded(
+                child: StatusDotLabel(
+                  availability,
+                  detail: availabilityDetail,
+                  tone: !hasPorts
+                      ? StatusDotTone.neutral
+                      : available > 0
+                      ? StatusDotTone.available
+                      : StatusDotTone.busy,
+                ),
+              ),
+              if (hasPorts) ...<Widget>[
+                const SizedBox(width: AmpTheme.spaceM),
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: PortDots(available: available, total: totalPorts),
+                ),
+              ],
+            ],
+          ),
+          if (station.lastUpdatedMs > 0) ...<Widget>[
+            const SizedBox(height: 7),
+            FreshnessLabel(
+              updatedAt: DateTime.fromMillisecondsSinceEpoch(
+                station.lastUpdatedMs,
+              ),
+            ),
+          ] else ...<Widget>[
+            const SizedBox(height: 7),
+            Text(AmpStrings.availabilityUnknown, style: text.bodySmall),
+          ],
+          const SizedBox(height: AmpTheme.spaceS),
+          Text(AmpStrings.detailsAvailabilityNote, style: text.bodySmall),
+          if (!station.supportsPaidEnergyBilling) ...<Widget>[
+            const SizedBox(height: AmpTheme.spaceM),
+            const _PaperNotice(message: AmpStrings.detailsMeterGating),
+          ],
+          const _SectionHeading(AmpStrings.detailsPorts),
+          if (!hasPorts)
+            _PortsEmpty(onRefresh: onRefresh)
+          else
+            for (
+              int index = 0;
+              index < entry.ports.length;
+              index++
+            ) ...<Widget>[
+              _PortLine(port: entry.ports[index]),
+              if (index < entry.ports.length - 1) const Hairline(),
+            ],
+          const _SectionHeading(AmpStrings.detailsPrice),
+          if (totalPerKwh > 0) ...<Widget>[
+            BigNumber(
+              value: AmpFormat.rupees(totalPerKwh),
+              unit: AmpStrings.perKwh,
+              label: AmpStrings.detailsTotal,
+            ),
+            const SizedBox(height: AmpTheme.spaceS),
+            ReceiptRows(
+              lines: <ReceiptLine>[
+                ReceiptLine(
+                  label: AmpStrings.detailsEnergyPrice,
+                  value: AmpFormat.rupees(station.pricePerKwh),
+                ),
+                ReceiptLine(
+                  label: AmpStrings.detailsServiceFee,
+                  value: AmpFormat.rupees(station.serviceFee),
+                ),
+                ReceiptLine(
+                  label: AmpStrings.detailsGatewayFee,
+                  value: AmpFormat.rupees(station.gatewayFee),
+                ),
+              ],
+            ),
+          ] else
+            Text(AmpStrings.priceNotPublished, style: text.bodySmall),
+          const SizedBox(height: AmpTheme.spaceS),
+          Text(AmpStrings.detailsBillingNote, style: text.bodySmall),
+          if (hours != null) ...<Widget>[
+            const SizedBox(height: AmpTheme.spaceL),
+            const Eyebrow(AmpStrings.detailsOperatingHours),
+            const SizedBox(height: 4),
+            Text(hours, style: text.bodyMedium),
+          ],
+          const _SectionHeading(AmpStrings.detailsAccess),
+          Text(
+            (station.accessRules ?? '').trim().isEmpty
+                ? AmpStrings.detailsNoAccess
+                : station.accessRules!.trim(),
+            style: text.bodyMedium,
+          ),
+          const _SectionHeading(AmpStrings.detailsHost),
+          Text(
+            (station.hostName ?? '').trim().isEmpty
+                ? AmpStrings.detailsNoHost
+                : station.hostName!.trim(),
+            style: text.bodyMedium,
+          ),
+          const SizedBox(height: 6),
+          Text(
+            showReliability
+                ? AmpStrings.detailsReliability(
+                    station.reliabilityScore.round(),
+                    station.rating.toStringAsFixed(1),
+                    station.incidentCount,
+                  )
+                : AmpStrings.detailsReliabilityUnknown,
+            style: text.bodySmall,
+          ),
+          const SizedBox(height: AmpTheme.spaceL),
+          const Hairline(),
+          const SizedBox(height: AmpTheme.spaceS),
+          TextAction(
+            AmpStrings.reportTitle,
+            onPressed: () => context.push(
+              Uri(
+                path: '/report',
+                queryParameters: <String, String>{
+                  'stationId': station.id,
+                  'hostId': station.hostId ?? '',
+                  'stationName': name,
+                },
+              ).toString(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PortsEmpty extends StatelessWidget {
+  const _PortsEmpty({required this.onRefresh});
+
+  final Future<void> Function() onRefresh;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Text(
+          AmpStrings.detailsPortsEmptyTitle,
+          style: Theme.of(context).textTheme.titleSmall,
         ),
+        const SizedBox(height: 2),
+        Text(
+          AmpStrings.detailsNoPorts,
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+        const SizedBox(height: AmpTheme.spaceS),
+        TextAction(AmpStrings.retry, onPressed: onRefresh),
       ],
     );
   }

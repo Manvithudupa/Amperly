@@ -12,6 +12,7 @@ import '../../../core/widgets/amp_snackbar.dart';
 import '../../../core/widgets/eyebrow.dart';
 import '../../../core/widgets/hairline.dart';
 import '../../../core/widgets/text_filter_row.dart';
+import '../../../core/widgets/unsaved_changes_guard.dart';
 import '../../../data/models/models.dart';
 import '../../../data/repositories/repository_providers.dart';
 import '../../../data/repositories/repository_result.dart';
@@ -44,7 +45,11 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
   final TextEditingController _details = TextEditingController();
   late String _type = _types.first;
   bool _busy = false;
+  bool _submitted = false;
   String? _error;
+
+  bool get _hasUnsavedChanges =>
+      !_submitted && (_details.text.trim().isNotEmpty || _type != _types.first);
 
   List<String> get _types => widget.hostMode
       ? const <String>[
@@ -92,25 +97,27 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
       return;
     }
 
-    final RepositoryResult<AppUser> profile = await ref.read(
-      currentProfileProvider.future,
-    );
-    final AppUser? reporter = profile.valueOrNull;
-    final repository = ref.read(reportRepositoryProvider);
-    if (reporter == null || repository == null) {
-      if (mounted) {
-        setState(
-          () =>
-              _error = UserMessages.messageFor(UserMessageKind.sessionExpired),
-        );
-      }
-      return;
-    }
-
+    FocusScope.of(context).unfocus();
     setState(() {
       _busy = true;
       _error = null;
     });
+    final RepositoryResult<AppUser> profile = await ref.read(
+      currentProfileProvider.future,
+    );
+    if (!mounted) {
+      return;
+    }
+    final AppUser? reporter = profile.valueOrNull;
+    final repository = ref.read(reportRepositoryProvider);
+    if (reporter == null || repository == null) {
+      setState(() {
+        _busy = false;
+        _error = UserMessages.messageFor(UserMessageKind.sessionExpired);
+      });
+      return;
+    }
+
     final RepositoryResult<Report> result = await repository.submit(
       reporter: reporter,
       reportType: _type,
@@ -130,7 +137,12 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
       return;
     }
     final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
-    context.pop();
+    setState(() => _submitted = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        context.pop();
+      }
+    });
     messenger.showSnackBar(
       const SnackBar(content: Text(AmpStrings.reportSubmitted)),
     );
@@ -144,61 +156,70 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
         ? AmpStrings.reportHostContext
         : AmpStrings.reportConsumerContext;
 
-    return AmpScaffold(
-      title: AmpStrings.reportTitle,
-      subtitle: AmpStrings.reportSubtitle,
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(
-          AmpTheme.screenPadding,
-          AmpTheme.spaceM,
-          AmpTheme.screenPadding,
-          AmpTheme.spaceXxl + 88,
-        ),
-        children: <Widget>[
-          Eyebrow(contextLabel),
-          const SizedBox(height: 4),
-          Text(
-            target.isEmpty
-                ? widget.hostMode
-                      ? AmpStrings.reportAboutDriver
-                      : AmpStrings.reportAboutCharger
-                : target,
-            style: text.titleMedium,
+    return AmpUnsavedChangesGuard(
+      hasUnsavedChanges: _hasUnsavedChanges,
+      onDiscard: () {
+        if (mounted) {
+          context.pop();
+        }
+      },
+      child: AmpScaffold(
+        title: AmpStrings.reportTitle,
+        subtitle: AmpStrings.reportSubtitle,
+        body: ListView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          padding: const EdgeInsets.fromLTRB(
+            AmpTheme.screenPadding,
+            AmpTheme.spaceM,
+            AmpTheme.screenPadding,
+            AmpTheme.spaceXxl + 88,
           ),
-          const SizedBox(height: AmpTheme.spaceL),
-          const Hairline(),
-          const SizedBox(height: AmpTheme.spaceL),
-          const Eyebrow(AmpStrings.reportTypeLabel),
-          const SizedBox(height: AmpTheme.spaceS),
-          TextFilterRow<String>(
-            options: <TextFilterOption<String>>[
-              for (final String type in _types)
-                TextFilterOption<String>(value: type, label: type),
-            ],
-            selected: _type,
-            onSelected: (String type) => setState(() => _type = type),
-          ),
-          const SizedBox(height: AmpTheme.spaceL),
-          AmpField(
-            controller: _details,
-            label: AmpStrings.reportDetailsLabel,
-            hint: AmpStrings.reportDetailsHint,
-            maxLines: 5,
-            minLines: 3,
-            textCapitalization: TextCapitalization.sentences,
-            errorText: _error,
-            onChanged: (String value) {
-              if (_error != null) {
+          children: <Widget>[
+            Eyebrow(contextLabel),
+            const SizedBox(height: 4),
+            Text(
+              target.isEmpty
+                  ? widget.hostMode
+                        ? AmpStrings.reportAboutDriver
+                        : AmpStrings.reportAboutCharger
+                  : target,
+              style: text.titleMedium,
+            ),
+            const SizedBox(height: AmpTheme.spaceL),
+            const Hairline(),
+            const SizedBox(height: AmpTheme.spaceL),
+            const Eyebrow(AmpStrings.reportTypeLabel),
+            const SizedBox(height: AmpTheme.spaceS),
+            TextFilterRow<String>(
+              options: <TextFilterOption<String>>[
+                for (final String type in _types)
+                  TextFilterOption<String>(value: type, label: type),
+              ],
+              selected: _type,
+              onSelected: (String type) => setState(() => _type = type),
+            ),
+            const SizedBox(height: AmpTheme.spaceL),
+            AmpField(
+              controller: _details,
+              label: AmpStrings.reportDetailsLabel,
+              hint: AmpStrings.reportDetailsHint,
+              maxLines: 5,
+              minLines: 3,
+              maxLength: 1200,
+              textInputAction: TextInputAction.newline,
+              textCapitalization: TextCapitalization.sentences,
+              errorText: _error,
+              onChanged: (String value) {
                 setState(() => _error = null);
-              }
-            },
-          ),
-        ],
-      ),
-      bottomBar: AmpButton(
-        label: _busy ? AmpStrings.reportSubmitting : AmpStrings.reportSubmit,
-        loading: _busy,
-        onPressed: _busy ? null : _submit,
+              },
+            ),
+          ],
+        ),
+        bottomBar: AmpButton(
+          label: _busy ? AmpStrings.reportSubmitting : AmpStrings.reportSubmit,
+          loading: _busy,
+          onPressed: _busy ? null : _submit,
+        ),
       ),
     );
   }

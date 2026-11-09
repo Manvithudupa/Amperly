@@ -3,6 +3,15 @@ import 'package:geolocator/geolocator.dart';
 enum DeviceLocationStatus {
   found,
   permissionDenied,
+  permissionDeniedForever,
+  servicesDisabled,
+  unavailable,
+}
+
+enum DeviceLocationPermission {
+  granted,
+  denied,
+  deniedForever,
   servicesDisabled,
   unavailable,
 }
@@ -28,6 +37,9 @@ final class DeviceLocationFix {
   const DeviceLocationFix.permissionDenied()
     : this._(status: DeviceLocationStatus.permissionDenied);
 
+  const DeviceLocationFix.permissionDeniedForever()
+    : this._(status: DeviceLocationStatus.permissionDeniedForever);
+
   const DeviceLocationFix.servicesDisabled()
     : this._(status: DeviceLocationStatus.servicesDisabled);
 
@@ -42,25 +54,66 @@ final class DeviceLocationFix {
 }
 
 abstract interface class DeviceLocationService {
+  /// Reads the current grant without prompting. Startup uses this so the app
+  /// never opens a system permission dialog before explaining itself.
+  Future<DeviceLocationPermission> checkPermission();
+
+  /// Requests permission when necessary, then reads the position. Callers
+  /// should show [requestDeviceLocation] first.
   Future<DeviceLocationFix> current();
+
+  /// Opens this app's system settings page for a permanent denial.
+  Future<bool> openSettings();
 }
 
 final class GeolocatorDeviceLocationService implements DeviceLocationService {
   const GeolocatorDeviceLocationService();
 
   @override
-  Future<DeviceLocationFix> current() async {
+  Future<DeviceLocationPermission> checkPermission() async {
     try {
       if (!await Geolocator.isLocationServiceEnabled()) {
+        return DeviceLocationPermission.servicesDisabled;
+      }
+      final LocationPermission permission = await Geolocator.checkPermission();
+      return switch (permission) {
+        LocationPermission.always ||
+        LocationPermission.whileInUse => DeviceLocationPermission.granted,
+        LocationPermission.deniedForever =>
+          DeviceLocationPermission.deniedForever,
+        LocationPermission.denied ||
+        LocationPermission.unableToDetermine => DeviceLocationPermission.denied,
+      };
+    } on Object {
+      return DeviceLocationPermission.unavailable;
+    }
+  }
+
+  @override
+  Future<DeviceLocationFix> current() async {
+    try {
+      final DeviceLocationPermission current = await checkPermission();
+      if (current == DeviceLocationPermission.servicesDisabled) {
         return const DeviceLocationFix.servicesDisabled();
       }
+      if (current == DeviceLocationPermission.deniedForever) {
+        return const DeviceLocationFix.permissionDeniedForever();
+      }
+      if (current == DeviceLocationPermission.unavailable) {
+        return const DeviceLocationFix.unavailable();
+      }
 
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
+      LocationPermission permission = LocationPermission.denied;
+      if (current == DeviceLocationPermission.denied) {
         permission = await Geolocator.requestPermission();
+      } else {
+        permission = await Geolocator.checkPermission();
+      }
+      if (permission == LocationPermission.deniedForever) {
+        return const DeviceLocationFix.permissionDeniedForever();
       }
       if (permission == LocationPermission.denied ||
-          permission == LocationPermission.deniedForever) {
+          permission == LocationPermission.unableToDetermine) {
         return const DeviceLocationFix.permissionDenied();
       }
 
@@ -75,4 +128,7 @@ final class GeolocatorDeviceLocationService implements DeviceLocationService {
       return const DeviceLocationFix.unavailable();
     }
   }
+
+  @override
+  Future<bool> openSettings() => Geolocator.openAppSettings();
 }

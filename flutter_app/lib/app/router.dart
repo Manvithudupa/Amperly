@@ -7,8 +7,10 @@ import '../core/ui/strings.dart';
 import '../core/widgets/amp_scaffold.dart';
 import '../core/widgets/error_state.dart';
 import '../features/admin/presentation/admin_desk_screen.dart';
+import '../features/auth/application/app_role.dart';
 import '../features/auth/application/session_controller.dart';
 import '../features/auth/presentation/account_screen.dart';
+import '../features/auth/presentation/role_landing_screen.dart';
 import '../features/auth/presentation/sign_in_screen.dart';
 import '../features/common/presentation/notifications_screen.dart';
 import '../features/consumer/presentation/booking_code_screen.dart';
@@ -18,6 +20,7 @@ import '../features/consumer/presentation/charger_details_screen.dart';
 import '../features/consumer/presentation/charging_history_screen.dart';
 import '../features/consumer/presentation/charging_session_screen.dart';
 import '../features/consumer/presentation/chat_screen.dart';
+import '../features/consumer/presentation/discover_screen.dart';
 import '../features/consumer/presentation/messages_screen.dart';
 import '../features/consumer/presentation/navigation_screen.dart';
 import '../features/consumer/presentation/report_screen.dart';
@@ -26,9 +29,9 @@ import '../features/consumer/presentation/trip_planner_screen.dart';
 import '../features/consumer/presentation/vehicle_form_screen.dart';
 import '../features/consumer/presentation/vehicle_garage_screen.dart';
 import '../features/gallery/component_gallery_screen.dart';
-import '../features/home/presentation/home_screen.dart';
 import '../features/host/presentation/host_station_form_screen.dart';
 import '../features/host/presentation/host_workspace_screen.dart';
+import 'navigation_shell.dart';
 
 /// The route table and the one redirect that protects every private screen.
 ///
@@ -46,7 +49,7 @@ final Provider<GoRouter> routerProvider = Provider<GoRouter>((Ref ref) {
   ref.onDispose(refresh.dispose);
 
   return GoRouter(
-    initialLocation: '/sign-in',
+    initialLocation: '/start',
     refreshListenable: refresh,
     debugLogDiagnostics: kDebugMode,
     redirect: (BuildContext context, GoRouterState state) {
@@ -59,7 +62,7 @@ final Provider<GoRouter> routerProvider = Provider<GoRouter>((Ref ref) {
         return '/sign-in';
       }
       if (signedIn && onSignIn) {
-        return '/home';
+        return '/start';
       }
       return null;
     },
@@ -70,34 +73,178 @@ final Provider<GoRouter> routerProvider = Provider<GoRouter>((Ref ref) {
             const SignInScreen(),
       ),
       GoRoute(
-        path: '/home',
+        path: '/start',
         builder: (BuildContext context, GoRouterState state) =>
-            const HomeScreen(),
+            const RoleLandingScreen(),
       ),
-      GoRoute(
-        path: '/account',
-        builder: (BuildContext context, GoRouterState state) =>
-            const AccountScreen(),
+
+      // Consumer branches. Detail, form and session screens stay outside this
+      // shell so they cover the bar and back returns to the same branch.
+      StatefulShellRoute.indexedStack(
+        builder:
+            (
+              BuildContext context,
+              GoRouterState state,
+              StatefulNavigationShell navigationShell,
+            ) => RoleShell(
+              navigationShell: navigationShell,
+              role: AppRole.consumer,
+            ),
+        branches: <StatefulShellBranch>[
+          StatefulShellBranch(
+            routes: <RouteBase>[
+              GoRoute(
+                path: '/home',
+                builder: (BuildContext context, GoRouterState state) =>
+                    const DiscoverScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: <RouteBase>[
+              GoRoute(
+                path: '/trips',
+                builder: (BuildContext context, GoRouterState state) =>
+                    const TripPlannerScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: <RouteBase>[
+              GoRoute(
+                path: '/bookings',
+                builder: (BuildContext context, GoRouterState state) =>
+                    const BookingsScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: <RouteBase>[
+              GoRoute(
+                path: '/messages',
+                builder: (BuildContext context, GoRouterState state) =>
+                    const MessagesScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: <RouteBase>[
+              GoRoute(
+                path: '/account',
+                builder: (BuildContext context, GoRouterState state) =>
+                    const AccountScreen(),
+              ),
+            ],
+          ),
+        ],
       ),
-      GoRoute(
-        path: '/host',
-        builder: (BuildContext context, GoRouterState state) =>
-            const HostWorkspaceScreen(),
+
+      // Host branches. The existing workspace sections become the destinations.
+      StatefulShellRoute.indexedStack(
+        builder:
+            (
+              BuildContext context,
+              GoRouterState state,
+              StatefulNavigationShell navigationShell,
+            ) =>
+                RoleShell(navigationShell: navigationShell, role: AppRole.host),
+        branches: <StatefulShellBranch>[
+          StatefulShellBranch(
+            routes: <RouteBase>[
+              GoRoute(
+                path: '/host/dashboard',
+                builder: (BuildContext context, GoRouterState state) =>
+                    const HostWorkspaceScreen(
+                      section: HostWorkspaceSection.dashboard,
+                    ),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: <RouteBase>[
+              GoRoute(
+                path: '/host/stations',
+                builder: (BuildContext context, GoRouterState state) =>
+                    const HostWorkspaceScreen(
+                      section: HostWorkspaceSection.stations,
+                    ),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: <RouteBase>[
+              GoRoute(
+                path: '/host/bookings',
+                builder: (BuildContext context, GoRouterState state) =>
+                    const HostWorkspaceScreen(
+                      section: HostWorkspaceSection.bookings,
+                    ),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: <RouteBase>[
+              GoRoute(
+                path: '/host/account',
+                builder: (BuildContext context, GoRouterState state) =>
+                    const AccountScreen(),
+              ),
+            ],
+          ),
+        ],
       ),
+
+      // Admin branches.
+      StatefulShellRoute.indexedStack(
+        builder:
+            (
+              BuildContext context,
+              GoRouterState state,
+              StatefulNavigationShell navigationShell,
+            ) => RoleShell(
+              navigationShell: navigationShell,
+              role: AppRole.admin,
+            ),
+        branches: <StatefulShellBranch>[
+          StatefulShellBranch(
+            routes: <RouteBase>[
+              GoRoute(
+                path: '/admin/queue',
+                builder: (BuildContext context, GoRouterState state) =>
+                    const AdminDeskScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: <RouteBase>[
+              GoRoute(
+                path: '/admin/reports',
+                builder: (BuildContext context, GoRouterState state) =>
+                    const AdminDeskScreen(section: AdminDeskSection.reports),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: <RouteBase>[
+              GoRoute(
+                path: '/admin/account',
+                builder: (BuildContext context, GoRouterState state) =>
+                    const AccountScreen(),
+              ),
+            ],
+          ),
+        ],
+      ),
+
+      // Short links used by older screens still land on the role desk.
+      GoRoute(path: '/host', redirect: (_, _) => '/host/dashboard'),
+      GoRoute(path: '/admin', redirect: (_, _) => '/admin/queue'),
+
+      // Pushed flows: these sit above the shell and have no tab bar.
       GoRoute(
         path: '/host/stations/new',
         builder: (BuildContext context, GoRouterState state) =>
             const HostStationFormScreen(),
-      ),
-      GoRoute(
-        path: '/admin',
-        builder: (BuildContext context, GoRouterState state) =>
-            const AdminDeskScreen(),
-      ),
-      GoRoute(
-        path: '/admin/reports',
-        builder: (BuildContext context, GoRouterState state) =>
-            const AdminDeskScreen(section: AdminDeskSection.reports),
       ),
       GoRoute(
         path: '/notifications',
@@ -138,11 +285,6 @@ final Provider<GoRouter> routerProvider = Provider<GoRouter>((Ref ref) {
             VehicleFormScreen(vehicleId: state.pathParameters['vehicleId']),
       ),
       GoRoute(
-        path: '/trips',
-        builder: (BuildContext context, GoRouterState state) =>
-            const TripPlannerScreen(),
-      ),
-      GoRoute(
         path: '/navigation',
         builder: (BuildContext context, GoRouterState state) {
           final Object? extra = state.extra;
@@ -172,19 +314,9 @@ final Provider<GoRouter> routerProvider = Provider<GoRouter>((Ref ref) {
             ),
       ),
       GoRoute(
-        path: '/messages',
-        builder: (BuildContext context, GoRouterState state) =>
-            const MessagesScreen(),
-      ),
-      GoRoute(
         path: '/messages/:threadId',
         builder: (BuildContext context, GoRouterState state) =>
             ChatScreen(threadId: state.pathParameters['threadId']!),
-      ),
-      GoRoute(
-        path: '/bookings',
-        builder: (BuildContext context, GoRouterState state) =>
-            const BookingsScreen(),
       ),
       GoRoute(
         path: '/bookings/:reservationId',
@@ -201,7 +333,10 @@ final Provider<GoRouter> routerProvider = Provider<GoRouter>((Ref ref) {
       GoRoute(
         path: '/chargers/:stationId',
         builder: (BuildContext context, GoRouterState state) =>
-            ChargerDetailsScreen(stationId: state.pathParameters['stationId']!),
+            ChargerDetailsScreen(
+              stationId: state.pathParameters['stationId']!,
+              autoDirections: state.uri.queryParameters['directions'] == '1',
+            ),
       ),
       if (kDebugMode)
         GoRoute(

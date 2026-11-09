@@ -41,34 +41,44 @@ class AmpChip extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(AmpTheme.radiusPill),
-          child: Ink(
-            decoration: BoxDecoration(
-              color: background,
-              borderRadius: BorderRadius.circular(AmpTheme.radiusPill),
-              border: Border.all(color: border),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                if (leading != null) ...<Widget>[
-                  leading!,
-                  const SizedBox(width: 6),
-                ] else if (icon != null) ...<Widget>[
-                  AmpIcon(icon!, size: 15, color: foreground),
-                  const SizedBox(width: 6),
-                ],
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontFamily: AmpTheme.uiFont,
-                    fontSize: 13,
-                    height: 1.2,
-                    fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-                    color: foreground,
-                  ),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 48, minWidth: 48),
+            child: Center(
+              child: Ink(
+                decoration: BoxDecoration(
+                  color: background,
+                  borderRadius: BorderRadius.circular(AmpTheme.radiusPill),
+                  border: Border.all(color: border),
                 ),
-              ],
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 8,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    if (leading != null) ...<Widget>[
+                      leading!,
+                      const SizedBox(width: 6),
+                    ] else if (icon != null) ...<Widget>[
+                      AmpIcon(icon!, size: 15, color: foreground),
+                      const SizedBox(width: 6),
+                    ],
+                    Text(
+                      label,
+                      style: TextStyle(
+                        fontFamily: AmpTheme.uiFont,
+                        fontSize: 13,
+                        height: 1.2,
+                        fontWeight: selected
+                            ? FontWeight.w600
+                            : FontWeight.w500,
+                        color: foreground,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
         ),

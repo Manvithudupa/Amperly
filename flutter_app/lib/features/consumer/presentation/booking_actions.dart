@@ -13,6 +13,13 @@ import '../../../domain/engines/billing_engine.dart';
 import '../application/booking_providers.dart';
 import '../application/booking_rules.dart';
 
+/// Reservation ids with a cancellation already waiting on the server.
+///
+/// Cancellation is offered from the bookings list and the ticket, and both call
+/// this function. A second tap while the first request is in flight must not
+/// open another confirmation or send another RPC.
+final Set<String> _cancellationsInFlight = <String>{};
+
 /// Confirms and performs a cancellation through the server RPC.
 ///
 /// The server decides whether the booking may still be cancelled and records
@@ -22,64 +29,71 @@ Future<bool> confirmBookingCancellation(
   WidgetRef ref,
   Reservation reservation,
 ) async {
-  final CancellationResult cancellation = BillingEngine.calculateCancellation(
-    reservation,
-    DateTime.now().millisecondsSinceEpoch,
-  );
-  final bool confirmed = await showAmpConfirmDialog(
-    context,
-    title: AmpStrings.bookingCancelTitle,
-    message: cancellation.free
-        ? AmpStrings.bookingCancelFreeBody
-        : AmpStrings.bookingCancelFeeBody(AmpFormat.rupees(cancellation.fee)),
-    confirmLabel: AmpStrings.bookingCancelAction,
-    cancelLabel: AmpStrings.bookingKeep,
-  );
-  if (!confirmed || !context.mounted) {
+  if (!_cancellationsInFlight.add(reservation.id)) {
     return false;
   }
+  try {
+    final CancellationResult cancellation = BillingEngine.calculateCancellation(
+      reservation,
+      DateTime.now().millisecondsSinceEpoch,
+    );
+    final bool confirmed = await showAmpConfirmDialog(
+      context,
+      title: AmpStrings.bookingCancelTitle,
+      message: cancellation.free
+          ? AmpStrings.bookingCancelFreeBody
+          : AmpStrings.bookingCancelFeeBody(AmpFormat.rupees(cancellation.fee)),
+      confirmLabel: AmpStrings.bookingCancelAction,
+      cancelLabel: AmpStrings.bookingKeep,
+    );
+    if (!confirmed || !context.mounted) {
+      return false;
+    }
 
-  final ReservationRepository? repository = ref.read(
-    reservationRepositoryProvider,
-  );
-  if (repository == null) {
+    final ReservationRepository? repository = ref.read(
+      reservationRepositoryProvider,
+    );
+    if (repository == null) {
+      AmpSnackbar.show(
+        context,
+        AmpStrings.bookingServerRequired,
+        tone: AmpSnackbarTone.error,
+      );
+      return false;
+    }
+
+    final RepositoryResult<String> result = await repository.cancel(
+      reservation.id,
+    );
+    if (!context.mounted) {
+      return false;
+    }
+
+    final RepositoryFailure<String>? failure = result.failureOrNull;
+    if (failure != null) {
+      AmpSnackbar.show(
+        context,
+        BookingRules.refusalMessage(
+          failure.cause,
+          fallback: AmpStrings.bookingCancelFailed,
+        ),
+        tone: AmpSnackbarTone.error,
+      );
+      return false;
+    }
+
+    ref.invalidate(consumerReservationsProvider);
+    final String stationId = (reservation.stationId ?? '').trim();
+    if (stationId.isNotEmpty) {
+      ref.invalidate(bookingDataProvider(stationId));
+    }
     AmpSnackbar.show(
       context,
-      AmpStrings.bookingServerRequired,
-      tone: AmpSnackbarTone.error,
+      AmpStrings.bookingCancelled,
+      tone: AmpSnackbarTone.success,
     );
-    return false;
+    return true;
+  } finally {
+    _cancellationsInFlight.remove(reservation.id);
   }
-
-  final RepositoryResult<String> result = await repository.cancel(
-    reservation.id,
-  );
-  if (!context.mounted) {
-    return false;
-  }
-
-  final RepositoryFailure<String>? failure = result.failureOrNull;
-  if (failure != null) {
-    AmpSnackbar.show(
-      context,
-      BookingRules.refusalMessage(
-        failure.cause,
-        fallback: AmpStrings.bookingCancelFailed,
-      ),
-      tone: AmpSnackbarTone.error,
-    );
-    return false;
-  }
-
-  ref.invalidate(consumerReservationsProvider);
-  final String stationId = (reservation.stationId ?? '').trim();
-  if (stationId.isNotEmpty) {
-    ref.invalidate(bookingDataProvider(stationId));
-  }
-  AmpSnackbar.show(
-    context,
-    AmpStrings.bookingCancelled,
-    tone: AmpSnackbarTone.success,
-  );
-  return true;
 }

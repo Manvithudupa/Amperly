@@ -31,31 +31,34 @@ class StatusDotLabel extends StatelessWidget {
     };
     final String semantics = detail == null ? label : '$label, $detail';
 
-    return Semantics(
-      label: semantics,
-      child: ExcludeSemantics(
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            Container(
-              width: 6,
-              height: 6,
-              decoration: BoxDecoration(color: dot, shape: BoxShape.circle),
-            ),
-            const SizedBox(width: 7),
-            Flexible(
-              child: Text(
-                detail == null ? label : '$label · $detail',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: colors.inkSecondary,
-                  fontWeight: FontWeight.w500,
-                  letterSpacing: 0,
+    return Tooltip(
+      message: semantics,
+      child: Semantics(
+        label: semantics,
+        child: ExcludeSemantics(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Container(
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(color: dot, shape: BoxShape.circle),
+              ),
+              const SizedBox(width: 7),
+              Flexible(
+                child: Text(
+                  detail == null ? label : '$label · $detail',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: colors.inkSecondary,
+                    fontWeight: FontWeight.w500,
+                    letterSpacing: 0,
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

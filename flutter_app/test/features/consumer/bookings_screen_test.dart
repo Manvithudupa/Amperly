@@ -68,10 +68,11 @@ void main() {
     expect(find.text(AmpStrings.sessionOpenAction), findsOneWidget);
     expect(find.text(AmpStrings.chatMessageHost), findsOneWidget);
     expect(find.text(AmpStrings.bookingViewCharger), findsOneWidget);
+    expect(find.text(AmpStrings.bookingNavigateAction), findsOneWidget);
     expect(find.text(AmpStrings.bookingCancelAction), findsOneWidget);
     expect(find.byType(DepartureRow), findsOneWidget);
     expect(find.byType(StatusDotLabel), findsOneWidget);
-    expect(find.byType(TextAction), findsNWidgets(5));
+    expect(find.byType(TextAction), findsNWidgets(6));
     expect(find.byType(AmpBadge), findsNothing);
     expect(find.byType(AmpChip), findsNothing);
   });

@@ -228,6 +228,151 @@ void main() {
       });
     });
   }
+
+  for (final (String mode, ThemeData theme) in <(String, ThemeData)>[
+    ('light', AmpTheme.light()),
+    ('dark', AmpTheme.dark()),
+  ]) {
+    group('$mode paper components at 2.0 text scale', () {
+      testWidgets('departure row', (WidgetTester tester) async {
+        await _expectGolden(
+          tester,
+          name: 'departure_row_2x',
+          mode: mode,
+          theme: theme,
+          height: 400,
+          textScale: 2,
+          child: DepartureRow(
+            title: 'Padubidri Service Road Charger',
+            metric: '60',
+            metricUnit: 'kW',
+            detail: 'CCS2 · 2 connectors',
+            availablePorts: 2,
+            totalPorts: 4,
+            statusLabel: 'Available',
+            statusDetail: '3 min ago',
+            price: '₹20',
+            onTap: () {},
+          ),
+        );
+      });
+
+      testWidgets('ticket card', (WidgetTester tester) async {
+        await _expectGolden(
+          tester,
+          name: 'ticket_card_2x',
+          mode: mode,
+          theme: theme,
+          height: 440,
+          textScale: 2,
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: TicketCard(
+              notchOffset: 0.58,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    'BOOKED',
+                    style: TextStyle(
+                      fontFamily: AmpTheme.uiFont,
+                      fontSize: 11,
+                      height: 1.3,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.8,
+                      color: theme.extension<AmpColors>()!.inkSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Hampankatta Charger Hub',
+                    style: theme.textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'CCS2 · Port 2 · Today, 6:30 pm – 8:00 pm',
+                    style: theme.textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 30),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: <Widget>[
+                      Expanded(
+                        child: Text(
+                          'AMP-D6NAUU',
+                          style: const TextStyle(
+                            fontFamily: AmpTheme.displayFont,
+                            fontSize: 27,
+                            height: 1.08,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: -0.8,
+                            fontFeatures: <FontFeature>[
+                              FontFeature.tabularFigures(),
+                            ],
+                          ),
+                        ),
+                      ),
+                      AmpIcon(
+                        AmpIconName.qr,
+                        size: 48,
+                        color: theme.extension<AmpColors>()!.ink,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      });
+
+      testWidgets('fuel gauge', (WidgetTester tester) async {
+        await _expectGolden(
+          tester,
+          name: 'fuel_gauge_2x',
+          mode: mode,
+          theme: theme,
+          height: 190,
+          textScale: 2,
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: FuelGauge(percent: 38, estimatePercent: 52),
+          ),
+        );
+      });
+
+      testWidgets('bottom bar', (WidgetTester tester) async {
+        await _expectGolden(
+          tester,
+          name: 'bottom_bar_2x',
+          mode: mode,
+          theme: theme,
+          height: 88,
+          textScale: 2,
+          child: Align(
+            alignment: Alignment.bottomCenter,
+            child: AmpBottomBar(
+              destinations: const <AmpBottomDestination>[
+                AmpBottomDestination(
+                  label: 'Discover',
+                  icon: AmpIconName.compass,
+                ),
+                AmpBottomDestination(label: 'Trips', icon: AmpIconName.route),
+                AmpBottomDestination(
+                  label: 'Bookings',
+                  icon: AmpIconName.ticket,
+                ),
+                AmpBottomDestination(label: 'Messages', icon: AmpIconName.chat),
+                AmpBottomDestination(label: 'Profile', icon: AmpIconName.user),
+              ],
+              currentIndex: 0,
+              onSelected: (_) {},
+            ),
+          ),
+        );
+      });
+    });
+  }
 }
 
 Future<void> _expectGolden(
@@ -237,6 +382,7 @@ Future<void> _expectGolden(
   required ThemeData theme,
   required double height,
   required Widget child,
+  double textScale = 1,
 }) async {
   tester.view.physicalSize = Size(420, height);
   tester.view.devicePixelRatio = 1;
@@ -250,7 +396,10 @@ Future<void> _expectGolden(
       theme: theme,
       builder: (BuildContext context, Widget? app) {
         return MediaQuery(
-          data: MediaQuery.of(context).copyWith(disableAnimations: true),
+          data: MediaQuery.of(context).copyWith(
+            disableAnimations: true,
+            textScaler: TextScaler.linear(textScale),
+          ),
           child: app!,
         );
       },

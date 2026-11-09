@@ -171,6 +171,53 @@ void main() {
     },
   );
 
+  test('billing rounds every displayed component and never says Paid', () {
+    final result = BillingEngine.calculateBill(
+      sessionId: 'sess_round',
+      consumerId: 'cons_1',
+      hostId: 'host_1',
+      stationName: 'Campus Charger',
+      station: station(),
+      meterLevel: AmpPolicy.level1VerifiedManual,
+      simulated: false,
+      startMeterKwh: 100.1,
+      endMeterKwh: 100.3,
+    );
+
+    expect(result.valid, isTrue);
+    expect(result.verifiedKwh, 0.2);
+    expect(result.energyCharge, 2.88);
+    expect(result.finalTotal, 11.88);
+    expect(result.invoice?.finalTotal, 11.88);
+    expect(result.invoice?.status, AmpPolicy.invoiceIssued);
+    expect(result.invoice?.status, isNot(AmpPolicy.invoicePaid));
+  });
+
+  test('free cancellation ends exactly sixty minutes before the slot', () {
+    final DateTime start = DateTime(2026, 11, 9, 12);
+    final Reservation reservation = Reservation(
+      id: 'r-boundary',
+      startTimeMs: start.millisecondsSinceEpoch,
+      endTimeMs: start.add(const Duration(hours: 1)).millisecondsSinceEpoch,
+    );
+    final DateTime windowEdge = start.subtract(const Duration(minutes: 60));
+
+    expect(
+      BillingEngine.calculateCancellation(
+        reservation,
+        windowEdge.millisecondsSinceEpoch,
+      ).free,
+      isTrue,
+    );
+    expect(
+      BillingEngine.calculateCancellation(
+        reservation,
+        windowEdge.add(const Duration(milliseconds: 1)).millisecondsSinceEpoch,
+      ).free,
+      isFalse,
+    );
+  });
+
   test(
     'reservation checks double booking, connectors and meterless billing',
     () {

@@ -24,6 +24,7 @@ class AmpColors extends ThemeExtension<AmpColors> {
     required this.energyTint,
     required this.onEnergy,
     required this.available,
+    required this.availableInk,
     required this.availableTint,
     required this.busy,
     required this.busyTint,
@@ -55,6 +56,7 @@ class AmpColors extends ThemeExtension<AmpColors> {
   final Color energyTint;
   final Color onEnergy;
   final Color available;
+  final Color availableInk;
   final Color availableTint;
   final Color busy;
   final Color busyTint;
@@ -86,6 +88,7 @@ class AmpColors extends ThemeExtension<AmpColors> {
     energyTint: Color(0xFFFDF1D8),
     onEnergy: Color(0xFF16201B),
     available: Color(0xFF2E7D4F),
+    availableInk: Color(0xFF24663F),
     availableTint: Color(0xFFE4F2E6),
     busy: Color(0xFFC77700),
     busyTint: Color(0xFFFBEEDA),
@@ -118,6 +121,7 @@ class AmpColors extends ThemeExtension<AmpColors> {
     energyTint: Color(0xFF3A2E17),
     onEnergy: Color(0xFF16201B),
     available: Color(0xFF7FD39A),
+    availableInk: Color(0xFF7FD39A),
     availableTint: Color(0xFF1F3326),
     busy: Color(0xFFE8B25F),
     busyTint: Color(0xFF3A2E18),
@@ -151,6 +155,7 @@ class AmpColors extends ThemeExtension<AmpColors> {
     Color? energyTint,
     Color? onEnergy,
     Color? available,
+    Color? availableInk,
     Color? availableTint,
     Color? busy,
     Color? busyTint,
@@ -182,6 +187,7 @@ class AmpColors extends ThemeExtension<AmpColors> {
       energyTint: energyTint ?? this.energyTint,
       onEnergy: onEnergy ?? this.onEnergy,
       available: available ?? this.available,
+      availableInk: availableInk ?? this.availableInk,
       availableTint: availableTint ?? this.availableTint,
       busy: busy ?? this.busy,
       busyTint: busyTint ?? this.busyTint,
@@ -221,6 +227,7 @@ class AmpColors extends ThemeExtension<AmpColors> {
       energyTint: mix(energyTint, other.energyTint),
       onEnergy: mix(onEnergy, other.onEnergy),
       available: mix(available, other.available),
+      availableInk: mix(availableInk, other.availableInk),
       availableTint: mix(availableTint, other.availableTint),
       busy: mix(busy, other.busy),
       busyTint: mix(busyTint, other.busyTint),

@@ -48,6 +48,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     if (_sending) {
       return;
     }
+    FocusScope.of(context).unfocus();
     final String raw = _composer.text;
     final String? problem = ChatRules.messageError(raw);
     if (problem != null) {
@@ -273,6 +274,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 hint: AmpStrings.chatComposerHint,
                 maxLines: 4,
                 minLines: 1,
+                maxLength: ChatRules.maxMessageLength,
+                keyboardType: TextInputType.multiline,
+                textInputAction: TextInputAction.newline,
                 textCapitalization: TextCapitalization.sentences,
                 errorText: _error,
                 onChanged: (String value) {
@@ -378,6 +382,8 @@ class _ThreadBodyState extends ConsumerState<_ThreadBody> {
                 },
                 child: ListView.builder(
                   controller: _scroll,
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior.onDrag,
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: EdgeInsets.zero,
                   itemCount: list.isEmpty ? 1 : list.length,

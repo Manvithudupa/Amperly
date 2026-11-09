@@ -82,6 +82,34 @@ abstract final class BookingRules {
     ).where((Slot slot) => slot.available).toList(growable: false);
   }
 
+  /// The first day in [dayStarts] with at least one free slot.
+  ///
+  /// Keeps the default selection on "next free" rather than "today" when
+  /// today's published hours have passed or every slot is already taken.
+  static int firstDayWithSlots({
+    required ChargerStation station,
+    required ChargerPort port,
+    required List<AvailabilitySchedule> schedules,
+    required List<Reservation> reservations,
+    required List<int> dayStarts,
+    required int nowMs,
+  }) {
+    for (int index = 0; index < dayStarts.length; index++) {
+      final List<Slot> slots = slotsFor(
+        station: station,
+        port: port,
+        schedules: schedules,
+        reservations: reservations,
+        dayStartMs: dayStarts[index],
+        nowMs: nowMs,
+      );
+      if (slots.isNotEmpty) {
+        return index;
+      }
+    }
+    return 0;
+  }
+
   static int conflictCount(
     List<Reservation> reservations,
     String portId,

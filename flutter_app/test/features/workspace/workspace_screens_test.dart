@@ -8,7 +8,6 @@ import 'package:amperly/data/repositories/safety_repository.dart';
 import 'package:amperly/domain/engines/host_analytics_engine.dart';
 import 'package:amperly/features/admin/application/admin_providers.dart';
 import 'package:amperly/features/admin/presentation/admin_desk_screen.dart';
-import 'package:amperly/features/admin/presentation/admin_tab_bar.dart';
 import 'package:amperly/features/auth/application/profile_providers.dart';
 import 'package:amperly/features/common/application/notification_providers.dart';
 import 'package:amperly/features/common/presentation/notifications_screen.dart';
@@ -91,26 +90,9 @@ void main() {
       ],
     );
 
-    final Finder adminTabs = find.byType(AdminTabBar);
-
     expect(find.text(AmpStrings.adminTitle), findsOneWidget);
     expect(find.text('Pending Charger'), findsOneWidget);
     expect(find.text(AmpStrings.adminApprove), findsOneWidget);
-    expect(adminTabs, findsOneWidget);
-    expect(
-      find.descendant(
-        of: adminTabs,
-        matching: find.text(AmpStrings.adminTabQueue),
-      ),
-      findsOneWidget,
-    );
-    expect(
-      find.descendant(
-        of: adminTabs,
-        matching: find.text(AmpStrings.adminTabReports),
-      ),
-      findsOneWidget,
-    );
 
     await _pump(
       tester,
@@ -124,13 +106,6 @@ void main() {
 
     expect(find.text('Pending Charger'), findsNothing);
     expect(
-      find.descendant(
-        of: find.byType(AdminTabBar),
-        matching: find.text(AmpStrings.adminTabReports),
-      ),
-      findsOneWidget,
-    );
-    expect(
       find.text(AmpStrings.adminDisputesTitle.toUpperCase()),
       findsOneWidget,
     );
@@ -139,6 +114,52 @@ void main() {
       findsOneWidget,
     );
     expect(find.text(AmpStrings.adminReportsEmpty), findsNWidgets(2));
+  });
+
+  testWidgets('admin decline asks for confirmation before deciding', (
+    WidgetTester tester,
+  ) async {
+    final ChargerStation pending = ChargerStation(
+      id: 'station-1',
+      name: 'Pending Charger',
+      address: 'Nitte',
+      hostName: 'Asha Rao',
+      approvalStatus: 'PENDING',
+      verificationLevel: 'LEVEL_1',
+      portCount: 2,
+    );
+    final AdminDeskData data = AdminDeskData(
+      pendingStations: <ChargerStation>[pending],
+      disputes: const <AdminDisputeRow>[],
+      consumerReports: const <AdminReportRow>[],
+      hostReports: const <AdminReportRow>[],
+      analytics: HostAnalyticsEngine.compute(),
+    );
+
+    await _pump(
+      tester,
+      const AdminDeskScreen(),
+      overrides: <Object>[
+        adminDeskProvider.overrideWith(
+          (Ref ref) async => RepositorySuccess<AdminDeskData>(data),
+        ),
+      ],
+    );
+
+    await tester.tap(find.text(AmpStrings.adminDecline));
+    await tester.pumpAndSettle();
+
+    expect(find.text(AmpStrings.adminConfirmDeclineTitle), findsOneWidget);
+    expect(
+      find.text(AmpStrings.adminConfirmDeclineBody('Pending Charger')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text(AmpStrings.cancel));
+    await tester.pumpAndSettle();
+
+    expect(find.text(AmpStrings.adminConfirmDeclineTitle), findsNothing);
+    expect(find.text('Pending Charger'), findsOneWidget);
   });
 
   testWidgets('safety screen records contacts and SOS controls', (

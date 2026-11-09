@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/theme/amp_colors.dart';
 import '../../app/theme/amp_theme.dart';
+import '../ui/strings.dart';
 
 /// One charging stop on a route, set as a highway kilometre stone.
 final class MilestoneStop {
@@ -41,111 +42,121 @@ class MilestoneLine extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final AmpColors colors = context.amp;
+    final bool drawLine = animate && !MediaQuery.disableAnimationsOf(context);
     final String semantics = stops
         .map(
-          (MilestoneStop stop) =>
-              '${_distance(stop.distanceKm)} kilometres. ${stop.title}.',
+          (MilestoneStop stop) => AmpStrings.milestoneSemantics(
+            _distance(stop.distanceKm),
+            stop.title,
+          ),
         )
         .join(' ');
 
-    return Semantics(
-      container: true,
-      label: semantics,
-      child: ExcludeSemantics(
-        child: Stack(
-          children: <Widget>[
-            Positioned(
-              left: 25.5,
-              top: 18,
-              bottom: 30,
-              child: SizedBox(
-                width: 1,
-                child: animate
-                    ? TweenAnimationBuilder<double>(
-                        tween: Tween<double>(begin: 0, end: 1),
-                        duration: const Duration(milliseconds: 900),
-                        curve: Curves.easeOutCubic,
-                        builder:
-                            (
-                              BuildContext context,
-                              double value,
-                              Widget? child,
-                            ) => FractionallySizedBox(
-                              alignment: Alignment.topCenter,
-                              heightFactor: value,
-                              child: child,
-                            ),
-                        child: ColoredBox(color: lineColor ?? colors.divider),
-                      )
-                    : ColoredBox(color: lineColor ?? colors.divider),
+    return Tooltip(
+      message: semantics,
+      child: Semantics(
+        container: true,
+        label: semantics,
+        child: ExcludeSemantics(
+          child: Stack(
+            children: <Widget>[
+              Positioned(
+                left: 25.5,
+                top: 18,
+                bottom: 30,
+                child: SizedBox(
+                  width: 1,
+                  child: drawLine
+                      ? TweenAnimationBuilder<double>(
+                          tween: Tween<double>(begin: 0, end: 1),
+                          duration: const Duration(milliseconds: 900),
+                          curve: Curves.easeOutCubic,
+                          builder:
+                              (
+                                BuildContext context,
+                                double value,
+                                Widget? child,
+                              ) => FractionallySizedBox(
+                                alignment: Alignment.topCenter,
+                                heightFactor: value,
+                                child: child,
+                              ),
+                          child: ColoredBox(color: lineColor ?? colors.divider),
+                        )
+                      : ColoredBox(color: lineColor ?? colors.divider),
+                ),
               ),
-            ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: <Widget>[
-                for (int index = 0; index < stops.length; index++)
-                  Padding(
-                    padding: EdgeInsets.only(
-                      bottom: index == stops.length - 1 ? 0 : 22,
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        SizedBox(
-                          width: 52,
-                          child: _KmStone(stop: stops[index]),
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Padding(
-                            padding: const EdgeInsets.only(top: 2),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: <Widget>[
-                                Text(
-                                  stops[index].title,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: Theme.of(context).textTheme.titleSmall
-                                      ?.copyWith(
-                                        color: stops[index].backup
-                                            ? colors.inkSecondary
-                                            : colors.ink,
-                                        fontWeight: stops[index].backup
-                                            ? FontWeight.w500
-                                            : FontWeight.w600,
-                                      ),
-                                ),
-                                if (stops[index].detail != null) ...<Widget>[
-                                  const SizedBox(height: 3),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  for (int index = 0; index < stops.length; index++)
+                    Padding(
+                      padding: EdgeInsets.only(
+                        bottom: index == stops.length - 1 ? 0 : 22,
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          SizedBox(
+                            width: 52,
+                            child: _KmStone(stop: stops[index]),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Padding(
+                              padding: const EdgeInsets.only(top: 2),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: <Widget>[
                                   Text(
-                                    stops[index].detail!,
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.bodySmall,
+                                    stops[index].title,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleSmall
+                                        ?.copyWith(
+                                          color: stops[index].backup
+                                              ? colors.inkSecondary
+                                              : colors.ink,
+                                          fontWeight: stops[index].backup
+                                              ? FontWeight.w500
+                                              : FontWeight.w600,
+                                        ),
                                   ),
+                                  if (stops[index].detail != null) ...<Widget>[
+                                    const SizedBox(height: 3),
+                                    Text(
+                                      stops[index].detail!,
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.bodySmall,
+                                    ),
+                                  ],
+                                  if (stops[index].batteryPercent !=
+                                      null) ...<Widget>[
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      '${stops[index].batteryPercent}%',
+                                      style: AmpType.tabular(
+                                        Theme.of(
+                                              context,
+                                            ).textTheme.labelLarge ??
+                                            const TextStyle(),
+                                      ).copyWith(color: colors.inkSecondary),
+                                    ),
+                                  ],
                                 ],
-                                if (stops[index].batteryPercent !=
-                                    null) ...<Widget>[
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    '${stops[index].batteryPercent}%',
-                                    style: AmpType.tabular(
-                                      Theme.of(context).textTheme.labelLarge ??
-                                          const TextStyle(),
-                                    ).copyWith(color: colors.inkSecondary),
-                                  ),
-                                ],
-                              ],
+                              ),
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-              ],
-            ),
-          ],
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -170,7 +181,7 @@ class _KmStone extends StatelessWidget {
     final Color text = stop.backup ? colors.inkSecondary : colors.ink;
 
     return Container(
-      height: 36,
+      constraints: const BoxConstraints(minHeight: 36),
       padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 3),
       decoration: BoxDecoration(
         color: colors.surface,

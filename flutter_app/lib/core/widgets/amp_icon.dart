@@ -36,6 +36,7 @@ enum AmpIconName {
   user,
   list,
   flag,
+  bell,
 }
 
 class AmpIcon extends StatelessWidget {
@@ -317,6 +318,22 @@ class _AmpIconPainter extends CustomPainter {
           ..cubicTo(12, 10.6, 9, 10.6, 6, 12)
           ..close();
         canvas.drawPath(pennant, stroke);
+      case AmpIconName.bell:
+        final Path bell = Path()
+          ..moveTo(5, 17)
+          ..cubicTo(6.6, 15.7, 6.7, 12.6, 6.7, 9.6)
+          ..cubicTo(6.7, 6.2, 8.8, 3.5, 12, 3.5)
+          ..cubicTo(15.2, 3.5, 17.3, 6.2, 17.3, 9.6)
+          ..cubicTo(17.3, 12.6, 17.4, 15.7, 19, 17)
+          ..close();
+        canvas.drawPath(bell, stroke);
+        canvas.drawArc(
+          const Rect.fromLTWH(9.8, 17.2, 4.4, 3.2),
+          0,
+          math.pi,
+          false,
+          stroke,
+        );
     }
     canvas.restore();
   }

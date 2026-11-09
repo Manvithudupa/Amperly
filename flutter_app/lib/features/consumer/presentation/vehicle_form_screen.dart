@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -8,6 +9,7 @@ import '../../../app/theme/amp_theme.dart';
 import '../../../core/errors/user_messages.dart';
 import '../../../core/formatting/amp_format.dart';
 import '../../../core/ids.dart';
+import '../../../core/ui/input_formatters.dart';
 import '../../../core/ui/strings.dart';
 import '../../../core/widgets/amp_button.dart';
 import '../../../core/widgets/amp_field.dart';
@@ -405,6 +407,7 @@ class _VehicleFormState extends ConsumerState<_VehicleForm> {
       body: Form(
         key: _formKey,
         child: ListView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           padding: const EdgeInsets.fromLTRB(
             AmpTheme.screenPadding,
             AmpTheme.spaceM,
@@ -424,6 +427,8 @@ class _VehicleFormState extends ConsumerState<_VehicleForm> {
                   controller: _make,
                   label: AmpStrings.vehicleMake,
                   textCapitalization: TextCapitalization.words,
+                  textInputAction: TextInputAction.next,
+                  maxLength: 40,
                   validator: (String? value) => (value ?? '').trim().isEmpty
                       ? AmpStrings.vehicleMakeRequired
                       : null,
@@ -433,6 +438,8 @@ class _VehicleFormState extends ConsumerState<_VehicleForm> {
                   controller: _model,
                   label: AmpStrings.vehicleModel,
                   textCapitalization: TextCapitalization.words,
+                  textInputAction: TextInputAction.next,
+                  maxLength: 40,
                   validator: (String? value) => (value ?? '').trim().isEmpty
                       ? AmpStrings.vehicleModelRequired
                       : null,
@@ -446,6 +453,8 @@ class _VehicleFormState extends ConsumerState<_VehicleForm> {
                         controller: _variant,
                         label: AmpStrings.vehicleVariant,
                         textCapitalization: TextCapitalization.words,
+                        textInputAction: TextInputAction.next,
+                        maxLength: 40,
                       ),
                     ),
                     const SizedBox(width: AmpTheme.spaceS),
@@ -454,6 +463,11 @@ class _VehicleFormState extends ConsumerState<_VehicleForm> {
                         controller: _year,
                         label: AmpStrings.vehicleYear,
                         keyboardType: TextInputType.number,
+                        textInputAction: TextInputAction.next,
+                        inputFormatters: <TextInputFormatter>[
+                          AmpInputFormatters.digits,
+                        ],
+                        maxLength: 4,
                         validator: VehicleDraft.validateYear,
                       ),
                     ),
@@ -464,6 +478,11 @@ class _VehicleFormState extends ConsumerState<_VehicleForm> {
                   controller: _plate,
                   label: AmpStrings.vehiclePlate,
                   textCapitalization: TextCapitalization.characters,
+                  textInputAction: TextInputAction.next,
+                  inputFormatters: <TextInputFormatter>[
+                    AmpInputFormatters.registration,
+                  ],
+                  maxLength: 15,
                 ),
               ],
             ),
@@ -477,6 +496,9 @@ class _VehicleFormState extends ConsumerState<_VehicleForm> {
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,
                   ),
+                  textInputAction: TextInputAction.next,
+                  inputFormatters: AmpInputFormatters.decimal,
+                  maxLength: 7,
                   validator: VehicleDraft.validateCapacity,
                   onChanged: (_) => _refreshPreview(),
                 ),
@@ -506,6 +528,9 @@ class _VehicleFormState extends ConsumerState<_VehicleForm> {
                         keyboardType: const TextInputType.numberWithOptions(
                           decimal: true,
                         ),
+                        textInputAction: TextInputAction.next,
+                        inputFormatters: AmpInputFormatters.decimal,
+                        maxLength: 7,
                         validator: VehicleDraft.validateMaxAc,
                       ),
                     ),
@@ -517,6 +542,9 @@ class _VehicleFormState extends ConsumerState<_VehicleForm> {
                         keyboardType: const TextInputType.numberWithOptions(
                           decimal: true,
                         ),
+                        textInputAction: TextInputAction.next,
+                        inputFormatters: AmpInputFormatters.decimal,
+                        maxLength: 7,
                         validator: VehicleDraft.validateMaxDc,
                       ),
                     ),
@@ -529,6 +557,9 @@ class _VehicleFormState extends ConsumerState<_VehicleForm> {
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,
                   ),
+                  textInputAction: TextInputAction.next,
+                  inputFormatters: AmpInputFormatters.decimal,
+                  maxLength: 6,
                   validator: VehicleDraft.validateEfficiency,
                   onChanged: (_) => _refreshPreview(),
                 ),
@@ -539,6 +570,9 @@ class _VehicleFormState extends ConsumerState<_VehicleForm> {
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,
                   ),
+                  textInputAction: TextInputAction.next,
+                  inputFormatters: AmpInputFormatters.decimal,
+                  maxLength: 5,
                   validator: VehicleDraft.validateHealth,
                   onChanged: (_) => _refreshPreview(),
                 ),
@@ -556,6 +590,11 @@ class _VehicleFormState extends ConsumerState<_VehicleForm> {
                         controller: _minArrival,
                         label: AmpStrings.vehicleMinArrival,
                         keyboardType: TextInputType.number,
+                        textInputAction: TextInputAction.next,
+                        inputFormatters: <TextInputFormatter>[
+                          AmpInputFormatters.digits,
+                        ],
+                        maxLength: 3,
                         validator: VehicleDraft.validateMinArrival,
                       ),
                     ),
@@ -565,6 +604,11 @@ class _VehicleFormState extends ConsumerState<_VehicleForm> {
                         controller: _maxCharge,
                         label: AmpStrings.vehicleMaxCharge,
                         keyboardType: TextInputType.number,
+                        textInputAction: TextInputAction.done,
+                        inputFormatters: <TextInputFormatter>[
+                          AmpInputFormatters.digits,
+                        ],
+                        maxLength: 3,
                         validator: (String? value) {
                           final String? basic = VehicleDraft.validateMaxCharge(
                             value,

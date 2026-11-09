@@ -13,32 +13,38 @@ class TicketCard extends StatelessWidget {
     super.key,
     this.padding = const EdgeInsets.all(AmpTheme.screenPadding),
     this.notchOffset = 0.64,
+    this.semanticsLabel,
   });
 
   final Widget child;
   final EdgeInsetsGeometry padding;
   final double notchOffset;
+  final String? semanticsLabel;
 
   @override
   Widget build(BuildContext context) {
     final AmpColors c = context.amp;
-    return Semantics(
-      container: true,
-      child: Stack(
-        children: <Widget>[
-          Positioned.fill(
-            child: CustomPaint(
-              painter: _TicketPainter(
-                fill: c.surface,
-                border: c.divider,
-                dash: c.outline,
-                notchOffset: notchOffset,
-              ),
+    final Widget content = Stack(
+      children: <Widget>[
+        Positioned.fill(
+          child: CustomPaint(
+            painter: _TicketPainter(
+              fill: c.surface,
+              border: c.divider,
+              dash: c.outline,
+              notchOffset: notchOffset,
             ),
           ),
-          Padding(padding: padding, child: child),
-        ],
-      ),
+        ),
+        Padding(padding: padding, child: child),
+      ],
+    );
+    return Semantics(
+      container: true,
+      label: semanticsLabel,
+      child: semanticsLabel == null
+          ? content
+          : ExcludeSemantics(child: content),
     );
   }
 }

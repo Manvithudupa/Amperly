@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -6,6 +7,7 @@ import '../../../app/theme/amp_colors.dart';
 import '../../../app/theme/amp_theme.dart';
 import '../../../core/errors/user_messages.dart';
 import '../../../core/formatting/amp_format.dart';
+import '../../../core/ui/input_formatters.dart';
 import '../../../core/ui/strings.dart';
 import '../../../core/widgets/amp_field.dart';
 import '../../../core/widgets/amp_icon.dart';
@@ -22,10 +24,11 @@ import '../../../data/models/models.dart';
 import '../../../data/repositories/repository_result.dart';
 import '../../../data/repositories/station_repository.dart';
 import '../../../domain/policy.dart';
+import '../../common/presentation/notification_bell.dart';
 import '../application/battery_providers.dart';
 import '../application/discovery_providers.dart';
+import '../application/journey_providers.dart';
 import '../application/trip_providers.dart';
-import 'consumer_tab_bar.dart';
 import 'widgets/discovery_map.dart';
 
 /// The public charger catalogue, with the map as the primary surface.
@@ -83,7 +86,6 @@ class DiscoverScreen extends ConsumerWidget {
           );
         },
       ),
-      bottomNavigationBar: const ConsumerTabBar(currentIndex: 0),
     );
   }
 }
@@ -142,7 +144,7 @@ class _DiscoverShell extends StatelessWidget {
                 context.push('/chargers/${entry.station.id}'),
           ),
         ),
-        const _SearchPill(),
+        const _DiscoverTopBar(),
         if (mapConfig != null) const _MapAttribution(),
         DraggableScrollableSheet(
           initialChildSize: 0.5,
@@ -169,8 +171,8 @@ class _DiscoverShell extends StatelessWidget {
   }
 }
 
-class _SearchPill extends StatelessWidget {
-  const _SearchPill();
+class _DiscoverTopBar extends StatelessWidget {
+  const _DiscoverTopBar();
 
   @override
   Widget build(BuildContext context) {
@@ -184,43 +186,51 @@ class _SearchPill extends StatelessWidget {
         bottom: false,
         child: Padding(
           padding: const EdgeInsets.only(top: AmpTheme.spaceS),
-          child: Material(
-            color: colors.surface,
-            elevation: 2,
-            shadowColor: colors.ink.withValues(alpha: 0.12),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AmpTheme.radiusField),
-              side: BorderSide(color: colors.divider),
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: InkWell(
-              onTap: () => context.go('/trips'),
-              child: SizedBox(
-                height: 48,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AmpTheme.spaceM,
+          child: Row(
+            children: <Widget>[
+              Expanded(
+                child: Material(
+                  color: colors.surface,
+                  elevation: 2,
+                  shadowColor: colors.ink.withValues(alpha: 0.12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AmpTheme.radiusField),
+                    side: BorderSide(color: colors.divider),
                   ),
-                  child: Row(
-                    children: <Widget>[
-                      AmpIcon(
-                        AmpIconName.search,
-                        size: 18,
-                        color: colors.inkSecondary,
-                      ),
-                      const SizedBox(width: AmpTheme.spaceS),
-                      Expanded(
-                        child: Text(
-                          AmpStrings.discoverSearchHint,
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(color: colors.inkSecondary),
+                  clipBehavior: Clip.antiAlias,
+                  child: InkWell(
+                    onTap: () => context.go('/trips'),
+                    child: SizedBox(
+                      height: 48,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AmpTheme.spaceM,
+                        ),
+                        child: Row(
+                          children: <Widget>[
+                            AmpIcon(
+                              AmpIconName.search,
+                              size: 18,
+                              color: colors.inkSecondary,
+                            ),
+                            const SizedBox(width: AmpTheme.spaceS),
+                            Expanded(
+                              child: Text(
+                                AmpStrings.discoverSearchHint,
+                                style: Theme.of(context).textTheme.bodyMedium
+                                    ?.copyWith(color: colors.inkSecondary),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ],
+                    ),
                   ),
                 ),
               ),
-            ),
+              const SizedBox(width: AmpTheme.spaceS),
+              const NotificationBell(),
+            ],
           ),
         ),
       ),
@@ -275,19 +285,42 @@ class _DiscoverySheet extends ConsumerWidget {
   final DiscoveryFilter filter;
 
   Future<void> _editBattery(BuildContext context, WidgetRef ref) async {
+    final int? previous = ref.read(batterySocProvider);
     final int? value = await showDialog<int>(
       context: context,
       builder: (BuildContext dialogContext) =>
-          _BatteryDialog(initial: ref.read(batterySocProvider)),
+          _BatteryDialog(initial: previous),
     );
     if (value == null || !context.mounted) {
       return;
     }
     ref.read(batterySocProvider.notifier).setSoc(value);
+
+    final String? vehicleId = data.vehicle?.id;
+    final repository = ref.read(journeyRepositoryProvider);
+    bool? recorded;
+    if (repository != null && vehicleId != null) {
+      final saved = (await ref.read(savedJourneyProvider.future)).valueOrNull;
+      final result = await repository.recordBatteryConfirmation(
+        vehicleId: vehicleId,
+        tripPlanId: saved?.plan.id,
+        estimatedSoc: previous ?? value,
+        actualSoc: value,
+        timestampMs: DateTime.now().millisecondsSinceEpoch,
+      );
+      recorded = result.isSuccess;
+    }
+    if (!context.mounted) {
+      return;
+    }
+
+    final bool failed = recorded == false;
     AmpSnackbar.show(
       context,
-      AmpStrings.discoverBatterySaved(value),
-      tone: AmpSnackbarTone.success,
+      failed
+          ? AmpStrings.discoverBatteryNotRecorded
+          : AmpStrings.discoverBatterySaved(value),
+      tone: failed ? AmpSnackbarTone.error : AmpSnackbarTone.success,
     );
   }
 
@@ -390,6 +423,12 @@ class _DiscoverySheet extends ConsumerWidget {
                           ),
                         ],
                       ),
+                      if (data.vehicle == null) ...<Widget>[
+                        const SizedBox(height: 10),
+                        _AddVehiclePrompt(
+                          onAdd: () => context.push('/vehicles'),
+                        ),
+                      ],
                       const SizedBox(height: 4),
                       TextFilterRow<DiscoveryFilter>(
                         selected: filter,
@@ -424,8 +463,7 @@ class _DiscoverySheet extends ConsumerWidget {
             ),
           ),
           if (data.entries.isEmpty)
-            SliverFillRemaining(
-              hasScrollBody: false,
+            SliverToBoxAdapter(
               child: _DiscoveryEmpty(
                 title: AmpStrings.discoverEmptyTitle,
                 message: AmpStrings.discoverEmptyBody,
@@ -434,8 +472,7 @@ class _DiscoverySheet extends ConsumerWidget {
               ),
             )
           else if (filtered.isEmpty)
-            SliverFillRemaining(
-              hasScrollBody: false,
+            SliverToBoxAdapter(
               child: _DiscoveryEmpty(
                 title: AmpStrings.discoverNoMatchesTitle,
                 message: AmpStrings.discoverNoMatchesBody,
@@ -516,6 +553,8 @@ class _BatteryDialogState extends State<_BatteryDialog> {
             autofocus: true,
             keyboardType: TextInputType.number,
             textInputAction: TextInputAction.done,
+            inputFormatters: <TextInputFormatter>[AmpInputFormatters.digits],
+            maxLength: 3,
             errorText: _error,
             onChanged: (String value) {
               if (_error != null) {
@@ -584,6 +623,58 @@ class _DiscoveryRow extends StatelessWidget {
           : null,
       discoveryOnly: !metered,
       onTap: onTap,
+    );
+  }
+}
+
+class _AddVehiclePrompt extends StatelessWidget {
+  const _AddVehiclePrompt({required this.onAdd});
+
+  final VoidCallback onAdd;
+
+  @override
+  Widget build(BuildContext context) {
+    final AmpColors colors = context.amp;
+    final TextTheme text = Theme.of(context).textTheme;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+      decoration: BoxDecoration(
+        color: colors.surfaceVariant,
+        borderRadius: BorderRadius.circular(AmpTheme.radiusField),
+        border: Border.all(color: colors.divider),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: AmpIcon(
+              AmpIconName.battery,
+              size: 18,
+              color: colors.inkSecondary,
+            ),
+          ),
+          const SizedBox(width: AmpTheme.spaceS),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  AmpStrings.discoverAddVehiclePromptTitle,
+                  style: text.titleSmall,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  AmpStrings.discoverAddVehiclePromptBody,
+                  style: text.bodySmall,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: AmpTheme.spaceS),
+          TextAction(AmpStrings.vehicleAdd, onPressed: onAdd),
+        ],
+      ),
     );
   }
 }

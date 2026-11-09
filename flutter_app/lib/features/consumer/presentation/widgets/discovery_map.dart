@@ -140,8 +140,8 @@ class _DiscoveryMapState extends State<DiscoveryMap> {
       for (final StationCatalogueEntry entry in _plottable)
         Marker(
           point: LatLng(entry.station.latitude, entry.station.longitude),
-          width: 44,
-          height: 48,
+          width: 48,
+          height: 52,
           child: _StationPin(entry: entry, onTap: () => widget.onSelect(entry)),
         ),
     ];
@@ -195,20 +195,25 @@ class _StationPin extends StatelessWidget {
     final String name = (entry.station.name ?? '').trim().isEmpty
         ? AmpStrings.unnamedCharger
         : entry.station.name!.trim();
+    final String semantics = '$name. ${availabilityLabel(entry)}';
 
-    return Semantics(
-      button: true,
-      label: '$name. ${availabilityLabel(entry)}',
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: onTap,
-        child: Center(
-          child: CustomPaint(
-            size: const Size(32, 40),
-            painter: _PinPainter(
-              fill: colors.surface,
-              status: status,
-              dot: status,
+    return Tooltip(
+      message: semantics,
+      child: Semantics(
+        button: true,
+        container: true,
+        label: semantics,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onTap,
+          child: Center(
+            child: CustomPaint(
+              size: const Size(32, 40),
+              painter: _PinPainter(
+                fill: colors.surface,
+                status: status,
+                dot: status,
+              ),
             ),
           ),
         ),

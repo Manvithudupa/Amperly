@@ -70,6 +70,9 @@ class _FilterWord<T> extends StatelessWidget {
   Widget build(BuildContext context) {
     final AmpColors colors = context.amp;
     final bool enabled = option.enabled && onSelected != null;
+    final Duration motion = MediaQuery.disableAnimationsOf(context)
+        ? Duration.zero
+        : const Duration(milliseconds: 180);
     final Color color = selected
         ? colors.ink
         : enabled
@@ -87,14 +90,14 @@ class _FilterWord<T> extends StatelessWidget {
           child: InkWell(
             onTap: enabled ? () => onSelected!(option.value) : null,
             child: ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 44),
+              constraints: const BoxConstraints(minHeight: 48),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 mainAxisAlignment: MainAxisAlignment.end,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
                   AnimatedDefaultTextStyle(
-                    duration: const Duration(milliseconds: 180),
+                    duration: motion,
                     curve: Curves.easeOut,
                     style: TextStyle(
                       fontFamily: AmpTheme.uiFont,
@@ -108,7 +111,7 @@ class _FilterWord<T> extends StatelessWidget {
                   ),
                   const SizedBox(height: 7),
                   AnimatedContainer(
-                    duration: const Duration(milliseconds: 180),
+                    duration: motion,
                     curve: Curves.easeOut,
                     height: 2,
                     color: selected ? colors.energy : Colors.transparent,

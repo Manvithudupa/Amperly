@@ -56,7 +56,9 @@ class AmpButton extends StatelessWidget {
     };
 
     final Widget content = AnimatedSwitcher(
-      duration: const Duration(milliseconds: 180),
+      duration: MediaQuery.disableAnimationsOf(context)
+          ? Duration.zero
+          : const Duration(milliseconds: 180),
       switchInCurve: Curves.easeOut,
       switchOutCurve: Curves.easeIn,
       child: loading

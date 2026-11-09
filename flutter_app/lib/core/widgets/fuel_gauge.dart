@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/theme/amp_colors.dart';
 import '../../app/theme/amp_theme.dart';
+import '../ui/strings.dart';
 
 /// A horizontal battery gauge with ten-percent ticks.
 ///
@@ -28,66 +29,87 @@ class FuelGauge extends StatelessWidget {
     final int? estimate = estimatePercent?.clamp(0, 100);
     final int reserve = reservePercent.clamp(0, 100);
 
-    final String semantics = <String>[
-      'Battery $shown percent',
-      if (estimate != null) 'estimated $estimate percent',
-      'reserve $reserve percent',
-    ].join(', ');
+    final String semantics = AmpStrings.fuelGaugeSemantics(
+      shown,
+      reserve,
+      estimate,
+    );
 
-    return Semantics(
-      label: semantics,
-      child: ExcludeSemantics(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            if (showLabels) ...<Widget>[
-              Row(
-                children: <Widget>[
-                  Text(
-                    'YOU SAID $shown%',
-                    style: AmpType.eyebrow(context, color: colors.ink),
-                  ),
-                  const Spacer(),
-                  if (estimate != null)
-                    Text(
-                      'ESTIMATE $estimate%',
-                      style: AmpType.eyebrow(context),
+    return Tooltip(
+      message: semantics,
+      child: Semantics(
+        label: semantics,
+        child: ExcludeSemantics(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              if (showLabels) ...<Widget>[
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Expanded(
+                      child: Text(
+                        AmpStrings.fuelGaugeYouSaid(shown),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: AmpType.eyebrow(context, color: colors.ink),
+                      ),
                     ),
-                ],
-              ),
-              const SizedBox(height: 7),
-            ],
-            SizedBox(
-              height: 30,
-              child: CustomPaint(
-                painter: _FuelGaugePainter(
-                  percent: shown.toDouble(),
-                  estimatePercent: estimate?.toDouble(),
-                  reservePercent: reserve.toDouble(),
-                  track: colors.surfaceVariant,
-                  fill: colors.energy,
-                  marker: colors.inkSecondary,
-                  tick: colors.surface,
-                  reserve: colors.ink,
+                    if (estimate != null) ...<Widget>[
+                      const SizedBox(width: AmpTheme.spaceS),
+                      Flexible(
+                        child: Text(
+                          AmpStrings.fuelGaugeEstimate(estimate),
+                          maxLines: 2,
+                          textAlign: TextAlign.right,
+                          overflow: TextOverflow.ellipsis,
+                          style: AmpType.eyebrow(context),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 7),
+              ],
+              SizedBox(
+                height: 30,
+                child: CustomPaint(
+                  painter: _FuelGaugePainter(
+                    percent: shown.toDouble(),
+                    estimatePercent: estimate?.toDouble(),
+                    reservePercent: reserve.toDouble(),
+                    track: colors.surfaceVariant,
+                    fill: colors.energy,
+                    marker: colors.inkSecondary,
+                    tick: colors.surface,
+                    reserve: colors.ink,
+                  ),
                 ),
               ),
-            ),
-            if (showLabels) ...<Widget>[
-              const SizedBox(height: 3),
-              Row(
-                children: <Widget>[
-                  Text('RESERVE $reserve%', style: AmpType.eyebrow(context)),
-                  const Spacer(),
-                  Text('0', style: AmpType.eyebrow(context)),
-                  const SizedBox(width: 4),
-                  Container(width: 1, height: 8, color: colors.divider),
-                  const SizedBox(width: 4),
-                  Text('100', style: AmpType.eyebrow(context)),
-                ],
-              ),
+              if (showLabels) ...<Widget>[
+                const SizedBox(height: 3),
+                Row(
+                  children: <Widget>[
+                    Flexible(
+                      child: Text(
+                        AmpStrings.fuelGaugeReserve(reserve),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: AmpType.eyebrow(context),
+                      ),
+                    ),
+                    const Spacer(),
+                    Text('0', style: AmpType.eyebrow(context)),
+                    const SizedBox(width: 4),
+                    Container(width: 1, height: 8, color: colors.divider),
+                    const SizedBox(width: 4),
+                    Text('100', style: AmpType.eyebrow(context)),
+                  ],
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );

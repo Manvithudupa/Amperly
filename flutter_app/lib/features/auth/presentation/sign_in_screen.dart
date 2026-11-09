@@ -59,6 +59,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
     return AmpScaffold(
       wordmark: true,
       body: SingleChildScrollView(
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         padding: const EdgeInsets.fromLTRB(
           AmpTheme.screenPadding,
           AmpTheme.spaceM,
@@ -98,6 +99,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                           textInputAction: TextInputAction.next,
                           textCapitalization: TextCapitalization.words,
                           autofillHints: const <String>[AutofillHints.name],
+                          maxLength: 120,
                           validator: AuthValidation.name,
                           onChanged: (_) => _clearServerMessage(),
                         ),
@@ -110,6 +112,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                         keyboardType: TextInputType.emailAddress,
                         textInputAction: TextInputAction.next,
                         autofillHints: const <String>[AutofillHints.email],
+                        maxLength: 254,
                         validator: AuthValidation.email,
                         onChanged: (_) => _clearServerMessage(),
                       ),
@@ -125,6 +128,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                               ? AutofillHints.newPassword
                               : AutofillHints.password,
                         ],
+                        maxLength: 128,
                         validator: AuthValidation.password,
                         onChanged: (_) => _clearServerMessage(),
                         onSubmitted: (_) => _submit(),

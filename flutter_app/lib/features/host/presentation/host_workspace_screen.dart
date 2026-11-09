@@ -37,12 +37,15 @@ import '../../../domain/policy.dart';
 import '../../auth/application/profile_providers.dart';
 import '../application/host_providers.dart';
 
-enum _HostSection { dashboard, stations, bookings }
+enum HostWorkspaceSection { dashboard, stations, bookings }
 
 /// The host's three daily surfaces: performance, charger management and the
 /// bookings drivers made against those chargers.
 class HostWorkspaceScreen extends ConsumerStatefulWidget {
-  const HostWorkspaceScreen({super.key});
+  const HostWorkspaceScreen({super.key, this.section});
+
+  /// When set, the shell owns the destination and the local filter is hidden.
+  final HostWorkspaceSection? section;
 
   @override
   ConsumerState<HostWorkspaceScreen> createState() =>
@@ -50,7 +53,16 @@ class HostWorkspaceScreen extends ConsumerStatefulWidget {
 }
 
 class _HostWorkspaceScreenState extends ConsumerState<HostWorkspaceScreen> {
-  _HostSection _section = _HostSection.dashboard;
+  late HostWorkspaceSection _section =
+      widget.section ?? HostWorkspaceSection.dashboard;
+
+  @override
+  void didUpdateWidget(HostWorkspaceScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.section != null && widget.section != oldWidget.section) {
+      _section = widget.section!;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -80,7 +92,7 @@ class _HostWorkspaceScreenState extends ConsumerState<HostWorkspaceScreen> {
           return _body(result.valueOrNull!);
         },
       ),
-      bottomBar: _section == _HostSection.stations
+      bottomBar: _section == HostWorkspaceSection.stations
           ? AmpButton(
               label: AmpStrings.hostAddStation,
               onPressed: () => context.push('/host/stations/new'),
@@ -89,43 +101,53 @@ class _HostWorkspaceScreenState extends ConsumerState<HostWorkspaceScreen> {
     );
   }
 
+  Future<void> _refresh() async {
+    ref.invalidate(hostWorkspaceProvider);
+    await ref.read(hostWorkspaceProvider.future);
+  }
+
   Widget _body(HostWorkspaceData data) {
     return Column(
       children: <Widget>[
-        Padding(
-          padding: const EdgeInsets.fromLTRB(
-            AmpTheme.screenPadding,
-            AmpTheme.spaceS,
-            AmpTheme.screenPadding,
-            0,
+        if (widget.section == null) ...<Widget>[
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AmpTheme.screenPadding,
+              AmpTheme.spaceS,
+              AmpTheme.screenPadding,
+              0,
+            ),
+            child: TextFilterRow<HostWorkspaceSection>(
+              options: const <TextFilterOption<HostWorkspaceSection>>[
+                TextFilterOption<HostWorkspaceSection>(
+                  value: HostWorkspaceSection.dashboard,
+                  label: AmpStrings.hostTabDashboard,
+                ),
+                TextFilterOption<HostWorkspaceSection>(
+                  value: HostWorkspaceSection.stations,
+                  label: AmpStrings.hostTabStations,
+                ),
+                TextFilterOption<HostWorkspaceSection>(
+                  value: HostWorkspaceSection.bookings,
+                  label: AmpStrings.hostTabBookings,
+                ),
+              ],
+              selected: _section,
+              onSelected: (HostWorkspaceSection section) =>
+                  setState(() => _section = section),
+            ),
           ),
-          child: TextFilterRow<_HostSection>(
-            options: const <TextFilterOption<_HostSection>>[
-              TextFilterOption<_HostSection>(
-                value: _HostSection.dashboard,
-                label: AmpStrings.hostTabDashboard,
-              ),
-              TextFilterOption<_HostSection>(
-                value: _HostSection.stations,
-                label: AmpStrings.hostTabStations,
-              ),
-              TextFilterOption<_HostSection>(
-                value: _HostSection.bookings,
-                label: AmpStrings.hostTabBookings,
-              ),
-            ],
-            selected: _section,
-            onSelected: (_HostSection section) =>
-                setState(() => _section = section),
-          ),
-        ),
-        const Hairline(),
+          const Hairline(),
+        ],
         Expanded(
-          child: switch (_section) {
-            _HostSection.dashboard => _Dashboard(data: data),
-            _HostSection.stations => _Stations(data: data),
-            _HostSection.bookings => _Bookings(data: data),
-          },
+          child: RefreshIndicator(
+            onRefresh: _refresh,
+            child: switch (_section) {
+              HostWorkspaceSection.dashboard => _Dashboard(data: data),
+              HostWorkspaceSection.stations => _Stations(data: data),
+              HostWorkspaceSection.bookings => _Bookings(data: data),
+            },
+          ),
         ),
       ],
     );
@@ -147,6 +169,7 @@ class _Dashboard extends ConsumerWidget {
             .trim();
 
     return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(
         AmpTheme.screenPadding,
         AmpTheme.spaceL,
@@ -387,6 +410,7 @@ class _Stations extends ConsumerWidget {
     }
 
     return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.only(bottom: AmpTheme.spaceXxl),
       children: <Widget>[
         const SizedBox(height: AmpTheme.spaceS),
@@ -608,21 +632,26 @@ class _StationCard extends ConsumerWidget {
   }
 }
 
-class _Bookings extends StatelessWidget {
+class _Bookings extends ConsumerWidget {
   const _Bookings({required this.data});
 
   final HostWorkspaceData data;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     if (data.reservations.isEmpty) {
-      return const EmptyState(
+      return EmptyState(
         title: AmpStrings.hostNoBookings,
         message: AmpStrings.hostNoBookingsBody,
+        action: TextAction(
+          AmpStrings.retry,
+          onPressed: () => ref.invalidate(hostWorkspaceProvider),
+        ),
       );
     }
 
     return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.only(bottom: AmpTheme.spaceXxl),
       children: <Widget>[
         const SizedBox(height: AmpTheme.spaceS),

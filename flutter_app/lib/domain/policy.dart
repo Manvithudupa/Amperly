@@ -25,6 +25,9 @@ abstract final class AmpPolicy {
   static const String statusDisputed = 'DISPUTED';
   static const String statusRefunded = 'REFUNDED';
 
+  static const String routePlanActive = 'ACTIVE';
+  static const String routePlanSuperseded = 'SUPERSEDED';
+
   static const String approvalPending = 'PENDING';
   static const String approvalApproved = 'APPROVED';
   static const String approvalRejected = 'REJECTED';

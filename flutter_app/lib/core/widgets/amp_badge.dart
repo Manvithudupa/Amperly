@@ -25,7 +25,7 @@ class AmpBadge extends StatelessWidget {
     final AmpColors c = context.amp;
     final (Color background, Color foreground) = switch (tone) {
       AmpBadgeTone.neutral => (c.surfaceVariant, c.inkSecondary),
-      AmpBadgeTone.success => (c.availableTint, c.available),
+      AmpBadgeTone.success => (c.availableTint, c.availableInk),
       AmpBadgeTone.warning => (c.busyTint, c.busyInk),
       AmpBadgeTone.danger => (c.errorTint, c.error),
       AmpBadgeTone.info => (c.infoTint, c.info),
@@ -34,33 +34,35 @@ class AmpBadge extends StatelessWidget {
 
     return Semantics(
       label: label,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        decoration: BoxDecoration(
-          color: background,
-          borderRadius: BorderRadius.circular(AmpTheme.radiusPill),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            if (icon != null) ...<Widget>[
-              AmpIcon(icon!, size: 13, color: foreground),
-              const SizedBox(width: 4),
-            ],
-            Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontFamily: AmpTheme.uiFont,
-                fontSize: 11.5,
-                height: 1.2,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.2,
-                color: foreground,
+      child: ExcludeSemantics(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: background,
+            borderRadius: BorderRadius.circular(AmpTheme.radiusPill),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              if (icon != null) ...<Widget>[
+                AmpIcon(icon!, size: 13, color: foreground),
+                const SizedBox(width: 4),
+              ],
+              Text(
+                label,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontFamily: AmpTheme.uiFont,
+                  fontSize: 11.5,
+                  height: 1.2,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.2,
+                  color: foreground,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

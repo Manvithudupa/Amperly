@@ -68,7 +68,8 @@ void main() {
         energyCharge: 223.2,
         serviceFee: 5,
         gatewayFee: 4,
-        finalTotal: 232.2,
+        adjustment: 7.8,
+        finalTotal: 240,
         status: AmpPolicy.invoicePaid,
       ),
     );
@@ -95,11 +96,15 @@ void main() {
 
     expect(find.text('Padubidri Service Road Charger'), findsWidgets);
     expect(find.byType(BigNumber), findsOneWidget);
-    expect(find.text(AmpFormat.rupees(232.2)), findsOneWidget);
+    // The issued invoice, not the session's local arithmetic, owns the total.
+    expect(find.text(AmpFormat.rupees(240)), findsOneWidget);
+    expect(find.text('-${AmpFormat.rupees(7.8)}'), findsOneWidget);
+    expect(find.text(AmpFormat.rupees(232.2)), findsNothing);
     // Booking details plus the two receipt sections: readings and charges.
     expect(find.byType(ReceiptRows), findsNWidgets(3));
     expect(find.text(AmpStrings.receiptStartReading), findsOneWidget);
     expect(find.text(AmpStrings.receiptIssued), findsOneWidget);
+    expect(find.text(AmpStrings.sessionInvoicePaid), findsNothing);
     expect(find.text(AmpStrings.sessionNoPayment), findsOneWidget);
     expect(find.text(AmpStrings.sessionHistoryTitle), findsOneWidget);
     expect(find.byType(StatusDotLabel), findsNWidgets(2));

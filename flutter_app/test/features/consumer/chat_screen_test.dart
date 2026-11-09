@@ -103,4 +103,21 @@ void main() {
     expect(find.byType(AmpChip), findsNothing);
     expect(find.byType(CircularProgressIndicator), findsNothing);
   });
+
+  testWidgets('a thread with no messages shows empty copy and a composer', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(460, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(_screen(thread: _thread, messages: const []));
+    await tester.pumpAndSettle();
+
+    expect(find.text(AmpStrings.chatNoMessagesTitle), findsOneWidget);
+    expect(find.text(AmpStrings.chatNoMessagesBody), findsOneWidget);
+    expect(find.text(AmpStrings.chatComposerHint), findsOneWidget);
+    expect(find.text(AmpStrings.chatSend), findsOneWidget);
+  });
 }

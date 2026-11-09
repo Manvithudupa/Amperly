@@ -174,6 +174,10 @@ class _BookingCodeBody extends StatelessWidget {
         else ...<Widget>[
           TicketCard(
             notchOffset: 0.5,
+            semanticsLabel: AmpStrings.bookingTicketSemantics(
+              code,
+              resolvedStation,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
@@ -227,6 +231,7 @@ class _BookingCodeBody extends StatelessWidget {
                     const SizedBox(width: AmpTheme.spaceM),
                     _QrPanel(
                       payload: ReservationEngine.bookingQrPayload(reservation),
+                      code: code,
                     ),
                   ],
                 ),
@@ -281,25 +286,30 @@ class _BookingCodeBody extends StatelessWidget {
 }
 
 class _QrPanel extends StatelessWidget {
-  const _QrPanel({required this.payload});
+  const _QrPanel({required this.payload, required this.code});
 
   final String payload;
+  final String code;
 
   @override
   Widget build(BuildContext context) {
-    return Semantics(
-      image: true,
-      label: AmpStrings.bookingQrHint,
-      child: ExcludeSemantics(
-        child: Container(
-          width: 96,
-          height: 96,
-          padding: const EdgeInsets.all(6),
-          color: Colors.white,
-          child: QrImageView(
-            data: payload,
-            size: 84,
-            backgroundColor: Colors.white,
+    final String semantics = AmpStrings.bookingQrSemantics(code);
+    return Tooltip(
+      message: semantics,
+      child: Semantics(
+        image: true,
+        label: semantics,
+        child: ExcludeSemantics(
+          child: Container(
+            width: 96,
+            height: 96,
+            padding: const EdgeInsets.all(6),
+            color: Colors.white,
+            child: QrImageView(
+              data: payload,
+              size: 84,
+              backgroundColor: Colors.white,
+            ),
           ),
         ),
       ),

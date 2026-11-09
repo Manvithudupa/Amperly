@@ -1,10 +1,15 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../app/theme/amp_theme.dart';
 import '../../../core/errors/user_messages.dart';
 import '../../../core/formatting/amp_format.dart';
+import '../../../core/ui/input_formatters.dart';
 import '../../../core/ui/strings.dart';
 import '../../../core/widgets/amp_button.dart';
 import '../../../core/widgets/amp_field.dart';
@@ -17,6 +22,7 @@ import '../../../core/widgets/hairline.dart';
 import '../../../core/widgets/skeleton.dart';
 import '../../../core/widgets/status_dot_label.dart';
 import '../../../core/widgets/text_action.dart';
+import '../../../core/widgets/unsaved_changes_guard.dart';
 import '../../../data/models/models.dart';
 import '../../../data/repositories/repository_providers.dart';
 import '../../../data/repositories/repository_result.dart';
@@ -36,22 +42,40 @@ class SafetyScreen extends ConsumerStatefulWidget {
 }
 
 class _SafetyScreenState extends ConsumerState<SafetyScreen> {
+  final GlobalKey<FormState> _contactForm = GlobalKey<FormState>();
   final TextEditingController _name = TextEditingController();
   final TextEditingController _phone = TextEditingController();
+  final FocusNode _nameFocus = FocusNode();
   bool _busy = false;
   String? _contactError;
+
+  bool get _hasUnsavedContact =>
+      _name.text.trim().isNotEmpty || _phone.text.trim().isNotEmpty;
 
   @override
   void dispose() {
     _name.dispose();
     _phone.dispose();
+    _nameFocus.dispose();
     super.dispose();
+  }
+
+  Future<void> _refresh() async {
+    ref.invalidate(safetyDataProvider);
+    await ref.read(safetyDataProvider.future);
   }
 
   AppUser? get _profile =>
       ref.read(currentProfileProvider).asData?.value.valueOrNull;
 
   Future<void> _addContact() async {
+    if (_busy) {
+      return;
+    }
+    FocusScope.of(context).unfocus();
+    if (!(_contactForm.currentState?.validate() ?? false)) {
+      return;
+    }
     final AppUser? user = _profile;
     final SafetyRepository? repository = ref.read(safetyRepositoryProvider);
     if (user == null || repository == null) {
@@ -119,6 +143,34 @@ class _SafetyScreenState extends ConsumerState<SafetyScreen> {
       context,
       AmpStrings.safetyContactRemoved,
       tone: AmpSnackbarTone.success,
+      actionLabel: AmpStrings.undo,
+      duration: const Duration(seconds: 6),
+      onAction: () => unawaited(_restoreContact(contact)),
+    );
+  }
+
+  Future<void> _restoreContact(TrustedContact contact) async {
+    final AppUser? user = _profile;
+    final SafetyRepository? repository = ref.read(safetyRepositoryProvider);
+    if (user == null || repository == null) {
+      return;
+    }
+    final RepositoryResult<TrustedContact> result = await repository.addContact(
+      userId: user.id,
+      name: contact.name ?? '',
+      phone: contact.phone ?? '',
+    );
+    if (!mounted) {
+      return;
+    }
+    ref.invalidate(safetyDataProvider);
+    final bool failed = result.failureOrNull != null;
+    AmpSnackbar.show(
+      context,
+      failed
+          ? AmpStrings.safetyContactRestoreFailed
+          : AmpStrings.safetyContactRestored,
+      tone: failed ? AmpSnackbarTone.error : AmpSnackbarTone.success,
     );
   }
 
@@ -255,24 +307,32 @@ class _SafetyScreenState extends ConsumerState<SafetyScreen> {
       safetyDataProvider,
     );
 
-    return AmpScaffold(
-      title: AmpStrings.safetyTitle,
-      body: async.when(
-        loading: () => const _SafetyLoading(),
-        error: (Object error, StackTrace stack) => ErrorState(
-          message: UserMessages.from(error),
-          onRetry: () => ref.invalidate(safetyDataProvider),
+    return AmpUnsavedChangesGuard(
+      hasUnsavedChanges: _hasUnsavedContact,
+      onDiscard: () {
+        if (mounted) {
+          context.pop();
+        }
+      },
+      child: AmpScaffold(
+        title: AmpStrings.safetyTitle,
+        body: async.when(
+          loading: () => const _SafetyLoading(),
+          error: (Object error, StackTrace stack) => ErrorState(
+            message: UserMessages.from(error),
+            onRetry: () => ref.invalidate(safetyDataProvider),
+          ),
+          data: (RepositoryResult<SafetyData> result) {
+            final RepositoryFailure<SafetyData>? failure = result.failureOrNull;
+            if (failure != null) {
+              return ErrorState(
+                message: failure.message,
+                onRetry: () => ref.invalidate(safetyDataProvider),
+              );
+            }
+            return _body(result.valueOrNull!);
+          },
         ),
-        data: (RepositoryResult<SafetyData> result) {
-          final RepositoryFailure<SafetyData>? failure = result.failureOrNull;
-          if (failure != null) {
-            return ErrorState(
-              message: failure.message,
-              onRetry: () => ref.invalidate(safetyDataProvider),
-            );
-          }
-          return _body(result.valueOrNull!);
-        },
       ),
     );
   }
@@ -280,114 +340,183 @@ class _SafetyScreenState extends ConsumerState<SafetyScreen> {
   Widget _body(SafetyData data) {
     final TextTheme text = Theme.of(context).textTheme;
     final SafetyEvent? active = data.activeSharing;
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(
-        AmpTheme.screenPadding,
-        AmpTheme.spaceM,
-        AmpTheme.screenPadding,
-        AmpTheme.spaceXxl,
-      ),
-      children: <Widget>[
-        Text(AmpStrings.safetyDemoNotice, style: text.bodySmall),
-        const SizedBox(height: AmpTheme.spaceM),
-        const Hairline(),
-        const SizedBox(height: AmpTheme.spaceM),
-        AmpButton(
-          label: AmpStrings.safetySosButton,
-          variant: AmpButtonVariant.danger,
-          onPressed: _recordSos,
+    return RefreshIndicator(
+      onRefresh: _refresh,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        padding: const EdgeInsets.fromLTRB(
+          AmpTheme.screenPadding,
+          AmpTheme.spaceM,
+          AmpTheme.screenPadding,
+          AmpTheme.spaceXxl,
         ),
-        const SizedBox(height: AmpTheme.spaceL),
-        const Eyebrow(AmpStrings.safetyShareTitle),
-        const SizedBox(height: AmpTheme.spaceS),
-        Text(AmpStrings.safetyShareBody, style: text.bodySmall),
-        const SizedBox(height: AmpTheme.spaceS),
-        if (active != null) ...<Widget>[
-          StatusDotLabel(
-            AmpStrings.safetyShareActiveLabel,
-            detail: active.trustedContactPhone,
-            tone: StatusDotTone.available,
+        children: <Widget>[
+          Text(AmpStrings.safetyDemoNotice, style: text.bodySmall),
+          const SizedBox(height: AmpTheme.spaceM),
+          const Hairline(),
+          const SizedBox(height: AmpTheme.spaceM),
+          AmpButton(
+            label: AmpStrings.safetySosButton,
+            variant: AmpButtonVariant.danger,
+            onPressed: _recordSos,
           ),
-          const SizedBox(height: 4),
-          Text(
-            AmpStrings.safetyShareActive(
-              active.trustedContactPhone ?? AmpStrings.labelUnknown,
-              AmpFormat.messageTimestamp(active.expiresAtMs),
+          const SizedBox(height: AmpTheme.spaceL),
+          const Eyebrow(AmpStrings.safetyShareTitle),
+          const SizedBox(height: AmpTheme.spaceS),
+          Text(AmpStrings.safetyShareBody, style: text.bodySmall),
+          const SizedBox(height: AmpTheme.spaceS),
+          if (active != null) ...<Widget>[
+            StatusDotLabel(
+              AmpStrings.safetyShareActiveLabel,
+              detail: active.trustedContactPhone,
+              tone: StatusDotTone.available,
             ),
-            style: text.bodySmall,
+            const SizedBox(height: 4),
+            Text(
+              AmpStrings.safetyShareActive(
+                active.trustedContactPhone ?? AmpStrings.labelUnknown,
+                AmpFormat.messageTimestamp(active.expiresAtMs),
+              ),
+              style: text.bodySmall,
+            ),
+            const SizedBox(height: AmpTheme.spaceS),
+            TextAction(
+              AmpStrings.safetyShareStop,
+              tone: TextActionTone.danger,
+              onPressed: () => _stopSharing(active),
+            ),
+          ] else
+            TextAction(
+              AmpStrings.safetyShareStart,
+              onPressed: () => _startSharing(data),
+            ),
+          const SizedBox(height: AmpTheme.spaceL),
+          const Hairline(),
+          const SizedBox(height: AmpTheme.spaceL),
+          const Eyebrow(AmpStrings.safetyTrustedTitle),
+          const SizedBox(height: AmpTheme.spaceS),
+          if (data.contacts.isEmpty)
+            _ContactEmpty(onAdd: () => _nameFocus.requestFocus())
+          else
+            for (final TrustedContact contact in data.contacts)
+              _ContactRow(
+                contact: contact,
+                onCall: () => _callContact(contact),
+                onRemove: () => _removeContact(contact),
+              ),
+          const SizedBox(height: AmpTheme.spaceM),
+          Form(
+            key: _contactForm,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                AmpField(
+                  controller: _name,
+                  focusNode: _nameFocus,
+                  label: AmpStrings.safetyContactName,
+                  textCapitalization: TextCapitalization.words,
+                  textInputAction: TextInputAction.next,
+                  maxLength: 80,
+                  errorText: _contactError,
+                  validator: (String? value) => (value ?? '').trim().isEmpty
+                      ? AmpStrings.safetyContactNameRequired
+                      : null,
+                  onChanged: (String value) {
+                    setState(() => _contactError = null);
+                  },
+                ),
+                const SizedBox(height: AmpTheme.spaceS),
+                AmpField(
+                  controller: _phone,
+                  label: AmpStrings.safetyContactPhone,
+                  keyboardType: TextInputType.phone,
+                  textInputAction: TextInputAction.done,
+                  autofillHints: const <String>[AutofillHints.telephoneNumber],
+                  inputFormatters: <TextInputFormatter>[
+                    AmpInputFormatters.phone,
+                  ],
+                  maxLength: 18,
+                  validator: (String? value) {
+                    final String digits = (value ?? '').replaceAll(
+                      RegExp(r'[^0-9]'),
+                      '',
+                    );
+                    return digits.length < 6
+                        ? AmpStrings.safetyContactPhoneInvalid
+                        : null;
+                  },
+                  onChanged: (String value) {
+                    setState(() => _contactError = null);
+                  },
+                  onSubmitted: (String value) {
+                    _addContact();
+                  },
+                ),
+                const SizedBox(height: AmpTheme.spaceS),
+                AmpButton(
+                  label: _busy
+                      ? AmpStrings.safetySavingContact
+                      : AmpStrings.safetyAddContact,
+                  variant: AmpButtonVariant.tonal,
+                  loading: _busy,
+                  onPressed: _busy ? null : _addContact,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: AmpTheme.spaceL),
+          const Hairline(),
+          const SizedBox(height: AmpTheme.spaceL),
+          const Eyebrow(AmpStrings.safetyHistoryTitle),
+          const SizedBox(height: AmpTheme.spaceS),
+          if (data.events.isEmpty)
+            Text(AmpStrings.safetyHistoryEmpty, style: text.bodySmall)
+          else
+            for (final SafetyEvent event in data.events.take(20))
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Text(
+                  AmpStrings.safetyHistoryLine(
+                    (event.emergencyType ?? '').toUpperCase() == 'SOS'
+                        ? AmpStrings.safetyEventSos
+                        : AmpStrings.safetyEventSharing,
+                    AmpFormat.messageTimestamp(event.createdAtMs),
+                  ),
+                  style: text.bodyMedium,
+                ),
+              ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ContactEmpty extends StatelessWidget {
+  const _ContactEmpty({required this.onAdd});
+
+  final VoidCallback onAdd;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AmpTheme.spaceS),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            AmpStrings.safetyTrustedEmptyTitle,
+            style: Theme.of(context).textTheme.titleSmall,
+          ),
+          const SizedBox(height: 2),
+          Text(
+            AmpStrings.safetyTrustedEmpty,
+            style: Theme.of(context).textTheme.bodySmall,
           ),
           const SizedBox(height: AmpTheme.spaceS),
-          TextAction(
-            AmpStrings.safetyShareStop,
-            tone: TextActionTone.danger,
-            onPressed: () => _stopSharing(active),
-          ),
-        ] else
-          TextAction(
-            AmpStrings.safetyShareStart,
-            onPressed: () => _startSharing(data),
-          ),
-        const SizedBox(height: AmpTheme.spaceL),
-        const Hairline(),
-        const SizedBox(height: AmpTheme.spaceL),
-        const Eyebrow(AmpStrings.safetyTrustedTitle),
-        const SizedBox(height: AmpTheme.spaceS),
-        if (data.contacts.isEmpty)
-          Text(AmpStrings.safetyTrustedEmpty, style: text.bodySmall)
-        else
-          for (final TrustedContact contact in data.contacts)
-            _ContactRow(
-              contact: contact,
-              onCall: () => _callContact(contact),
-              onRemove: () => _removeContact(contact),
-            ),
-        const SizedBox(height: AmpTheme.spaceM),
-        AmpField(
-          controller: _name,
-          label: AmpStrings.safetyContactName,
-          textCapitalization: TextCapitalization.words,
-          errorText: _contactError,
-          onChanged: (String value) {
-            if (_contactError != null) {
-              setState(() => _contactError = null);
-            }
-          },
-        ),
-        const SizedBox(height: AmpTheme.spaceS),
-        AmpField(
-          controller: _phone,
-          label: AmpStrings.safetyContactPhone,
-          keyboardType: TextInputType.phone,
-        ),
-        const SizedBox(height: AmpTheme.spaceS),
-        AmpButton(
-          label: _busy ? AmpStrings.vehicleSaving : AmpStrings.safetyAddContact,
-          variant: AmpButtonVariant.tonal,
-          loading: _busy,
-          onPressed: _busy ? null : _addContact,
-        ),
-        const SizedBox(height: AmpTheme.spaceL),
-        const Hairline(),
-        const SizedBox(height: AmpTheme.spaceL),
-        const Eyebrow(AmpStrings.safetyHistoryTitle),
-        const SizedBox(height: AmpTheme.spaceS),
-        if (data.events.isEmpty)
-          Text(AmpStrings.safetyHistoryEmpty, style: text.bodySmall)
-        else
-          for (final SafetyEvent event in data.events.take(20))
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 6),
-              child: Text(
-                AmpStrings.safetyHistoryLine(
-                  (event.emergencyType ?? '').toUpperCase() == 'SOS'
-                      ? AmpStrings.safetyEventSos
-                      : AmpStrings.safetyEventSharing,
-                  AmpFormat.messageTimestamp(event.createdAtMs),
-                ),
-                style: text.bodyMedium,
-              ),
-            ),
-      ],
+          TextAction(AmpStrings.safetyAddContact, onPressed: onAdd),
+        ],
+      ),
     );
   }
 }

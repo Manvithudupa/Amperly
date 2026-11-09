@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/theme/amp_colors.dart';
 import '../../app/theme/amp_theme.dart';
+import '../network/connectivity.dart';
 import '../ui/strings.dart';
 import 'amp_icon.dart';
 
@@ -25,7 +27,9 @@ class OfflineBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final AmpColors c = context.amp;
     return AnimatedSize(
-      duration: const Duration(milliseconds: 220),
+      duration: MediaQuery.disableAnimationsOf(context)
+          ? Duration.zero
+          : const Duration(milliseconds: 220),
       curve: Curves.easeOutCubic,
       alignment: Alignment.topCenter,
       child: !visible
@@ -78,6 +82,42 @@ class OfflineBanner extends StatelessWidget {
                 ),
               ),
             ),
+    );
+  }
+}
+
+/// Places [OfflineBanner] above the whole app and keeps one connection state
+/// for every route. It never blocks the screen underneath; request failures
+/// still have their own retry actions.
+class GlobalOfflineBanner extends ConsumerWidget {
+  const GlobalOfflineBanner({required this.child, super.key});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final bool online = ref.watch(onlineStatusProvider);
+    if (online) {
+      return child;
+    }
+
+    final MediaQueryData media = MediaQuery.of(context);
+    return Column(
+      children: <Widget>[
+        SafeArea(
+          bottom: false,
+          child: OfflineBanner(
+            visible: true,
+            onRetry: () => ref.read(onlineStatusProvider.notifier).check(),
+          ),
+        ),
+        Expanded(
+          child: MediaQuery(
+            data: media.removePadding(removeTop: true),
+            child: child,
+          ),
+        ),
+      ],
     );
   }
 }

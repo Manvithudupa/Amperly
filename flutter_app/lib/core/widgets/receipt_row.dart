@@ -34,51 +34,62 @@ class ReceiptRow extends StatelessWidget {
             ? Theme.of(context).textTheme.titleMedium
             : Theme.of(context).textTheme.bodyMedium) ??
         const TextStyle();
+    final TextStyle resolvedLabelStyle = labelStyle.copyWith(
+      color: emphasis ? c.ink : c.inkSecondary,
+    );
+    final TextStyle resolvedValueStyle = TextStyle(
+      fontFeatures: valueStyle.fontFeatures,
+      fontFamily: valueStyle.fontFamily,
+      fontSize: valueStyle.fontSize,
+      height: valueStyle.height,
+      fontWeight: emphasis ? FontWeight.w700 : FontWeight.w500,
+      letterSpacing: valueStyle.letterSpacing,
+      color: c.ink,
+    );
+    final bool stacked = MediaQuery.textScalerOf(context).scale(1) > 1.25;
 
     return Semantics(
       label: '$label, $value',
       child: ExcludeSemantics(
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 7),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: <Widget>[
-              Flexible(
-                child: Text(
-                  label,
-                  style: labelStyle.copyWith(
-                    color: emphasis ? c.ink : c.inkSecondary,
-                  ),
-                ),
-              ),
-              if (showLeader) ...<Widget>[
-                const SizedBox(width: AmpTheme.spaceS),
-                Expanded(
-                  child: SizedBox(
-                    height: 16,
-                    child: CustomPaint(
-                      painter: _LeaderPainter(color: c.divider),
+          child: stacked
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(label, style: resolvedLabelStyle),
+                    const SizedBox(height: 2),
+                    Text(
+                      value,
+                      textAlign: TextAlign.left,
+                      style: resolvedValueStyle,
                     ),
-                  ),
+                  ],
+                )
+              : Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: <Widget>[
+                    Flexible(child: Text(label, style: resolvedLabelStyle)),
+                    if (showLeader) ...<Widget>[
+                      const SizedBox(width: AmpTheme.spaceS),
+                      Expanded(
+                        child: SizedBox(
+                          height: 16,
+                          child: CustomPaint(
+                            painter: _LeaderPainter(color: c.divider),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: AmpTheme.spaceS),
+                    ] else
+                      const SizedBox(width: AmpTheme.spaceM),
+                    Text(
+                      value,
+                      textAlign: TextAlign.right,
+                      style: resolvedValueStyle,
+                    ),
+                  ],
                 ),
-                const SizedBox(width: AmpTheme.spaceS),
-              ] else
-                const SizedBox(width: AmpTheme.spaceM),
-              Text(
-                value,
-                textAlign: TextAlign.right,
-                style: TextStyle(
-                  fontFeatures: valueStyle.fontFeatures,
-                  fontFamily: valueStyle.fontFamily,
-                  fontSize: valueStyle.fontSize,
-                  height: valueStyle.height,
-                  fontWeight: emphasis ? FontWeight.w700 : FontWeight.w500,
-                  letterSpacing: valueStyle.letterSpacing,
-                  color: c.ink,
-                ),
-              ),
-            ],
-          ),
         ),
       ),
     );

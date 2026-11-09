@@ -32,27 +32,30 @@ class AmpBottomBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final AmpColors colors = context.amp;
 
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: colors.surface,
-        border: Border(top: BorderSide(color: colors.divider)),
-      ),
-      child: SafeArea(
-        top: false,
-        child: SizedBox(
-          height: 68,
-          child: Row(
-            children: <Widget>[
-              for (int index = 0; index < destinations.length; index++)
-                Expanded(
-                  child: _BottomItem(
-                    label: destinations[index].label,
-                    icon: destinations[index].icon,
-                    selected: index == currentIndex,
-                    onTap: () => onSelected(index),
+    return MediaQuery.withClampedTextScaling(
+      maxScaleFactor: 1.3,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: colors.surface,
+          border: Border(top: BorderSide(color: colors.divider)),
+        ),
+        child: SafeArea(
+          top: false,
+          child: SizedBox(
+            height: 68,
+            child: Row(
+              children: <Widget>[
+                for (int index = 0; index < destinations.length; index++)
+                  Expanded(
+                    child: _BottomItem(
+                      label: destinations[index].label,
+                      icon: destinations[index].icon,
+                      selected: index == currentIndex,
+                      onTap: () => onSelected(index),
+                    ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -77,6 +80,9 @@ class _BottomItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final AmpColors colors = context.amp;
     final Color foreground = selected ? colors.ink : colors.inkSecondary;
+    final Duration motion = MediaQuery.disableAnimationsOf(context)
+        ? Duration.zero
+        : const Duration(milliseconds: 180);
 
     return Semantics(
       button: true,
@@ -91,7 +97,7 @@ class _BottomItem extends StatelessWidget {
               alignment: Alignment.topCenter,
               children: <Widget>[
                 AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
+                  duration: motion,
                   curve: Curves.easeOut,
                   width: selected ? 24 : 0,
                   height: 2,
@@ -113,7 +119,7 @@ class _BottomItem extends StatelessWidget {
                         FittedBox(
                           fit: BoxFit.scaleDown,
                           child: AnimatedDefaultTextStyle(
-                            duration: const Duration(milliseconds: 160),
+                            duration: motion,
                             curve: Curves.easeOut,
                             style: TextStyle(
                               fontFamily: AmpTheme.uiFont,

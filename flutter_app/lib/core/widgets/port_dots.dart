@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../app/theme/amp_colors.dart';
+import '../ui/strings.dart';
 
 /// `●●○○` — free ports first, then occupied ones.
 ///
@@ -25,42 +26,47 @@ class PortDots extends StatelessWidget {
     final AmpColors colors = context.amp;
     final int free = available.clamp(0, total);
     final String semantics = total == 0
-        ? 'No ports published'
-        : '$free of $total free';
+        ? AmpStrings.portsNotPublished
+        : AmpStrings.portsFree(free, total);
 
-    return Semantics(
-      label: semantics,
-      child: ExcludeSemantics(
-        child: total > _maxDots
-            ? Text(
-                '$free/$total',
-                style: TextStyle(
-                  fontFamily: 'PlusJakartaSans',
-                  fontSize: 11,
-                  height: 1,
-                  fontWeight: FontWeight.w600,
-                  color: colors.inkSecondary,
-                  fontFeatures: const <FontFeature>[
-                    FontFeature.tabularFigures(),
+    return Tooltip(
+      message: semantics,
+      child: Semantics(
+        label: semantics,
+        child: ExcludeSemantics(
+          child: total > _maxDots
+              ? Text(
+                  '$free/$total',
+                  style: TextStyle(
+                    fontFamily: 'PlusJakartaSans',
+                    fontSize: 11,
+                    height: 1,
+                    fontWeight: FontWeight.w600,
+                    color: colors.inkSecondary,
+                    fontFeatures: const <FontFeature>[
+                      FontFeature.tabularFigures(),
+                    ],
+                  ),
+                )
+              : Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    for (int index = 0; index < total; index++) ...<Widget>[
+                      if (index > 0) const SizedBox(width: 3),
+                      Container(
+                        width: dotSize,
+                        height: dotSize,
+                        decoration: BoxDecoration(
+                          color: index < free
+                              ? colors.available
+                              : colors.outline,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
-              )
-            : Row(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  for (int index = 0; index < total; index++) ...<Widget>[
-                    if (index > 0) const SizedBox(width: 3),
-                    Container(
-                      width: dotSize,
-                      height: dotSize,
-                      decoration: BoxDecoration(
-                        color: index < free ? colors.available : colors.outline,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
+        ),
       ),
     );
   }

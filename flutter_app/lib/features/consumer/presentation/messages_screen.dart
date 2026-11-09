@@ -18,7 +18,6 @@ import '../../../data/models/models.dart';
 import '../../../data/repositories/repository_result.dart';
 import '../application/chat_providers.dart';
 import '../application/chat_rules.dart';
-import 'consumer_tab_bar.dart';
 
 /// Every consumer-to-host conversation on this account.
 class MessagesScreen extends ConsumerWidget {
@@ -33,7 +32,6 @@ class MessagesScreen extends ConsumerWidget {
     return AmpScaffold(
       title: AmpStrings.chatTitle,
       subtitle: AmpStrings.chatSubtitle,
-      tabBar: const ConsumerTabBar(currentIndex: 3),
       body: chats.when(
         loading: () => const _MessagesLoading(),
         error: (Object error, StackTrace stack) => ErrorState(

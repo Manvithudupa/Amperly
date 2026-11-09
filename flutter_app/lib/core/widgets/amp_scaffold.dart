@@ -40,6 +40,12 @@ class AmpScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final AmpColors colors = context.amp;
+    final double textScale = MediaQuery.textScalerOf(
+      context,
+    ).scale(1).clamp(1.0, 2.0);
+    final double? toolbarHeight = subtitle == null
+        ? null
+        : (78 + (textScale - 1) * 44).clamp(78, 126).toDouble();
     final bool hasHeader =
         wordmark || title != null || subtitle != null || actions.isNotEmpty;
     final bool canPop = showBack && Navigator.of(context).canPop();
@@ -73,7 +79,7 @@ class AmpScaffold extends StatelessWidget {
       backgroundColor: colors.background,
       appBar: hasHeader
           ? AppBar(
-              toolbarHeight: subtitle == null ? null : 78,
+              toolbarHeight: toolbarHeight,
               leading:
                   leading ??
                   (canPop
@@ -110,7 +116,11 @@ class AmpScaffold extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: <Widget>[
-                        Text(title!),
+                        Text(
+                          title!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                         if (subtitle != null)
                           Padding(
                             padding: const EdgeInsets.only(top: 2),

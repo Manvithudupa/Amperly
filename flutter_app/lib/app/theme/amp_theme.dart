@@ -185,7 +185,7 @@ abstract final class AmpTheme {
         behavior: SnackBarBehavior.floating,
         backgroundColor: c.inverseSurface,
         contentTextStyle: text.bodyMedium?.copyWith(color: c.onInverseSurface),
-        actionTextColor: c.energy,
+        actionTextColor: c.onInverseSurface,
         elevation: 2,
         insetPadding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
         shape: RoundedRectangleBorder(

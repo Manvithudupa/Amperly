@@ -17,6 +17,7 @@ dependencies:
   # Backend and encrypted session persistence.
   supabase_flutter: 2.18.3
   flutter_secure_storage: 11.2.0
+  shared_preferences: 2.5.6
 
   # Formatting, Geoapify HTTP, the phone map and device location.
   intl: 0.20.3

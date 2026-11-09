@@ -175,14 +175,28 @@ public final class CarBridge {
             Vehicle vehicle = repo.getVehicleSync(userId);
             Reservation reservation = repo.getActiveReservationSync(userId);
 
+            int soc = plan == null
+                    ? AppStateStore.get().getCurrentSoc()
+                    : (AppStateStore.get().getCurrentSoc() >= 0
+                    ? AppStateStore.get().getCurrentSoc() : plan.getPlannedStartSoc());
             List<ChargerStation> reachable = new ArrayList<>();
             ChargerStation recommended = null;
             double detourKm = 0;
 
             if (plan != null) {
+                com.amperly.app.data.local.entity.BatteryUpdate latest =
+                        repo.getLatestBatteryUpdateSync(plan.getId());
+                if (latest != null && latest.getActualDashboardSoc() >= 0
+                        && latest.getActualDashboardSoc() <= 100) {
+                    // The phone writes this row when the driver confirms the dashboard value.
+                    // Apply it before range arithmetic so the car and phone agree.
+                    AppStateStore.get().applyStoredSoc(plan.getVehicleId(),
+                            latest.getEstimatedSoc());
+                    AppStateStore.get().applySocCorrection(latest.getEstimatedSoc(),
+                            latest.getActualDashboardSoc());
+                    soc = latest.getActualDashboardSoc();
+                }
                 List<ChargerStation> candidates = repo.getApprovedStationsSync();
-                int soc = AppStateStore.get().getCurrentSoc() >= 0
-                        ? AppStateStore.get().getCurrentSoc() : plan.getPlannedStartSoc();
                 double[] position = currentPosition(plan);
                 reachable = SoCEstimatorEngine.safeAlternatives(candidates, soc, position[0],
                         position[1], vehicle, 5);
@@ -200,10 +214,6 @@ public final class CarBridge {
                 }
             }
 
-            int soc = plan == null
-                    ? AppStateStore.get().getCurrentSoc()
-                    : (AppStateStore.get().getCurrentSoc() >= 0
-                    ? AppStateStore.get().getCurrentSoc() : plan.getPlannedStartSoc());
             return new Snapshot(plan, vehicle, reservation, reachable, recommended, detourKm,
                     soc, AppStateStore.get().isSocAuthoritative(),
                     AppStateStore.get().getNoSafeChargerMessage());

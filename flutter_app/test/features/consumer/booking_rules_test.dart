@@ -84,6 +84,63 @@ void main() {
         'port-type2',
       ]);
     });
+
+    test('a saved vehicle without a connector does not filter ports', () {
+      final List<ChargerPort> ports = BookingRules.availablePorts(<ChargerPort>[
+        ccsPort,
+        type2Port,
+        busyPort,
+      ], const Vehicle(id: 'vehicle-2'));
+
+      expect(ports.map((ChargerPort port) => port.id), <String>[
+        'port-ccs',
+        'port-type2',
+      ]);
+    });
+
+    test('a station without published ports offers nothing', () {
+      expect(
+        BookingRules.availablePorts(const <ChargerPort>[], vehicle),
+        isEmpty,
+      );
+    });
+  });
+
+  group('BookingRules.firstDayWithSlots', () {
+    test('advances to tomorrow when today has no free slots left', () {
+      final DateTime today = DateTime(2026, 11, 9);
+      final DateTime tomorrow = DateTime(2026, 11, 10);
+      final int nowMs = today.millisecondsSinceEpoch + 21 * 3600000;
+      final List<AvailabilitySchedule> schedules = <AvailabilitySchedule>[
+        AvailabilitySchedule(
+          id: 'schedule-today',
+          stationId: station.id,
+          portId: ccsPort.id,
+          dayOfWeek: today.weekday,
+          openMinutes: 8 * 60,
+          closeMinutes: 20 * 60,
+        ),
+        AvailabilitySchedule(
+          id: 'schedule-tomorrow',
+          stationId: station.id,
+          portId: ccsPort.id,
+          dayOfWeek: tomorrow.weekday,
+          openMinutes: 8 * 60,
+          closeMinutes: 20 * 60,
+        ),
+      ];
+
+      final int index = BookingRules.firstDayWithSlots(
+        station: station,
+        port: ccsPort,
+        schedules: schedules,
+        reservations: const <Reservation>[],
+        dayStarts: BookingRules.dayStarts(nowMs),
+        nowMs: nowMs,
+      );
+
+      expect(index, 1);
+    });
   });
 
   group('BookingRules.slotsFor', () {
@@ -157,6 +214,34 @@ void main() {
       );
 
       expect(after.any((Slot slot) => slot.startMs == first.startMs), isFalse);
+    });
+
+    test('a full-day schedule never returns a slot across midnight', () {
+      final DateTime day = DateTime(2026, 11, 9);
+      final int dayStartMs = day.millisecondsSinceEpoch;
+      final AvailabilitySchedule schedule = AvailabilitySchedule(
+        id: 'schedule-all-day',
+        stationId: station.id,
+        portId: ccsPort.id,
+        dayOfWeek: day.weekday,
+        openMinutes: 0,
+        closeMinutes: 24 * 60,
+      );
+
+      final List<Slot> slots = BookingRules.slotsFor(
+        station: station,
+        port: ccsPort,
+        schedules: <AvailabilitySchedule>[schedule],
+        reservations: const <Reservation>[],
+        dayStartMs: dayStartMs,
+        nowMs: dayStartMs,
+      );
+
+      expect(slots, isNotEmpty);
+      for (final Slot slot in slots) {
+        expect(slot.startMs, greaterThanOrEqualTo(dayStartMs));
+        expect(slot.endMs, lessThanOrEqualTo(dayStartMs + 24 * 60 * 60000));
+      }
     });
   });
 

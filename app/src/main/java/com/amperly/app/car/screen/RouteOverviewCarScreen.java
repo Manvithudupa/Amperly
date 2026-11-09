@@ -26,6 +26,9 @@ import com.amperly.app.car.CarLocation;
 import com.amperly.app.car.CarSessionAuth;
 import com.amperly.app.core.common.Formatters;
 import com.amperly.app.core.nav.Navigator;
+import com.amperly.app.core.security.AuthManager;
+import com.amperly.app.core.state.AppStateStore;
+import com.amperly.app.data.remote.SyncEngine;
 import com.amperly.app.data.local.entity.ChargerStation;
 import com.amperly.app.data.local.entity.RoutePlan;
 import com.amperly.app.data.repository.AmperlyRepository;
@@ -58,6 +61,7 @@ public class RouteOverviewCarScreen extends Screen {
     @Nullable private CarLocation.Fix fix;
     private boolean permissionDenied;
     private boolean loading;
+    private boolean syncing;
     private boolean authStarted;
     private boolean authReady;
     private boolean authFailed;
@@ -100,7 +104,7 @@ public class RouteOverviewCarScreen extends Screen {
                 authReady = signedIn;
                 authFailed = !signedIn;
                 if (signedIn) {
-                    loadSnapshot();
+                    syncForCar();
                 }
                 updateMap();
                 invalidateIfStarted();
@@ -138,13 +142,40 @@ public class RouteOverviewCarScreen extends Screen {
     }
 
     private void loadSnapshot() {
-        if (!authReady || snapshot != null || loading) {
+        if (!authReady || syncing || snapshot != null || loading) {
             return;
         }
         loading = true;
         CarBridge.load(repo, value -> {
             snapshot = value;
             loading = false;
+            updateMap();
+            invalidateIfStarted();
+        });
+    }
+
+    /**
+     * Pulls the phone's saved plan into the car's cache before the first snapshot is read.
+     *
+     * <p>The phone writes route_plans and route_stops from Flutter. The car process can start
+     * with an empty Room cache, so it uses the shared native session to run the same SyncEngine
+     * pull the phone uses, then exposes the active row to the existing bridge. The order matters:
+     * a snapshot loaded before this finishes would correctly show no trip and never refresh.
+     */
+    private void syncForCar() {
+        if (syncing || snapshot != null) {
+            return;
+        }
+        syncing = true;
+        repo.background(() -> {
+            SyncEngine.syncNow(getCarContext().getApplicationContext(), repo.database());
+            String userId = AuthManager.getInstance().getCurrentUserId();
+            AppStateStore.get().setActivePlan(userId == null || userId.isEmpty()
+                    ? null : repo.getActiveRoutePlanSync(userId));
+            return null;
+        }, value -> {
+            syncing = false;
+            loadSnapshot();
             updateMap();
             invalidateIfStarted();
         });

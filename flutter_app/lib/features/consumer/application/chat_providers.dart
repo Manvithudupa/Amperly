@@ -184,18 +184,16 @@ final chatThreadProvider =
 
 /// Live messages for one conversation. The stream still emits the current rows
 /// when Realtime is unavailable, so opening a thread always shows its history.
-final chatMessagesProvider = StreamProvider.family<List<ChatMessage>, String>((
-  Ref ref,
-  String threadId,
-) {
-  final chatRepository = ref.watch(chatRepositoryProvider);
-  if (chatRepository == null) {
-    return Stream<List<ChatMessage>>.error(
-      StateError('No backend is configured.'),
-    );
-  }
-  return chatRepository.watchMessages(threadId);
-});
+final chatMessagesProvider = StreamProvider.autoDispose
+    .family<List<ChatMessage>, String>((Ref ref, String threadId) {
+      final chatRepository = ref.watch(chatRepositoryProvider);
+      if (chatRepository == null) {
+        return Stream<List<ChatMessage>>.error(
+          StateError('No backend is configured.'),
+        );
+      }
+      return chatRepository.watchMessages(threadId);
+    });
 
 /// Finds the signed-in booking, its station's host and the pair's thread.
 ///

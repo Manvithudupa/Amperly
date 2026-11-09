@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../core/env/app_env.dart';
 import '../core/ui/strings.dart';
+import '../core/widgets/offline_banner.dart';
 import 'router.dart';
 import 'theme/amp_theme.dart';
 
@@ -29,6 +30,8 @@ class AmpApp extends ConsumerWidget {
       darkTheme: _dark,
       themeMode: ThemeMode.system,
       routerConfig: router,
+      builder: (BuildContext context, Widget? child) =>
+          GlobalOfflineBanner(child: child ?? const SizedBox.shrink()),
     );
   }
 }

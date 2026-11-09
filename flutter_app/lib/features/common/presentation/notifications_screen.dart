@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../app/theme/amp_theme.dart';
 import '../../../core/errors/user_messages.dart';
 import '../../../core/formatting/amp_format.dart';
 import '../../../core/ui/strings.dart';
+import '../../../core/widgets/amp_button.dart';
+import '../../../core/widgets/amp_icon.dart';
 import '../../../core/widgets/amp_scaffold.dart';
 import '../../../core/widgets/amp_snackbar.dart';
 import '../../../core/widgets/empty_state.dart';
@@ -17,10 +20,12 @@ import '../../../data/models/models.dart';
 import '../../../data/repositories/repository_providers.dart';
 import '../../../data/repositories/repository_result.dart';
 import '../../auth/application/profile_providers.dart';
+import '../application/notification_navigation.dart';
 import '../application/notification_providers.dart';
 
 /// The account's notification ledger. Opening an unread row marks just that row
-/// read; the header action marks the whole ledger read.
+/// read and moves to the section named by the update; the header action marks
+/// the whole ledger read.
 class NotificationsScreen extends ConsumerStatefulWidget {
   const NotificationsScreen({super.key});
 
@@ -31,6 +36,11 @@ class NotificationsScreen extends ConsumerStatefulWidget {
 
 class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   bool _busy = false;
+
+  Future<void> _refresh() async {
+    ref.invalidate(notificationsProvider);
+    await ref.read(notificationsProvider.future);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -61,42 +71,66 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
           final List<AppNotification> notifications =
               result.valueOrNull ?? const <AppNotification>[];
           if (notifications.isEmpty) {
-            return const EmptyState(
-              title: AmpStrings.notificationsEmptyTitle,
-              message: AmpStrings.notificationsEmptyBody,
+            return RefreshIndicator(
+              onRefresh: _refresh,
+              child: CustomScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                slivers: <Widget>[
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: EmptyState(
+                      title: AmpStrings.notificationsEmptyTitle,
+                      message: AmpStrings.notificationsEmptyBody,
+                      action: AmpButton(
+                        label: AmpStrings.retry,
+                        icon: AmpIconName.refresh,
+                        variant: AmpButtonVariant.tonal,
+                        expand: false,
+                        onPressed: _refresh,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             );
           }
-          return ListView(
-            padding: const EdgeInsets.fromLTRB(
-              AmpTheme.screenPadding,
-              AmpTheme.spaceL,
-              AmpTheme.screenPadding,
-              AmpTheme.spaceXxl,
-            ),
-            children: <Widget>[
-              Row(
-                children: <Widget>[
-                  Expanded(
-                    child: Text(
+          return RefreshIndicator(
+            onRefresh: _refresh,
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(
+                AmpTheme.screenPadding,
+                AmpTheme.spaceL,
+                AmpTheme.screenPadding,
+                AmpTheme.spaceXxl,
+              ),
+              children: <Widget>[
+                Wrap(
+                  spacing: AmpTheme.spaceM,
+                  runSpacing: AmpTheme.spaceXs,
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: <Widget>[
+                    Text(
                       AmpStrings.notificationsSubtitle,
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
-                  ),
-                  if (hasUnread)
-                    TextButton(
-                      onPressed: _busy ? null : _markAll,
-                      child: const Text(AmpStrings.notificationsMarkAll),
-                    ),
-                ],
-              ),
-              const SizedBox(height: AmpTheme.spaceS),
-              const Hairline(),
-              for (final AppNotification item in notifications)
-                _NotificationRow(
-                  item: item,
-                  onTap: _busy ? null : () => _markOne(item),
+                    if (hasUnread)
+                      TextButton(
+                        onPressed: _busy ? null : _markAll,
+                        child: const Text(AmpStrings.notificationsMarkAll),
+                      ),
+                  ],
                 ),
-            ],
+                const SizedBox(height: AmpTheme.spaceS),
+                const Hairline(),
+                for (final AppNotification item in notifications)
+                  _NotificationRow(
+                    item: item,
+                    onTap: _busy ? null : () => _open(item),
+                  ),
+              ],
+            ),
           );
         },
       ),
@@ -104,6 +138,9 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   }
 
   Future<void> _markAll() async {
+    if (_busy) {
+      return;
+    }
     final AppUser? profile = ref
         .read(currentProfileProvider)
         .asData
@@ -137,17 +174,38 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     );
   }
 
-  Future<void> _markOne(AppNotification item) async {
-    if (item.isRead) {
+  Future<void> _open(AppNotification item) async {
+    if (_busy) {
       return;
+    }
+    setState(() => _busy = true);
+    try {
+      final bool read = await _markOne(item);
+      if (!mounted || !read) {
+        return;
+      }
+      final String? target = notificationSectionTarget(item);
+      if (target != null) {
+        context.go(target);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _busy = false);
+      }
+    }
+  }
+
+  Future<bool> _markOne(AppNotification item) async {
+    if (item.isRead) {
+      return true;
     }
     final repository = ref.read(notificationRepositoryProvider);
     if (repository == null) {
-      return;
+      return false;
     }
     final RepositoryResult<bool> result = await repository.markRead(item.id);
     if (!mounted) {
-      return;
+      return false;
     }
     if (result.failureOrNull != null) {
       AmpSnackbar.show(
@@ -155,9 +213,10 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
         AmpStrings.notificationsMarkFailed,
         tone: AmpSnackbarTone.error,
       );
-      return;
+      return false;
     }
     ref.invalidate(notificationsProvider);
+    return true;
   }
 }
 

@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:amperly/core/errors/user_messages.dart';
 import 'package:amperly/data/geoapify/geoapify_client.dart';
 import 'package:amperly/data/geoapify/geoapify_models.dart';
 import 'package:amperly/data/geoapify/geoapify_place_parser.dart';
@@ -9,9 +10,12 @@ import 'package:amperly/data/geoapify/request_throttle.dart';
 import 'package:amperly/data/geoapify/route_cache.dart';
 import 'package:amperly/data/models/models.dart';
 import 'package:amperly/data/repositories/profile_repository.dart';
+import 'package:amperly/data/repositories/repository_result.dart';
 import 'package:amperly/data/repositories/rpc_repository.dart';
 import 'package:amperly/domain/policy.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 
 const String autocompleteFixture = '''
 {"features":[
@@ -82,6 +86,62 @@ void main() {
       client.dispose();
     },
   );
+
+  test('Geoapify HTTP failures become friendly classified errors', () async {
+    final Map<int, UserMessageKind> expected = <int, UserMessageKind>{
+      401: UserMessageKind.mapUnavailable,
+      429: UserMessageKind.rateLimited,
+      500: UserMessageKind.server,
+    };
+
+    for (final MapEntry<int, UserMessageKind> entry in expected.entries) {
+      final GeoapifyClient client = GeoapifyClient(
+        apiKey: 'test-key',
+        httpClient: MockClient(
+          (http.Request request) async => http.Response('', entry.key),
+        ),
+      );
+      final RepositoryResult<GeoPlace> result = await client.forward(
+        'MG Road',
+        biasLat: 12.9,
+        biasLng: 77.6,
+      );
+      final RepositoryFailure<GeoPlace>? failure = result.failureOrNull;
+      expect(failure, isNotNull);
+      expect(failure!.kind, entry.value);
+      expect(failure.message, isNot(contains('HTTP')));
+      expect(failure.message, isNot(contains('Geoapify')));
+      client.dispose();
+    }
+  });
+
+  test('Geoapify offline and empty answers use friendly copy', () async {
+    final GeoapifyClient offline = GeoapifyClient(
+      apiKey: 'test-key',
+      httpClient: MockClient(
+        (http.Request request) async =>
+            throw http.ClientException('network down'),
+      ),
+    );
+    final RepositoryResult<GeoPlace> offlineResult = await offline.forward(
+      'MG Road',
+    );
+    expect(offlineResult.failureOrNull?.kind, UserMessageKind.offline);
+    expect(offlineResult.failureOrNull?.message, isNot(contains('network')));
+    offline.dispose();
+
+    final GeoapifyClient empty = GeoapifyClient(
+      apiKey: 'test-key',
+      httpClient: MockClient(
+        (http.Request request) async => http.Response('{"features":[]}', 200),
+      ),
+    );
+    final RepositoryResult<GeoPlace> emptyResult = await empty.forward(
+      'Nowhere',
+    );
+    expect(emptyResult.failureOrNull?.kind, UserMessageKind.noResults);
+    empty.dispose();
+  });
 
   test('route cache expires and evicts least recently used entries', () {
     final cache = RouteCache(capacity: 2, ttlMs: 1000);

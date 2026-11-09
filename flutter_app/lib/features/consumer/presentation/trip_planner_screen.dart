@@ -10,11 +10,14 @@ import '../../../app/theme/amp_colors.dart';
 import '../../../app/theme/amp_theme.dart';
 import '../../../core/formatting/amp_format.dart';
 import '../../../core/location/device_location.dart';
+import '../../../core/location/location_flow.dart';
+import '../../../core/ui/input_formatters.dart';
 import '../../../core/ui/strings.dart';
 import '../../../core/widgets/amp_button.dart';
 import '../../../core/widgets/amp_field.dart';
 import '../../../core/widgets/amp_icon.dart';
 import '../../../core/widgets/amp_scaffold.dart';
+import '../../../core/widgets/amp_snackbar.dart';
 import '../../../core/widgets/big_number.dart';
 import '../../../core/widgets/eyebrow.dart';
 import '../../../core/widgets/hairline.dart';
@@ -23,26 +26,32 @@ import '../../../core/widgets/skeleton.dart';
 import '../../../core/widgets/status_dot_label.dart';
 import '../../../core/widgets/text_action.dart';
 import '../../../core/widgets/text_filter_row.dart';
+import '../../../core/widgets/unsaved_changes_guard.dart';
 import '../../../data/geoapify/geoapify_client.dart';
 import '../../../data/geoapify/geoapify_models.dart';
 import '../../../data/geoapify/geoapify_tiles.dart';
 import '../../../data/models/models.dart';
+import '../../../data/repositories/journey_repository.dart';
 import '../../../data/repositories/repository_result.dart';
 import '../../../domain/engines/route_planner_engine.dart';
 import '../../../domain/policy.dart';
+import '../../auth/application/profile_providers.dart';
 import '../application/battery_providers.dart';
 import '../application/discovery_providers.dart';
+import '../application/journey_mapper.dart';
+import '../application/journey_providers.dart';
 import '../application/trip_planner_rules.dart';
 import '../application/trip_providers.dart';
-import 'consumer_tab_bar.dart';
 import 'navigation_screen.dart';
+import 'widgets/saved_trip_card.dart';
 import 'widgets/trip_route_map.dart';
 
 /// The phone trip planner.
 ///
 /// The map supplies a real road route, but the charger plan comes from the
 /// shared [RoutePlannerEngine], so the phone and Android Auto follow the same
-/// reserve, corridor and 45 km/h policy. No route plan is saved yet.
+/// reserve, corridor and 45 km/h policy. A completed plan is written to the
+/// shared route tables so the car can read it after the app restarts.
 class TripPlannerScreen extends ConsumerStatefulWidget {
   const TripPlannerScreen({super.key});
 
@@ -79,8 +88,10 @@ class _TripPlannerScreenState extends ConsumerState<TripPlannerScreen> {
   double? _originLng;
   String? _originLabel;
   String? _locationMessage;
+  bool _locationNeedsSettings = false;
   bool _locating = false;
   bool _originLookingUp = false;
+  bool _dirty = false;
 
   String? _batteryError;
   double _corridorKm = 10;
@@ -89,10 +100,12 @@ class _TripPlannerScreenState extends ConsumerState<TripPlannerScreen> {
   DirectionsRoute? _route;
   RoutePlanResult? _plan;
   String? _planError;
+  String? _saveWarning;
   bool _planning = false;
   String? _plannedVehicleId;
   String? _plannedVehicleName;
   bool _showPlanningDetails = false;
+  bool _lastDestinationLoaded = false;
 
   @override
   void initState() {
@@ -105,10 +118,11 @@ class _TripPlannerScreenState extends ConsumerState<TripPlannerScreen> {
       if (!mounted) {
         return;
       }
+      unawaited(_prefillLastDestination());
       if (ref.read(geoapifyMapConfigProvider) == null) {
         return;
       }
-      unawaited(_useCurrentLocation());
+      unawaited(_useCurrentLocation(explainFirst: false));
     });
   }
 
@@ -128,31 +142,45 @@ class _TripPlannerScreenState extends ConsumerState<TripPlannerScreen> {
       discoveryProvider,
     );
     final DiscoveryData? data = catalogue.asData?.value.valueOrNull;
+    final SavedJourney? savedJourney = ref
+        .watch(savedJourneyProvider)
+        .asData
+        ?.value
+        .valueOrNull;
 
     if (mapConfig == null) {
       return AmpScaffold(
         title: AmpStrings.tripsTitle,
         subtitle: AmpStrings.tripsSubtitle,
         body: _mapSetup(context),
-        tabBar: const ConsumerTabBar(currentIndex: 1),
       );
     }
 
-    return AmpScaffold(
-      title: AmpStrings.tripsTitle,
-      subtitle: AmpStrings.tripsSubtitle,
-      body: _form(
-        context,
-        mapConfig: mapConfig,
-        vehicle: data?.vehicle,
-        garageLoading: catalogue.isLoading && data == null,
+    return AmpUnsavedChangesGuard(
+      hasUnsavedChanges: _dirty,
+      onDiscard: () {
+        if (mounted) {
+          context.go('/home');
+        }
+      },
+      child: AmpScaffold(
+        title: AmpStrings.tripsTitle,
+        subtitle: AmpStrings.tripsSubtitle,
+        body: _form(
+          context,
+          mapConfig: mapConfig,
+          vehicle: data?.vehicle,
+          garageLoading: catalogue.isLoading && data == null,
+          savedJourney: savedJourney,
+        ),
+        bottomBar: AmpButton(
+          label: _planning
+              ? AmpStrings.tripPlanning
+              : AmpStrings.tripPlanAction,
+          loading: _planning,
+          onPressed: _planning ? null : _planTrip,
+        ),
       ),
-      bottomBar: AmpButton(
-        label: _planning ? AmpStrings.tripPlanning : AmpStrings.tripPlanAction,
-        loading: _planning,
-        onPressed: _planning ? null : _planTrip,
-      ),
-      tabBar: const ConsumerTabBar(currentIndex: 1),
     );
   }
 
@@ -181,6 +209,7 @@ class _TripPlannerScreenState extends ConsumerState<TripPlannerScreen> {
     required GeoapifyMapConfig mapConfig,
     required Vehicle? vehicle,
     required bool garageLoading,
+    required SavedJourney? savedJourney,
   }) {
     final TextTheme text = Theme.of(context).textTheme;
     final AmpColors colors = context.amp;
@@ -192,6 +221,7 @@ class _TripPlannerScreenState extends ConsumerState<TripPlannerScreen> {
         _plan != null && _plannedVehicleId != vehicle?.id;
 
     return ListView(
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       padding: const EdgeInsets.fromLTRB(
         AmpTheme.screenPadding,
         AmpTheme.spaceM,
@@ -199,6 +229,12 @@ class _TripPlannerScreenState extends ConsumerState<TripPlannerScreen> {
         AmpTheme.spaceXxl,
       ),
       children: <Widget>[
+        if (_plan == null && savedJourney != null) ...<Widget>[
+          SavedTripCard(
+            journey: savedJourney,
+            onResume: () => _resumeSavedTrip(savedJourney),
+          ),
+        ],
         _SectionHeader(AmpStrings.tripStartSection),
         TripRouteMap(
           config: mapConfig,
@@ -230,7 +266,16 @@ class _TripPlannerScreenState extends ConsumerState<TripPlannerScreen> {
         ),
         const SizedBox(height: AmpTheme.spaceS),
         if (_locationMessage != null) ...<Widget>[
-          _Callout(message: _locationMessage!, tone: _CalloutTone.warning),
+          _Callout(
+            message: _locationMessage!,
+            tone: _CalloutTone.warning,
+            action: _locationNeedsSettings
+                ? TextAction(
+                    AmpStrings.locationPermissionOpenSettings,
+                    onPressed: _openLocationSettings,
+                  )
+                : null,
+          ),
           const SizedBox(height: AmpTheme.spaceS),
         ],
         Row(
@@ -250,7 +295,14 @@ class _TripPlannerScreenState extends ConsumerState<TripPlannerScreen> {
           hint: AmpStrings.tripDestinationHint,
           prefixIcon: AmpIconName.search,
           textInputAction: TextInputAction.search,
+          maxLength: 120,
           errorText: _destinationError,
+          validator: (String? value) {
+            final String text = (value ?? '').trim();
+            return text.isNotEmpty && _destination == null
+                ? AmpStrings.tripDestinationRequired
+                : null;
+          },
           onChanged: _onDestinationChanged,
           onSubmitted: (String value) => _resolveTypedDestination(),
           suffix: hasDestinationText
@@ -323,10 +375,12 @@ class _TripPlannerScreenState extends ConsumerState<TripPlannerScreen> {
           helper: AmpStrings.tripBatteryHelper,
           errorText: _batteryError,
           keyboardType: TextInputType.number,
-          inputFormatters: <TextInputFormatter>[
-            FilteringTextInputFormatter.digitsOnly,
-          ],
+          textInputAction: TextInputAction.done,
+          inputFormatters: <TextInputFormatter>[AmpInputFormatters.digits],
+          maxLength: 3,
+          validator: TripPlannerRules.startSocError,
           onChanged: _onBatteryChanged,
+          onSubmitted: (_) => FocusScope.of(context).unfocus(),
         ),
         const SizedBox(height: AmpTheme.spaceM),
         _vehicleCard(context, vehicle, garageLoading),
@@ -358,6 +412,10 @@ class _TripPlannerScreenState extends ConsumerState<TripPlannerScreen> {
         if (_planError != null) ...<Widget>[
           const SizedBox(height: AmpTheme.spaceM),
           _Callout(message: _planError!, tone: _CalloutTone.error),
+        ],
+        if (_saveWarning != null) ...<Widget>[
+          const SizedBox(height: AmpTheme.spaceM),
+          _Callout(message: _saveWarning!, tone: _CalloutTone.warning),
         ],
         if (_plan != null)
           ..._buildResult(
@@ -796,18 +854,21 @@ class _TripPlannerScreenState extends ConsumerState<TripPlannerScreen> {
     );
   }
 
-  Future<void> _useCurrentLocation() async {
+  Future<void> _useCurrentLocation({bool explainFirst = true}) async {
     if (_locating) {
       return;
     }
     setState(() {
       _locating = true;
       _locationMessage = null;
+      _locationNeedsSettings = false;
     });
 
-    final DeviceLocationFix fix = await ref
-        .read(deviceLocationServiceProvider)
-        .current();
+    final DeviceLocationFix fix = await requestDeviceLocation(
+      context,
+      ref.read(deviceLocationServiceProvider),
+      explainFirst: explainFirst,
+    );
     if (!mounted) {
       return;
     }
@@ -815,7 +876,11 @@ class _TripPlannerScreenState extends ConsumerState<TripPlannerScreen> {
     if (!fix.hasPosition) {
       setState(() {
         _locating = false;
+        _locationNeedsSettings =
+            fix.status == DeviceLocationStatus.permissionDeniedForever;
         _locationMessage = switch (fix.status) {
+          DeviceLocationStatus.permissionDeniedForever =>
+            AmpStrings.locationPermissionForever,
           DeviceLocationStatus.permissionDenied =>
             AmpStrings.tripLocationPermission,
           DeviceLocationStatus.servicesDisabled =>
@@ -830,6 +895,10 @@ class _TripPlannerScreenState extends ConsumerState<TripPlannerScreen> {
     setState(() {
       _locating = false;
       _locationMessage = null;
+      _locationNeedsSettings = false;
+      if (explainFirst) {
+        _dirty = true;
+      }
       _originLat = fix.latitude;
       _originLng = fix.longitude;
       _originLabel = AmpStrings.tripCurrentLocation;
@@ -839,8 +908,13 @@ class _TripPlannerScreenState extends ConsumerState<TripPlannerScreen> {
     await _lookupOriginAddress(fix.latitude, fix.longitude, fromGps: true);
   }
 
+  Future<void> _openLocationSettings() async {
+    await ref.read(deviceLocationServiceProvider).openSettings();
+  }
+
   void _setOriginFromMap(LatLng point) {
     setState(() {
+      _dirty = true;
       _originLat = point.latitude;
       _originLng = point.longitude;
       _originLabel = AmpStrings.tripMapPin;
@@ -890,6 +964,7 @@ class _TripPlannerScreenState extends ConsumerState<TripPlannerScreen> {
     _debounce?.cancel();
     final int token = ++_searchToken;
     setState(() {
+      _dirty = true;
       _destination = null;
       _suggestions = const <GeoPlace>[];
       _searching = false;
@@ -971,6 +1046,7 @@ class _TripPlannerScreenState extends ConsumerState<TripPlannerScreen> {
     FocusScope.of(context).unfocus();
     final String label = _placeLabel(place);
     setState(() {
+      _dirty = true;
       _destination = place;
       _destinationController.text = label;
       _destinationController.selection = TextSelection.collapsed(
@@ -1000,6 +1076,7 @@ class _TripPlannerScreenState extends ConsumerState<TripPlannerScreen> {
 
   void _onBatteryChanged(String value) {
     setState(() {
+      _dirty = true;
       _batteryError = null;
       _clearPlan();
     });
@@ -1010,6 +1087,7 @@ class _TripPlannerScreenState extends ConsumerState<TripPlannerScreen> {
       return;
     }
     setState(() {
+      _dirty = true;
       _corridorKm = value;
       _clearPlan();
     });
@@ -1020,6 +1098,7 @@ class _TripPlannerScreenState extends ConsumerState<TripPlannerScreen> {
       return;
     }
     setState(() {
+      _dirty = true;
       _preference = value;
       _clearPlan();
     });
@@ -1040,9 +1119,13 @@ class _TripPlannerScreenState extends ConsumerState<TripPlannerScreen> {
     _plannedVehicleId = null;
     _plannedVehicleName = null;
     _showPlanningDetails = false;
+    _saveWarning = null;
   }
 
   Future<void> _planTrip() async {
+    if (_planning) {
+      return;
+    }
     final GeoapifyClient? client = ref.read(geoapifyClientProvider);
     if (client == null) {
       setState(() => _planError = AmpStrings.tripMapSetupBody);
@@ -1076,6 +1159,7 @@ class _TripPlannerScreenState extends ConsumerState<TripPlannerScreen> {
     setState(() {
       _planning = true;
       _planError = null;
+      _saveWarning = null;
     });
 
     try {
@@ -1176,6 +1260,7 @@ class _TripPlannerScreenState extends ConsumerState<TripPlannerScreen> {
         _plannedVehicleId = data.vehicle?.id;
         _plannedVehicleName = _vehicleName(data.vehicle);
       });
+      unawaited(_persistPlan(plan, data, destination));
     } on Object {
       if (!mounted) {
         return;
@@ -1185,6 +1270,176 @@ class _TripPlannerScreenState extends ConsumerState<TripPlannerScreen> {
         _planError = AmpStrings.tripPlanFailed;
       });
     }
+  }
+
+  Future<void> _persistPlan(
+    RoutePlanResult result,
+    DiscoveryData data,
+    GeoPlace destination,
+  ) async {
+    final JourneyRepository? repository = ref.read(journeyRepositoryProvider);
+    final RepositoryResult<AppUser> profileResult = await ref.read(
+      currentProfileProvider.future,
+    );
+    if (!mounted) {
+      return;
+    }
+    final AppUser? profile = profileResult.valueOrNull;
+    if (repository == null || profile == null) {
+      setState(() => _saveWarning = AmpStrings.tripSaveFailed);
+      return;
+    }
+
+    final int nowMs = DateTime.now().millisecondsSinceEpoch;
+    final RoutePlan plan = JourneyMapper.toRoutePlan(
+      result: result,
+      consumerId: profile.id,
+      vehicleId: data.vehicle?.id,
+      destinationPlaceId: destination.placeId,
+      nowMs: nowMs,
+    );
+    final RepositoryResult<SavedJourney> saved = await repository
+        .saveActivePlan(
+          consumerId: profile.id,
+          plan: plan,
+          stops: JourneyMapper.toRouteStops(planId: plan.id, result: result),
+        );
+    if (!mounted) {
+      return;
+    }
+    if (saved.failureOrNull != null) {
+      setState(() => _saveWarning = AmpStrings.tripSaveFailed);
+      return;
+    }
+
+    ref.invalidate(savedJourneyProvider);
+    ref.read(batterySocProvider.notifier).setSoc(result.startSoc);
+    setState(() {
+      _dirty = false;
+      _saveWarning = null;
+    });
+
+    final Vehicle? vehicle = data.vehicle;
+    if (vehicle == null) {
+      return;
+    }
+    final RepositoryResult<bool> recorded = await repository
+        .recordBatteryConfirmation(
+          vehicleId: vehicle.id,
+          tripPlanId: plan.id,
+          estimatedSoc: result.startSoc,
+          actualSoc: result.startSoc,
+          timestampMs: nowMs,
+          latitude: result.originLat,
+          longitude: result.originLng,
+        );
+    if (!mounted) {
+      return;
+    }
+    if (recorded.failureOrNull != null) {
+      setState(() => _saveWarning = AmpStrings.tripBatteryRecordFailed);
+    }
+  }
+
+  Future<void> _prefillLastDestination() async {
+    if (_lastDestinationLoaded) {
+      return;
+    }
+    _lastDestinationLoaded = true;
+    if (_destinationController.text.trim().isNotEmpty || _destination != null) {
+      return;
+    }
+    try {
+      final RepositoryResult<SavedJourney?> result = await ref.read(
+        savedJourneyProvider.future,
+      );
+      final RoutePlan? plan = result.valueOrNull?.plan;
+      final String label = (plan?.destination ?? '').trim();
+      if (!mounted ||
+          plan == null ||
+          label.isEmpty ||
+          (plan.destinationLat == 0 && plan.destinationLng == 0) ||
+          _destinationController.text.trim().isNotEmpty ||
+          _destination != null) {
+        return;
+      }
+      setState(() {
+        _destination = GeoPlace(
+          placeId: plan.googlePlaceId ?? '',
+          label: label,
+          address: label,
+          latitude: plan.destinationLat,
+          longitude: plan.destinationLng,
+        );
+        _destinationController.text = label;
+        _destinationController.selection = TextSelection.collapsed(
+          offset: label.length,
+        );
+      });
+    } on Object {
+      // The saved destination is a convenience; planning still works without
+      // it and the ordinary form validation covers an empty destination.
+    }
+  }
+
+  void _resumeSavedTrip(SavedJourney journey) {
+    final RoutePlan plan = journey.plan;
+    final int savedBattery = plan.plannedStartSoc;
+    final int battery = savedBattery < 0
+        ? 0
+        : savedBattery > 100
+        ? 100
+        : savedBattery;
+    final String origin = (plan.origin ?? '').trim();
+    final String destination = (plan.destination ?? '').trim();
+    final String preference =
+        _preferenceOptions.any(
+          ((String, String) option) => option.$1 == plan.preference,
+        )
+        ? plan.preference!
+        : RoutePlannerEngine.prefFastest;
+
+    setState(() {
+      _dirty = true;
+      _originLat = plan.originLat;
+      _originLng = plan.originLng;
+      _originLabel = origin.isEmpty ? AmpStrings.tripMapPin : origin;
+      _locationMessage = null;
+      _locating = false;
+      _originLookingUp = false;
+      _destination = GeoPlace(
+        placeId: plan.googlePlaceId ?? '',
+        label: destination,
+        address: destination,
+        latitude: plan.destinationLat,
+        longitude: plan.destinationLng,
+      );
+      _destinationController.text = destination;
+      _destinationController.selection = TextSelection.collapsed(
+        offset: destination.length,
+      );
+      _batteryController.text = '$battery';
+      _batteryError = null;
+      _corridorKm = _nearestCorridor(plan.corridorKm);
+      _preference = preference;
+      _suggestions = const <GeoPlace>[];
+      _searching = false;
+      _searchMessage = null;
+      _destinationError = null;
+      _clearPlan();
+    });
+    ref.read(batterySocProvider.notifier).setSoc(battery);
+    AmpSnackbar.show(
+      context,
+      AmpStrings.tripResumeReady,
+      tone: AmpSnackbarTone.success,
+    );
+  }
+
+  double _nearestCorridor(double saved) {
+    return _corridorOptions.reduce(
+      (double a, double b) => (a - saved).abs() <= (b - saved).abs() ? a : b,
+    );
   }
 
   StatusDotTone _confidenceTone(String confidence) {

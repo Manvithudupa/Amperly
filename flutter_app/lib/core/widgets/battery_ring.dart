@@ -42,46 +42,51 @@ class BatteryRing extends StatelessWidget {
             : '${AmpStrings.batteryRingSemantics} '
                   '${AmpStrings.batteryEstimateSemantics(shown, estimate)}');
 
-    return Semantics(
-      label: semantics,
-      image: true,
-      child: ExcludeSemantics(
-        child: SizedBox(
-          width: size,
-          height: size,
-          child: Stack(
-            alignment: Alignment.center,
-            children: <Widget>[
-              CustomPaint(
-                size: Size.square(size),
-                painter: _BatteryRingPainter(
-                  percent: shown.toDouble(),
-                  estimatePercent: estimate?.toDouble(),
-                  track: c.surfaceVariant,
-                  arc: arcColor,
-                  marker: c.inkSecondary,
-                  strokeWidth: (size * 0.075).clamp(8, 12),
-                ),
-              ),
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  Text(
-                    '$shown%',
-                    style: AmpType.metric(context, size: size * 0.25),
+    return Tooltip(
+      message: semantics,
+      child: Semantics(
+        label: semantics,
+        image: true,
+        child: ExcludeSemantics(
+          child: SizedBox(
+            width: size,
+            height: size,
+            child: Stack(
+              alignment: Alignment.center,
+              children: <Widget>[
+                CustomPaint(
+                  size: Size.square(size),
+                  painter: _BatteryRingPainter(
+                    percent: shown.toDouble(),
+                    estimatePercent: estimate?.toDouble(),
+                    track: c.surfaceVariant,
+                    arc: arcColor,
+                    marker: c.inkSecondary,
+                    strokeWidth: (size * 0.075).clamp(8, 12),
                   ),
-                  if (caption != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 2),
-                      child: Text(
-                        caption!,
-                        textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.labelLarge,
-                      ),
+                ),
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    Text(
+                      '$shown%',
+                      style: AmpType.metric(context, size: size * 0.25),
                     ),
-                ],
-              ),
-            ],
+                    if (caption != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(
+                          caption!,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.labelLarge,
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),

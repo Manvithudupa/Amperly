@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -8,6 +7,7 @@ import '../../../app/theme/amp_theme.dart';
 import '../../../core/errors/user_messages.dart';
 import '../../../core/formatting/amp_format.dart';
 import '../../../core/ids.dart';
+import '../../../core/ui/input_formatters.dart';
 import '../../../core/ui/strings.dart';
 import '../../../core/widgets/amp_button.dart';
 import '../../../core/widgets/amp_field.dart';
@@ -22,6 +22,7 @@ import '../../../core/widgets/receipt_rows.dart';
 import '../../../core/widgets/skeleton.dart';
 import '../../../core/widgets/status_dot_label.dart';
 import '../../../core/widgets/text_action.dart';
+import '../../../core/widgets/unsaved_changes_guard.dart';
 import '../../../data/models/models.dart';
 import '../../../data/repositories/repository_providers.dart';
 import '../../../data/repositories/repository_result.dart';
@@ -56,6 +57,10 @@ class _ChargingSessionScreenState extends ConsumerState<ChargingSessionScreen> {
   String? _startError;
   String? _endError;
 
+  bool get _hasUnsavedReading =>
+      _startController.text.trim().isNotEmpty ||
+      _endController.text.trim().isNotEmpty;
+
   @override
   void dispose() {
     _startController.dispose();
@@ -79,33 +84,44 @@ class _ChargingSessionScreenState extends ConsumerState<ChargingSessionScreen> {
     final bool canSettle = session != null && SessionRules.canSettle(session);
     final bool completed = session != null && SessionRules.isCompleted(session);
 
-    return AmpScaffold(
-      title: AmpStrings.sessionTitle,
-      body: async.when(
-        loading: () => const _SessionLoading(),
-        error: (Object error, StackTrace stack) => ErrorState(
-          message: UserMessages.from(error),
-          onRetry: () =>
-              ref.invalidate(sessionDataProvider(widget.reservationId)),
+    return AmpUnsavedChangesGuard(
+      hasUnsavedChanges: _hasUnsavedReading,
+      title: AmpStrings.sessionReadingUnsavedTitle,
+      message: AmpStrings.sessionReadingUnsavedBody,
+      onDiscard: () {
+        if (mounted) {
+          context.pop();
+        }
+      },
+      child: AmpScaffold(
+        title: AmpStrings.sessionTitle,
+        body: async.when(
+          loading: () => const _SessionLoading(),
+          error: (Object error, StackTrace stack) => ErrorState(
+            message: UserMessages.from(error),
+            onRetry: () =>
+                ref.invalidate(sessionDataProvider(widget.reservationId)),
+          ),
+          data: (RepositoryResult<SessionData> result) {
+            final RepositoryFailure<SessionData>? failure =
+                result.failureOrNull;
+            if (failure != null) {
+              return ErrorState(
+                message: failure.message,
+                onRetry: () =>
+                    ref.invalidate(sessionDataProvider(widget.reservationId)),
+              );
+            }
+            return _body(context, result.valueOrNull!);
+          },
         ),
-        data: (RepositoryResult<SessionData> result) {
-          final RepositoryFailure<SessionData>? failure = result.failureOrNull;
-          if (failure != null) {
-            return ErrorState(
-              message: failure.message,
-              onRetry: () =>
-                  ref.invalidate(sessionDataProvider(widget.reservationId)),
-            );
-          }
-          return _body(context, result.valueOrNull!);
-        },
-      ),
-      bottomBar: _bottomBar(
-        data,
-        canCheckIn: canCheckIn,
-        canStart: canStart,
-        canSettle: canSettle,
-        completed: completed,
+        bottomBar: _bottomBar(
+          data,
+          canCheckIn: canCheckIn,
+          canStart: canStart,
+          canSettle: canSettle,
+          completed: completed,
+        ),
       ),
     );
   }
@@ -191,6 +207,7 @@ class _ChargingSessionScreenState extends ConsumerState<ChargingSessionScreen> {
 
     return ListView(
       controller: _bodyScroll,
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       padding: const EdgeInsets.fromLTRB(
         AmpTheme.screenPadding,
         AmpTheme.spaceM,
@@ -242,9 +259,9 @@ class _ChargingSessionScreenState extends ConsumerState<ChargingSessionScreen> {
         label: AmpStrings.sessionStartReadingLabel,
         helper: AmpStrings.sessionStartReadingHelper,
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
-        inputFormatters: <TextInputFormatter>[
-          FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
-        ],
+        textInputAction: TextInputAction.done,
+        inputFormatters: AmpInputFormatters.decimal,
+        maxLength: 10,
         errorText: _startError,
         onChanged: (String value) {
           if (_startError != null || _error != null) {
@@ -254,6 +271,7 @@ class _ChargingSessionScreenState extends ConsumerState<ChargingSessionScreen> {
             });
           }
         },
+        onSubmitted: (_) => _checkIn(data),
       ),
       const SizedBox(height: AmpTheme.spaceS),
       Text(AmpStrings.sessionReadingHint, style: text.bodySmall),
@@ -298,9 +316,9 @@ class _ChargingSessionScreenState extends ConsumerState<ChargingSessionScreen> {
           label: AmpStrings.sessionEndReadingLabel,
           helper: AmpStrings.sessionEndReadingHelper,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          inputFormatters: <TextInputFormatter>[
-            FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
-          ],
+          textInputAction: TextInputAction.done,
+          inputFormatters: AmpInputFormatters.decimal,
+          maxLength: 10,
           errorText: _endError,
           onChanged: (String value) {
             setState(() {
@@ -308,6 +326,7 @@ class _ChargingSessionScreenState extends ConsumerState<ChargingSessionScreen> {
               _error = null;
             });
           },
+          onSubmitted: (_) => _finish(data),
         ),
       );
       children.add(const SizedBox(height: AmpTheme.spaceS));
@@ -583,6 +602,9 @@ class _ChargingSessionScreenState extends ConsumerState<ChargingSessionScreen> {
   }
 
   Future<void> _checkIn(SessionData data) async {
+    if (_busy) {
+      return;
+    }
     final String? startError = SessionRules.startReadingError(
       _startController.text,
     );
@@ -667,6 +689,9 @@ class _ChargingSessionScreenState extends ConsumerState<ChargingSessionScreen> {
   }
 
   Future<void> _startCharging(SessionData data) async {
+    if (_busy) {
+      return;
+    }
     final ChargingSession? session = data.session;
     if (session == null) {
       return;
@@ -727,6 +752,9 @@ class _ChargingSessionScreenState extends ConsumerState<ChargingSessionScreen> {
   }
 
   Future<void> _finish(SessionData data) async {
+    if (_busy) {
+      return;
+    }
     final ChargingSession? session = data.session;
     if (session == null) {
       return;

@@ -9,6 +9,7 @@ import '../../../core/formatting/amp_format.dart';
 import '../../../core/ui/strings.dart';
 import '../../../core/widgets/amp_field.dart';
 import '../../../core/widgets/amp_scaffold.dart';
+import '../../../core/widgets/amp_sheet.dart';
 import '../../../core/widgets/amp_snackbar.dart';
 import '../../../core/widgets/error_state.dart';
 import '../../../core/widgets/eyebrow.dart';
@@ -20,10 +21,10 @@ import '../../../data/models/models.dart';
 import '../../../data/repositories/repository_providers.dart';
 import '../../../data/repositories/repository_result.dart';
 import '../../../domain/policy.dart';
-import '../../admin/presentation/admin_tab_bar.dart';
 import '../../consumer/application/vehicle_providers.dart';
-import '../../consumer/presentation/consumer_tab_bar.dart';
+import '../application/app_role.dart';
 import '../application/profile_providers.dart';
+import '../application/role_providers.dart';
 import 'sign_out_button.dart';
 
 /// The signed-in identity, its capacities, the active vehicle and sign-out.
@@ -35,13 +36,9 @@ class AccountScreen extends ConsumerWidget {
     final AsyncValue<RepositoryResult<AppUser>> profile = ref.watch(
       currentProfileProvider,
     );
-    final AppUser? user = profile.asData?.value.valueOrNull;
 
     return AmpScaffold(
       title: AmpStrings.accountTitle,
-      tabBar: user?.canActAsAdmin == true
-          ? const AdminTabBar(currentIndex: 2)
-          : const ConsumerTabBar(currentIndex: 4),
       body: profile.when(
         loading: () => const _ProfileLoading(),
         error: (Object error, StackTrace stack) => ErrorState(
@@ -126,7 +123,10 @@ class _AccountBody extends ConsumerWidget {
     final String? phone = (profile.phone ?? '').trim().isEmpty
         ? null
         : profile.phone!.trim();
-    final bool isAdmin = profile.isPlatformAdmin;
+    final AsyncValue<AppRole?> activeRole = ref.watch(activeRoleProvider);
+    final AppRole actingRole =
+        activeRole.asData?.value ?? preferredRoleFor(profile, null);
+    final bool isAdmin = actingRole == AppRole.admin;
     final AsyncValue<RepositoryResult<Vehicle?>>? vehicle = isAdmin
         ? null
         : ref.watch(activeVehicleProvider);
@@ -207,12 +207,14 @@ class _AccountBody extends ConsumerWidget {
             AmpStrings.accountEditName,
             onPressed: () => _editName(context, ref, profile),
           ),
+          const SizedBox(height: AmpTheme.spaceS),
+          _RoleSwitcher(profile: profile, currentRole: actingRole),
         ],
         if (profile.isBlocked) ...<Widget>[
           const SizedBox(height: AmpTheme.spaceM),
           const _BlockedNotice(),
         ],
-        if (!profile.isPlatformAdmin) ...<Widget>[
+        if (!isAdmin) ...<Widget>[
           const SizedBox(height: AmpTheme.spaceL),
           const Hairline(),
           const SizedBox(height: AmpTheme.spaceL),
@@ -249,7 +251,7 @@ class _AccountBody extends ConsumerWidget {
         const Eyebrow(AmpStrings.accountToolsTitle),
         const SizedBox(height: AmpTheme.spaceS),
         if (!profile.isBlocked) ...<Widget>[
-          if (!profile.isPlatformAdmin) ...<Widget>[
+          if (!isAdmin) ...<Widget>[
             TextAction(
               AmpStrings.hostTitle,
               onPressed: () => context.push('/host'),
@@ -347,6 +349,91 @@ class _AccountBody extends ConsumerWidget {
       'PENDING' => StatusDotTone.busy,
       _ => StatusDotTone.neutral,
     };
+  }
+}
+
+class _RoleSwitcher extends ConsumerWidget {
+  const _RoleSwitcher({required this.profile, required this.currentRole});
+
+  final AppUser profile;
+  final AppRole currentRole;
+
+  Future<void> _choose(BuildContext context, WidgetRef ref) async {
+    final List<AppRole> roles = entitledRolesFor(profile);
+    if (roles.length < 2) {
+      return;
+    }
+    final AppRole? selected = await showAmpSheet<AppRole>(
+      context: context,
+      title: AmpStrings.accountSwitchRoleTitle,
+      builder: (BuildContext sheetContext) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            Text(
+              AmpStrings.accountSwitchRoleBody,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: AmpTheme.spaceM),
+            for (final AppRole role in roles)
+              Padding(
+                padding: const EdgeInsets.only(bottom: AmpTheme.spaceXs),
+                child: Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: TextAction(
+                        role.label,
+                        underline: role != currentRole,
+                        onPressed: () => Navigator.of(sheetContext).pop(role),
+                      ),
+                    ),
+                    if (role == currentRole)
+                      Text(
+                        AmpStrings.accountCurrentRole,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                  ],
+                ),
+              ),
+          ],
+        );
+      },
+    );
+    if (selected == null || !context.mounted || selected == currentRole) {
+      return;
+    }
+
+    await ref.read(activeRoleProvider.notifier).select(selected);
+    if (context.mounted) {
+      context.go(selected.homePath);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final List<AppRole> roles = entitledRolesFor(profile);
+    if (roles.length < 2) {
+      return const SizedBox.shrink();
+    }
+
+    return Row(
+      children: <Widget>[
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              const Eyebrow(AmpStrings.accountActingAs),
+              const SizedBox(height: 3),
+              StatusDotLabel(currentRole.label, tone: StatusDotTone.neutral),
+            ],
+          ),
+        ),
+        TextAction(
+          AmpStrings.accountSwitchRole,
+          onPressed: () => _choose(context, ref),
+        ),
+      ],
+    );
   }
 }
 

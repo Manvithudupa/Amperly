@@ -54,6 +54,20 @@ class DepartureRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final AmpColors colors = context.amp;
+    final double textScale = MediaQuery.textScalerOf(
+      context,
+    ).scale(1).clamp(1.0, 2.0);
+    final double metricWidth = 48 + (textScale - 1) * 36;
+    final double priceWidth = 64 + (textScale - 1) * 36;
+    final bool largeText = textScale >= 1.5;
+    final Widget? portDots = totalPorts > 0
+        ? PortDots(available: availablePorts, total: totalPorts)
+        : null;
+    final TextStyle detailStyle =
+        Theme.of(
+          context,
+        ).textTheme.bodySmall?.copyWith(color: colors.inkSecondary) ??
+        const TextStyle();
 
     return Material(
       color: Colors.transparent,
@@ -67,7 +81,7 @@ class DepartureRow extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
                   SizedBox(
-                    width: 48,
+                    width: metricWidth,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
@@ -96,8 +110,6 @@ class DepartureRow extends StatelessWidget {
                       children: <Widget>[
                         Text(
                           title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
                           style: Theme.of(context).textTheme.titleSmall
                               ?.copyWith(
                                 fontWeight: FontWeight.w600,
@@ -106,26 +118,30 @@ class DepartureRow extends StatelessWidget {
                         ),
                         if (detail != null) ...<Widget>[
                           const SizedBox(height: 5),
-                          Row(
-                            children: <Widget>[
-                              Expanded(
-                                child: Text(
-                                  detail!,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: Theme.of(context).textTheme.bodySmall
-                                      ?.copyWith(color: colors.inkSecondary),
-                                ),
-                              ),
-                              if (totalPorts > 0) ...<Widget>[
-                                const SizedBox(width: AmpTheme.spaceS),
-                                PortDots(
-                                  available: availablePorts,
-                                  total: totalPorts,
-                                ),
+                          if (largeText)
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: <Widget>[
+                                Text(detail!, style: detailStyle),
+                                if (portDots != null)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 4),
+                                    child: portDots,
+                                  ),
                               ],
-                            ],
-                          ),
+                            )
+                          else
+                            Row(
+                              children: <Widget>[
+                                Expanded(
+                                  child: Text(detail!, style: detailStyle),
+                                ),
+                                if (portDots != null) ...<Widget>[
+                                  const SizedBox(width: AmpTheme.spaceS),
+                                  portDots,
+                                ],
+                              ],
+                            ),
                         ],
                         if (statusLabel != null) ...<Widget>[
                           const SizedBox(height: 7),
@@ -140,7 +156,7 @@ class DepartureRow extends StatelessWidget {
                   ),
                   const SizedBox(width: 12),
                   SizedBox(
-                    width: 64,
+                    width: priceWidth,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: <Widget>[

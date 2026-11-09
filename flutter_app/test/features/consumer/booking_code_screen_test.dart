@@ -18,6 +18,7 @@ void main() {
   testWidgets('renders the confirmed booking as a ticket and receipt', (
     WidgetTester tester,
   ) async {
+    final SemanticsHandle semantics = tester.ensureSemantics();
     final int nowMs = DateTime.now().millisecondsSinceEpoch;
     final Reservation reservation = Reservation(
       id: 'reservation-1',
@@ -53,6 +54,16 @@ void main() {
     expect(find.byType(ReceiptRows), findsOneWidget);
     expect(find.byType(StatusDotLabel), findsOneWidget);
     expect(find.byType(AmpBadge), findsNothing);
+    expect(
+      find.bySemanticsLabel(
+        AmpStrings.bookingTicketSemantics(
+          'AMP-D6NAUU',
+          'Hampankatta Charger Hub',
+        ),
+      ),
+      findsOneWidget,
+    );
+    semantics.dispose();
 
     final RenderBox ticket = tester.renderObject(find.byType(TicketCard));
     final double tearY =

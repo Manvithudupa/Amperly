@@ -3,13 +3,16 @@ import 'package:amperly/core/ui/strings.dart';
 import 'package:amperly/core/widgets/amp_badge.dart';
 import 'package:amperly/data/models/models.dart';
 import 'package:amperly/data/repositories/repository_result.dart';
-import 'package:amperly/features/admin/presentation/admin_tab_bar.dart';
+import 'package:amperly/features/auth/application/app_role.dart';
 import 'package:amperly/features/auth/application/profile_providers.dart';
+import 'package:amperly/features/auth/application/role_providers.dart';
 import 'package:amperly/features/auth/presentation/account_screen.dart';
 import 'package:amperly/features/consumer/application/vehicle_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import '../../support/fake_role_store.dart';
 
 void main() {
   testWidgets('renders identity, capacities and the active vehicle', (
@@ -48,6 +51,9 @@ void main() {
           activeVehicleProvider.overrideWith(
             (Ref ref) async => const RepositorySuccess<Vehicle?>(vehicle),
           ),
+          roleStoreProvider.overrideWithValue(
+            FakeRoleStore(<String, AppRole>{'user-1': AppRole.consumer}),
+          ),
         ],
         child: MaterialApp(
           theme: AmpTheme.light(),
@@ -59,7 +65,7 @@ void main() {
 
     expect(find.text('Asha Rao'), findsOneWidget);
     expect(find.text('asha@example.com'), findsOneWidget);
-    expect(find.text(AmpStrings.accountConsumer), findsOneWidget);
+    expect(find.text(AmpStrings.accountConsumer), findsWidgets);
     expect(find.text(AmpStrings.verified), findsOneWidget);
     expect(find.text('Tata Nexon EV'), findsOneWidget);
     expect(
@@ -94,6 +100,7 @@ void main() {
           activeVehicleProvider.overrideWith(
             (Ref ref) async => const RepositorySuccess<Vehicle?>(null),
           ),
+          roleStoreProvider.overrideWithValue(FakeRoleStore()),
         ],
         child: MaterialApp(
           theme: AmpTheme.light(),
@@ -107,7 +114,6 @@ void main() {
     expect(find.text(AmpStrings.blockedBody), findsOneWidget);
     expect(find.text(AmpStrings.accountNoVehicle), findsOneWidget);
 
-    // The tab bar reduces the viewport; sign-out stays reachable by scrolling.
     await tester.scrollUntilVisible(find.text(AmpStrings.authSignOut), 200);
     expect(find.text(AmpStrings.authSignOut), findsOneWidget);
   });
@@ -115,6 +121,11 @@ void main() {
   testWidgets('an administrator sees only admin surfaces', (
     WidgetTester tester,
   ) async {
+    tester.view.physicalSize = const Size(460, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
     const AppUser admin = AppUser(
       id: 'admin-1',
       name: 'Admin',
@@ -129,6 +140,9 @@ void main() {
           currentProfileProvider.overrideWith(
             (Ref ref) async => const RepositorySuccess<AppUser>(admin),
           ),
+          roleStoreProvider.overrideWithValue(
+            FakeRoleStore(<String, AppRole>{'admin-1': AppRole.admin}),
+          ),
         ],
         child: MaterialApp(
           theme: AmpTheme.light(),
@@ -138,9 +152,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.byType(AdminTabBar), findsOneWidget);
-    expect(find.text(AmpStrings.adminTabQueue), findsOneWidget);
-    expect(find.text(AmpStrings.adminTabReports), findsOneWidget);
+    expect(find.text(AmpStrings.accountActingAs.toUpperCase()), findsOneWidget);
+    expect(find.text(AmpStrings.accountSwitchRole), findsOneWidget);
     expect(find.text(AmpStrings.accountAdmin), findsWidgets);
     expect(find.text(AmpStrings.notificationsTitle), findsOneWidget);
     expect(find.text(AmpStrings.vehicleManage), findsNothing);

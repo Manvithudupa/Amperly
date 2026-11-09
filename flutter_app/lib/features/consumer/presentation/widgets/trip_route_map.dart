@@ -168,11 +168,19 @@ class _TripRouteMapState extends State<TripRouteMap> {
           point: LatLng(widget.current!.lat, widget.current!.lng),
           width: 38,
           height: 38,
-          child: _MarkerDot(
-            color: colors.energy,
-            borderColor: colors.surface,
-            icon: AmpIconName.arrowRight,
-            iconColor: colors.onEnergy,
+          child: Tooltip(
+            message: AmpStrings.tripCurrentLocation,
+            child: Semantics(
+              label: AmpStrings.tripCurrentLocation,
+              child: ExcludeSemantics(
+                child: _MarkerDot(
+                  color: colors.energy,
+                  borderColor: colors.surface,
+                  icon: AmpIconName.arrowRight,
+                  iconColor: colors.onEnergy,
+                ),
+              ),
+            ),
           ),
         ),
       if (widget.origin != null && widget.current == null)
@@ -180,11 +188,19 @@ class _TripRouteMapState extends State<TripRouteMap> {
           point: LatLng(widget.origin!.lat, widget.origin!.lng),
           width: 34,
           height: 34,
-          child: _MarkerDot(
-            color: colors.primary,
-            borderColor: colors.surface,
-            icon: AmpIconName.pin,
-            iconColor: colors.onPrimary,
+          child: Tooltip(
+            message: AmpStrings.tripMapPin,
+            child: Semantics(
+              label: AmpStrings.tripMapPin,
+              child: ExcludeSemantics(
+                child: _MarkerDot(
+                  color: colors.primary,
+                  borderColor: colors.surface,
+                  icon: AmpIconName.pin,
+                  iconColor: colors.onPrimary,
+                ),
+              ),
+            ),
           ),
         ),
       for (final TripMapStop stop in widget.stops)
@@ -193,12 +209,17 @@ class _TripRouteMapState extends State<TripRouteMap> {
             point: LatLng(stop.latitude, stop.longitude),
             width: 30,
             height: 30,
-            child: Semantics(
-              label: '${AmpStrings.journeyChargingStop} ${stop.sequence}',
-              child: _StopDot(
-                sequence: stop.sequence,
-                background: colors.primary,
-                foreground: colors.onPrimary,
+            child: Tooltip(
+              message: '${AmpStrings.journeyChargingStop} ${stop.sequence}',
+              child: Semantics(
+                label: '${AmpStrings.journeyChargingStop} ${stop.sequence}',
+                child: ExcludeSemantics(
+                  child: _StopDot(
+                    sequence: stop.sequence,
+                    background: colors.primary,
+                    foreground: colors.onPrimary,
+                  ),
+                ),
               ),
             ),
           ),
@@ -208,13 +229,18 @@ class _TripRouteMapState extends State<TripRouteMap> {
             point: LatLng(stop.latitude, stop.longitude),
             width: 28,
             height: 28,
-            child: Semantics(
-              label: AmpStrings.journeyBackup,
-              child: _MarkerDot(
-                color: colors.surface,
-                borderColor: colors.outline,
-                icon: AmpIconName.bolt,
-                iconColor: colors.inkSecondary,
+            child: Tooltip(
+              message: AmpStrings.journeyBackup,
+              child: Semantics(
+                label: AmpStrings.journeyBackup,
+                child: ExcludeSemantics(
+                  child: _MarkerDot(
+                    color: colors.surface,
+                    borderColor: colors.outline,
+                    icon: AmpIconName.bolt,
+                    iconColor: colors.inkSecondary,
+                  ),
+                ),
               ),
             ),
           ),
@@ -223,11 +249,19 @@ class _TripRouteMapState extends State<TripRouteMap> {
           point: LatLng(widget.destination!.lat, widget.destination!.lng),
           width: 34,
           height: 34,
-          child: _MarkerDot(
-            color: colors.energy,
-            borderColor: colors.surface,
-            icon: AmpIconName.pin,
-            iconColor: colors.onEnergy,
+          child: Tooltip(
+            message: AmpStrings.tripMapDestination,
+            child: Semantics(
+              label: AmpStrings.tripMapDestination,
+              child: ExcludeSemantics(
+                child: _MarkerDot(
+                  color: colors.energy,
+                  borderColor: colors.surface,
+                  icon: AmpIconName.pin,
+                  iconColor: colors.onEnergy,
+                ),
+              ),
+            ),
           ),
         ),
     ];
