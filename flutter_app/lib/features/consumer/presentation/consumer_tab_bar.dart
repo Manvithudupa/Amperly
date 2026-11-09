@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/ui/strings.dart';
 import '../../../core/widgets/amp_bottom_bar.dart';
+import '../../../core/widgets/amp_icon.dart';
 
 /// The five top-level consumer destinations.
 ///
@@ -13,14 +14,20 @@ class ConsumerTabBar extends StatelessWidget {
 
   final int currentIndex;
 
-  static const List<AmpBottomDestination> _destinations =
-      <AmpBottomDestination>[
-        AmpBottomDestination(AmpStrings.navDiscover),
-        AmpBottomDestination(AmpStrings.navTrips),
-        AmpBottomDestination(AmpStrings.navBookings),
-        AmpBottomDestination(AmpStrings.navMessages),
-        AmpBottomDestination(AmpStrings.navProfile),
-      ];
+  static const List<AmpBottomDestination>
+  _destinations = <AmpBottomDestination>[
+    AmpBottomDestination(
+      label: AmpStrings.navDiscover,
+      icon: AmpIconName.compass,
+    ),
+    AmpBottomDestination(label: AmpStrings.navTrips, icon: AmpIconName.route),
+    AmpBottomDestination(
+      label: AmpStrings.navBookings,
+      icon: AmpIconName.ticket,
+    ),
+    AmpBottomDestination(label: AmpStrings.navMessages, icon: AmpIconName.chat),
+    AmpBottomDestination(label: AmpStrings.navProfile, icon: AmpIconName.user),
+  ];
 
   static const List<String> _routes = <String>[
     '/home',

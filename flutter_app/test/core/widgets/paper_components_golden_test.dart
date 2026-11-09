@@ -208,11 +208,17 @@ void main() {
             alignment: Alignment.bottomCenter,
             child: AmpBottomBar(
               destinations: const <AmpBottomDestination>[
-                AmpBottomDestination('Discover'),
-                AmpBottomDestination('Trips'),
-                AmpBottomDestination('Bookings'),
-                AmpBottomDestination('Messages'),
-                AmpBottomDestination('Profile'),
+                AmpBottomDestination(
+                  label: 'Discover',
+                  icon: AmpIconName.compass,
+                ),
+                AmpBottomDestination(label: 'Trips', icon: AmpIconName.route),
+                AmpBottomDestination(
+                  label: 'Bookings',
+                  icon: AmpIconName.ticket,
+                ),
+                AmpBottomDestination(label: 'Messages', icon: AmpIconName.chat),
+                AmpBottomDestination(label: 'Profile', icon: AmpIconName.user),
               ],
               currentIndex: 0,
               onSelected: (_) {},

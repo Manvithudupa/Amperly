@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/ui/strings.dart';
 import '../../../core/widgets/amp_bottom_bar.dart';
+import '../../../core/widgets/amp_icon.dart';
 
 /// The administrator's three destinations.
 ///
@@ -15,9 +16,18 @@ class AdminTabBar extends StatelessWidget {
 
   static const List<AmpBottomDestination> _destinations =
       <AmpBottomDestination>[
-        AmpBottomDestination(AmpStrings.adminTabQueue),
-        AmpBottomDestination(AmpStrings.adminTabReports),
-        AmpBottomDestination(AmpStrings.navProfile),
+        AmpBottomDestination(
+          label: AmpStrings.adminTabQueue,
+          icon: AmpIconName.list,
+        ),
+        AmpBottomDestination(
+          label: AmpStrings.adminTabReports,
+          icon: AmpIconName.flag,
+        ),
+        AmpBottomDestination(
+          label: AmpStrings.navProfile,
+          icon: AmpIconName.user,
+        ),
       ];
 
   static const List<String> _routes = <String>[

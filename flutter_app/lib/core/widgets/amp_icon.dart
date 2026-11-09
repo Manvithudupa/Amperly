@@ -31,6 +31,11 @@ enum AmpIconName {
   chat,
   refresh,
   shield,
+  compass,
+  route,
+  user,
+  list,
+  flag,
 }
 
 class AmpIcon extends StatelessWidget {
@@ -272,6 +277,46 @@ class _AmpIconPainter extends CustomPainter {
         canvas.drawPath(shield, stroke);
         canvas.drawLine(const Offset(8.5, 11.5), const Offset(11, 14), stroke);
         canvas.drawLine(const Offset(11, 14), const Offset(16, 8.5), stroke);
+      case AmpIconName.compass:
+        canvas.drawCircle(const Offset(12, 12), 9, stroke);
+        final Path needle = Path()
+          ..moveTo(15.8, 8.2)
+          ..lineTo(13.6, 13.6)
+          ..lineTo(8.2, 15.8)
+          ..lineTo(10.4, 10.4)
+          ..close();
+        canvas.drawPath(needle, stroke);
+      case AmpIconName.route:
+        canvas.drawCircle(const Offset(5, 19), 2.2, stroke);
+        canvas.drawCircle(const Offset(19, 5), 2.2, stroke);
+        final Path route = Path()
+          ..moveTo(5, 16.4)
+          ..cubicTo(5, 11.5, 12, 13.5, 12, 9.5)
+          ..cubicTo(12, 6.5, 17.2, 7.2, 19, 5.8);
+        canvas.drawPath(route, stroke);
+      case AmpIconName.user:
+        canvas.drawCircle(const Offset(12, 8), 3.7, stroke);
+        final Path shoulders = Path()
+          ..moveTo(4.8, 20.5)
+          ..cubicTo(5.5, 16.6, 8.3, 15, 12, 15)
+          ..cubicTo(15.7, 15, 18.5, 16.6, 19.2, 20.5);
+        canvas.drawPath(shoulders, stroke);
+      case AmpIconName.list:
+        for (final double y in <double>[6, 12, 18]) {
+          canvas.drawCircle(Offset(4, y), 1.2, fill);
+          canvas.drawLine(Offset(8, y), Offset(20, y), stroke);
+        }
+      case AmpIconName.flag:
+        canvas.drawLine(const Offset(6, 21), const Offset(6, 3), stroke);
+        final Path pennant = Path()
+          ..moveTo(6, 4)
+          ..cubicTo(9, 2.6, 12, 2.6, 15, 4)
+          ..cubicTo(17.4, 5.1, 19.3, 5.1, 21, 4)
+          ..lineTo(21, 12)
+          ..cubicTo(19.3, 13.1, 17.4, 13.1, 15, 12)
+          ..cubicTo(12, 10.6, 9, 10.6, 6, 12)
+          ..close();
+        canvas.drawPath(pennant, stroke);
     }
     canvas.restore();
   }

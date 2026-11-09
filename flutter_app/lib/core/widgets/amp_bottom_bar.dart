@@ -2,17 +2,20 @@ import 'package:flutter/material.dart';
 
 import '../../app/theme/amp_colors.dart';
 import '../../app/theme/amp_theme.dart';
+import 'amp_icon.dart';
 
 final class AmpBottomDestination {
-  const AmpBottomDestination(this.label);
+  const AmpBottomDestination({required this.label, required this.icon});
 
   final String label;
+  final AmpIconName icon;
 }
 
-/// A label-only bottom bar.
+/// A compact icon-and-label bottom bar.
 ///
-/// Five words, always visible. The active item gets a 2px amber mark at the
-/// top edge and ink text; there is no pill, no icon and no elevation.
+/// Every destination keeps its word visible. The active item gets a 2px amber
+/// mark at the top edge, an ink icon and a heavier label; there is no pill and
+/// no elevation.
 class AmpBottomBar extends StatelessWidget {
   const AmpBottomBar({
     required this.destinations,
@@ -37,13 +40,14 @@ class AmpBottomBar extends StatelessWidget {
       child: SafeArea(
         top: false,
         child: SizedBox(
-          height: 56,
+          height: 68,
           child: Row(
             children: <Widget>[
               for (int index = 0; index < destinations.length; index++)
                 Expanded(
                   child: _BottomItem(
                     label: destinations[index].label,
+                    icon: destinations[index].icon,
                     selected: index == currentIndex,
                     onTap: () => onSelected(index),
                   ),
@@ -59,17 +63,20 @@ class AmpBottomBar extends StatelessWidget {
 class _BottomItem extends StatelessWidget {
   const _BottomItem({
     required this.label,
+    required this.icon,
     required this.selected,
     required this.onTap,
   });
 
   final String label;
+  final AmpIconName icon;
   final bool selected;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final AmpColors colors = context.amp;
+    final Color foreground = selected ? colors.ink : colors.inkSecondary;
 
     return Semantics(
       button: true,
@@ -86,27 +93,42 @@ class _BottomItem extends StatelessWidget {
                 AnimatedContainer(
                   duration: const Duration(milliseconds: 180),
                   curve: Curves.easeOut,
-                  width: selected ? 20 : 0,
+                  width: selected ? 24 : 0,
                   height: 2,
                   color: colors.energy,
                 ),
                 Center(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(4, 6, 4, 0),
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(
-                        label,
-                        maxLines: 1,
-                        style: TextStyle(
-                          fontFamily: AmpTheme.uiFont,
-                          fontSize: 11.5,
-                          height: 1.2,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 0,
-                          color: selected ? colors.ink : colors.inkSecondary,
+                    padding: const EdgeInsets.fromLTRB(4, 10, 4, 6),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        AmpIcon(
+                          icon,
+                          size: 22,
+                          color: foreground,
+                          strokeWidth: selected ? 2 : 1.75,
                         ),
-                      ),
+                        const SizedBox(height: 4),
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: AnimatedDefaultTextStyle(
+                            duration: const Duration(milliseconds: 160),
+                            curve: Curves.easeOut,
+                            style: TextStyle(
+                              fontFamily: AmpTheme.uiFont,
+                              fontSize: 11.5,
+                              height: 1.2,
+                              fontWeight: selected
+                                  ? FontWeight.w700
+                                  : FontWeight.w600,
+                              letterSpacing: 0,
+                              color: foreground,
+                            ),
+                            child: Text(label, maxLines: 1),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
