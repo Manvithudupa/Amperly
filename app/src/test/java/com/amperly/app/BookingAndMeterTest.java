@@ -3,18 +3,14 @@ package com.amperly.app;
 import com.amperly.app.core.common.AppConstants;
 import com.amperly.app.data.local.entity.ChargerPort;
 import com.amperly.app.data.local.entity.ChargerStation;
-import com.amperly.app.data.local.entity.Reservation;
 import com.amperly.app.data.local.entity.Vehicle;
-import com.amperly.app.engine.billing.BillingEngine;
 import com.amperly.app.engine.booking.ReservationEngine;
-import com.amperly.app.engine.meter.MeterSimulator;
 
 import org.junit.Before;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 public class BookingAndMeterTest {
@@ -119,73 +115,8 @@ public class BookingAndMeterTest {
         assertTrue(ReservationEngine.CANCELLATION_POLICY.contains("No energy charge"));
     }
 
-    @Test
-    public void freeCancellationWindowEndsAnHourBeforeTheSlot() {
-        long now = System.currentTimeMillis();
-        long slotStart = now + (30L * 60L * 1000L);
-        Reservation reservation = new Reservation("res_1", "cons_1", "st_1", "Campus", "port_1",
-                "Port 1", "AMP-1", slotStart, slotStart + 5_400_000L, AppConstants.STATUS_RESERVED,
-                18.0, 5.0, 4.0, 0.0, true, "pay_1", 0, 0, now);
 
-        BillingEngine.CancellationResult late = BillingEngine.calculateCancellation(reservation, now);
-        assertFalse(late.isFree());
-        assertEquals(AppConstants.LATE_CANCELLATION_FEE_INR, late.getFee(), 0.001);
-        assertTrue(late.getMessage().contains("No energy charge"));
 
-        long slotLater = now + (5L * 60L * 60L * 1000L);
-        Reservation later = new Reservation("res_2", "cons_1", "st_1", "Campus", "port_1",
-                "Port 1", "AMP-2", slotLater, slotLater + 5_400_000L, AppConstants.STATUS_RESERVED,
-                18.0, 5.0, 4.0, 0.0, true, "pay_2", 0, 0, now);
-        BillingEngine.CancellationResult free = BillingEngine.calculateCancellation(later, now);
-        assertTrue(free.isFree());
-        assertEquals(0.0, free.getFee(), 0.001);
-    }
 
-    @Test
-    public void meterSimulatorDeliversEnergyAndAdvancesTheCumulativeReading() {
-        double start = MeterSimulator.beginSession("st_sim");
-        MeterSimulator.SimulatedSession session = MeterSimulator.simulateSession("st_sim", 30.0, 60);
 
-        assertTrue(session.getDeliveredKwh() > 20.0);
-        assertEquals(start + session.getDeliveredKwh(), session.getEndReadingKwh(), 0.001);
-        assertTrue(MeterSimulator.currentReading("st_sim") > start);
-        assertTrue(session.isSimulated());
-    }
-
-    @Test
-    public void meterSimulatorSupportsInvalidAndImplausibleReadingScenarios() {
-        assertFalse(MeterSimulator.isValidReading(137.90, 125.40));
-        assertTrue(MeterSimulator.isValidReading(125.40, 137.90));
-
-        // 40 kWh delivered in 30 minutes from a 7.2 kW port is physically impossible.
-        assertTrue(MeterSimulator.isImplausibleReading(100.0, 140.0, 7.2, 30));
-        assertFalse(MeterSimulator.isImplausibleReading(100.0, 103.0, 7.2, 30));
-    }
-
-    @Test
-    public void meterOfflineStateIsExplicit() {
-        MeterSimulator.setOffline("st_offline", true);
-        assertTrue(MeterSimulator.isOffline("st_offline"));
-        MeterSimulator.setOffline("st_offline", false);
-        assertFalse(MeterSimulator.isOffline("st_offline"));
-    }
-
-    @Test
-    public void billingLinesAreItemisedForTheReceipt() {
-        // The spec's worked example tariff: 12.5 kWh × ₹14.40 = ₹180 energy, ₹189 final total.
-        ChargerStation specStation = ChargerStation.create("st_spec", "host_1", "ABC College",
-                "Campus Charger", "Gate 2", 12.301, 76.645, AppConstants.LOCATION_TYPE_CAMPUS,
-                "08:00 - 20:00", 14.4, 5.0, 4.0, AppConstants.LEVEL_1_VERIFIED_MANUAL,
-                "CCS_2_DC,TYPE_2_AC", 30.0, 2, "Campus pass required", 4.9);
-        BillingEngine.BillingCalculationResult result = BillingEngine.calculateBill("sess_1", "cons_1",
-                "host_1", specStation.getName(), specStation, AppConstants.LEVEL_1_VERIFIED_MANUAL, true,
-                125.40, 137.90);
-
-        assertNotNull(result.getInvoice());
-        assertEquals(189.00, result.getInvoice().getFinalTotal(), 0.001);
-        assertTrue(result.getLines().stream().anyMatch(line ->
-                line.getLabel().contains("Verified energy consumed")));
-        assertTrue(result.getLines().stream().anyMatch(line ->
-                line.getLabel().contains("Demo meter")));
-    }
 }

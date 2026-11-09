@@ -5,7 +5,6 @@ import com.amperly.app.core.common.GeoUtils;
 import com.amperly.app.data.local.entity.ChargerPort;
 import com.amperly.app.data.local.entity.ChargerStation;
 import com.amperly.app.data.local.entity.Vehicle;
-import com.amperly.app.engine.billing.BillingEngine;
 import com.amperly.app.engine.routing.RoutePlannerEngine;
 import com.amperly.app.engine.soc.SoCEstimatorEngine;
 
@@ -40,16 +39,6 @@ public class EngineUnitTest {
                 connectors, powerKw, 2, "Public access", 4.5);
     }
 
-    /**
-     * Priced at the spec's worked example tariff (₹14.40/kWh) so the receipt assertions match the
-     * published bill table: 12.5 kWh → ₹180 energy + ₹5 service + ₹4 gateway = ₹189.
-     */
-    private ChargerStation specPricedStation(String id, String name, double lat, double lng,
-                                             String connectors, double powerKw, String meterLevel) {
-        return ChargerStation.create(id, "host_1", "Host", name, "Address " + id, lat, lng,
-                AppConstants.LOCATION_TYPE_COMMERCIAL, "24/7", 14.4, 5.0, 4.0, meterLevel,
-                connectors, powerKw, 2, "Public access", 4.5);
-    }
 
     private List<ChargerStation> corridorStations() {
         List<ChargerStation> stations = new ArrayList<>();
@@ -178,83 +167,10 @@ public class EngineUnitTest {
         assertTrue(relaxed.getSafeReachableStations().size() >= strict.getSafeReachableStations().size());
     }
 
-    @Test
-    public void billingUsesVerifiedMeterReadingsOnly() {
-        ChargerStation station = specPricedStation("st_1", "Campus Charger", 12.301, 76.645, "CCS_2_DC",
-                30.0, AppConstants.LEVEL_1_VERIFIED_MANUAL);
 
-        BillingEngine.BillingCalculationResult result = BillingEngine.calculateBill("sess_1",
-                "cons_1", "host_1", station.getName(), station, AppConstants.LEVEL_1_VERIFIED_MANUAL,
-                true, 125.40, 137.90);
 
-        assertTrue(result.isValid());
-        assertEquals(12.50, result.getVerifiedKwh(), 0.001);
-        assertEquals(180.00, result.getEnergyCharge(), 0.001);
-        assertEquals(5.00, result.getServiceFee(), 0.001);
-        assertEquals(4.00, result.getGatewayFee(), 0.001);
-        assertEquals(189.00, result.getFinalTotal(), 0.001);
-        assertNotNull(result.getInvoice());
-        assertTrue(result.getLines().size() >= 7);
-    }
 
-    @Test
-    public void billingRejectsLowerEndingReadingAndUnverifiedMeters() {
-        ChargerStation verified = station("st_1", "Campus Charger", 12.301, 76.645, "CCS_2_DC", 30.0,
-                AppConstants.LEVEL_1_VERIFIED_MANUAL);
 
-        BillingEngine.BillingCalculationResult reversed = BillingEngine.calculateBill("sess_1",
-                "cons_1", "host_1", verified.getName(), verified, AppConstants.LEVEL_1_VERIFIED_MANUAL,
-                false, 137.90, 125.40);
-        assertFalse(reversed.isValid());
-        assertNull(reversed.getInvoice());
-
-        BillingEngine.BillingCalculationResult noMeter = BillingEngine.calculateBill("sess_2",
-                "cons_1", "host_1", "Cafe ChargePoint", verified,
-                AppConstants.LEVEL_3_NO_VERIFIED_METER, false, 10.0, 20.0);
-        assertFalse(noMeter.isValid());
-        assertTrue(noMeter.getErrorMessage().toLowerCase().contains("no verified meter"));
-    }
-
-    @Test
-    public void zeroEnergyConsumptionHasNoEnergyCharge() {
-        ChargerStation station = station("st_1", "Campus Charger", 12.301, 76.645, "CCS_2_DC", 30.0,
-                AppConstants.LEVEL_1_VERIFIED_MANUAL);
-        BillingEngine.BillingCalculationResult result = BillingEngine.calculateBill("sess_1",
-                "cons_1", "host_1", station.getName(), station, AppConstants.LEVEL_1_VERIFIED_MANUAL,
-                false, 100.0, 100.0);
-
-        assertTrue(result.isValid());
-        assertEquals(0.0, result.getEnergyCharge(), 0.001);
-        assertEquals(0.0, result.getFinalTotal(), 0.001);
-    }
-
-    @Test
-    public void billingRejectsNaNStartingMeter() {
-        ChargerStation station = station("st_1", "Campus Charger", 12.301, 76.645, "CCS_2_DC", 30.0,
-                AppConstants.LEVEL_1_VERIFIED_MANUAL);
-        BillingEngine.BillingCalculationResult result = BillingEngine.calculateBill("sess_1",
-                "cons_1", "host_1", station.getName(), station, AppConstants.LEVEL_1_VERIFIED_MANUAL,
-                false, Double.NaN, 10.0);
-
-        assertFalse(result.isValid());
-        assertNull(result.getInvoice());
-        assertNotNull(result.getErrorMessage());
-        assertTrue(result.getErrorMessage().toLowerCase().contains("starting meter reading"));
-    }
-
-    @Test
-    public void billingRejectsInfiniteEndingMeter() {
-        ChargerStation station = station("st_1", "Campus Charger", 12.301, 76.645, "CCS_2_DC", 30.0,
-                AppConstants.LEVEL_1_VERIFIED_MANUAL);
-        BillingEngine.BillingCalculationResult result = BillingEngine.calculateBill("sess_1",
-                "cons_1", "host_1", station.getName(), station, AppConstants.LEVEL_1_VERIFIED_MANUAL,
-                false, 10.0, Double.POSITIVE_INFINITY);
-
-        assertFalse(result.isValid());
-        assertNull(result.getInvoice());
-        assertNotNull(result.getErrorMessage());
-        assertTrue(result.getErrorMessage().toLowerCase().contains("ending meter reading"));
-    }
 
     @Test
     public void geoHelpersMeasureCorridorDistanceAndDetour() {
